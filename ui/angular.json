@@ -66,7 +66,7 @@
                 "src/assets",
                 {
                   "glob": "**/*",
-                  "input": "src/themes/openems/root",
+                  "input": "src/themes/oros/root",
                   "output": ""
                 },
                 {
@@ -82,11 +82,11 @@
               ],
               "stylePreprocessorOptions": {
                 "includePaths": [
-                  "src/themes/openems/scss"
+                  "src/themes/oros/scss"
                 ]
               },
               "styles": [
-                "src/themes/openems/scss/variables.scss",
+                "src/themes/oros/scss/variables.scss",
                 "src/global.scss",
                 "src/global-ion-custom.scss"
               ]
@@ -200,6 +200,38 @@
                 {
                   "replace": "src/environments/oem-meta.ts",
                   "with": "src/themes/openems/environments/oem-meta.ts"
+                }
+              ]
+            },
+            "openems-backend-oros": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/theme.ts",
+                  "with": "src/themes/oros/environments/theme.ts"
+                },
+                {
+                  "replace": "src/environments/dummy.ts",
+                  "with": "src/themes/oros/environments/backend-oros.ts"
+                },
+                {
+                  "replace": "src/environments/oem-meta.ts",
+                  "with": "src/themes/oros/environments/oem-meta.ts"
+                }
+              ]
+            },
+            "openems-edge-oros": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/theme.ts",
+                  "with": "src/themes/oros/environments/theme.ts"
+                },
+                {
+                  "replace": "src/environments/dummy.ts",
+                  "with": "src/themes/oros/environments/edge-oros.ts"
+                },
+                {
+                  "replace": "src/environments/oem-meta.ts",
+                  "with": "src/themes/oros/environments/oem-meta.ts"
                 }
               ]
             }
