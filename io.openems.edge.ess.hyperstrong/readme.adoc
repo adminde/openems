@@ -1,0 +1,9 @@
+= HyperStrong Technology Co., LTD
+
+== ESS
+
+Implemented Natures:
+- ManagedSymmetricEss
+- SymmetricEss
+
+https://github.com/OpenEMS/openems/tree/develop/io.openems.edge.ess.hyperstrong[Source Code icon:github[]]
