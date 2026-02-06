@@ -1,19 +1,17 @@
-package io.openems.edge.heat.api;
+package io.openems.edge.heat.element.api;
 
 import org.osgi.annotation.versioning.ProviderType;
 
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.PersistencePriority;
-import io.openems.common.channel.Unit;
-import io.openems.common.types.OpenemsType;
 import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.channel.Doc;
-import io.openems.edge.common.channel.IntegerReadChannel;
 import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.OpenemsComponent;
+import io.openems.edge.heat.api.Heating;
 
 @ProviderType
-public interface Heat extends OpenemsComponent {
+public interface HeatElement extends Heating, OpenemsComponent {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 
@@ -28,20 +26,6 @@ public interface Heat extends OpenemsComponent {
 		STATUS(Doc.of(Status.values()) //
 				.persistencePriority(PersistencePriority.LOW) //
 				.accessMode(AccessMode.READ_ONLY)), //
-
-		/**
-		 * Current Status of the Heat element.
-		 *
-		 * <ul>
-		 * <li>Interface: Heat
-		 * <li>Type: Integer
-		 * </ul>
-		 */
-		TEMPERATURE(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.DEZIDEGREE_CELSIUS) //
-				.persistencePriority(PersistencePriority.HIGH) //
-				.accessMode(AccessMode.READ_ONLY)), //
-
 		;
 
 		private final Doc doc;
@@ -57,15 +41,6 @@ public interface Heat extends OpenemsComponent {
 
 	}
 
-	/**
-	 * Gets the Channel for {@link ChannelId#TEMPERATURE}.
-	 *
-	 * @return the Channel
-	 */
-	public default IntegerReadChannel getTemperatureChannel() {
-		return this.channel(ChannelId.TEMPERATURE);
-	}
-	
 	/**
 	 * Gets the Channel for {@link ChannelId#STATUS}.
 	 *

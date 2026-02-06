@@ -5,6 +5,7 @@ import org.junit.Test;
 import io.openems.common.test.DummyConfigurationAdmin;
 import io.openems.edge.bridge.modbus.test.DummyModbusBridge;
 import io.openems.edge.common.test.AbstractComponentTest.TestCase;
+import io.openems.edge.heat.mypv.acthor9s.HeatMyPvAcThor9sImpl;
 import io.openems.edge.common.test.ComponentTest;
 
 public class MyModbusDeviceTest {

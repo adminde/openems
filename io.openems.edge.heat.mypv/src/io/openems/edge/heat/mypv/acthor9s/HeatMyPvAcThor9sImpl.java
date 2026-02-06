@@ -33,8 +33,9 @@ import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.sum.Sum;
 import io.openems.edge.common.taskmanager.Priority;
-import io.openems.edge.heat.api.Heat;
-import io.openems.edge.heat.api.ManagedHeatElement;
+import io.openems.edge.heat.api.Heating;
+import io.openems.edge.heat.element.api.HeatElement;
+import io.openems.edge.heat.element.api.ManagedHeatElement;
 import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
@@ -52,7 +53,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE  //
 })
 public class HeatMyPvAcThor9sImpl extends AbstractOpenemsModbusComponent implements HeatMyPvAcThor9s, ModbusComponent,
-		OpenemsComponent, Heat, ElectricityMeter, ManagedHeatElement, TimedataProvider, EventHandler {
+		OpenemsComponent, Heating, HeatElement, ElectricityMeter, ManagedHeatElement, TimedataProvider, EventHandler {
 
 	// gets the total energy consumption in kWh
 	private final CalculateEnergyFromPower totalEnergy = new CalculateEnergyFromPower(this,
@@ -88,7 +89,7 @@ public class HeatMyPvAcThor9sImpl extends AbstractOpenemsModbusComponent impleme
 		super(//
 				OpenemsComponent.ChannelId.values(), //
 				ModbusComponent.ChannelId.values(), //
-				Heat.ChannelId.values(), //
+				HeatElement.ChannelId.values(), //
 				ElectricityMeter.ChannelId.values(), //
 				ManagedHeatElement.ChannelId.values(), //
 				HeatMyPvAcThor9s.ChannelId.values() //
@@ -126,7 +127,7 @@ public class HeatMyPvAcThor9sImpl extends AbstractOpenemsModbusComponent impleme
 	protected ModbusProtocol defineModbusProtocol() {
 		return new ModbusProtocol(this, new FC3ReadRegistersTask(1000, Priority.HIGH,
 				m(ElectricityMeter.ChannelId.ACTIVE_POWER, new SignedWordElement(1000)),
-				m(Heat.ChannelId.TEMPERATURE, new SignedWordElement(1001)), new DummyRegisterElement(1002, 1060),
+				m(Heating.ChannelId.TEMPERATURE, new SignedWordElement(1001)), new DummyRegisterElement(1002, 1060),
 				m(ElectricityMeter.ChannelId.VOLTAGE_L1, new SignedWordElement(1061)),
 				m(ElectricityMeter.ChannelId.CURRENT_L1, new SignedWordElement(1062)),
 				new DummyRegisterElement(1063, 1066),
@@ -138,12 +139,12 @@ public class HeatMyPvAcThor9sImpl extends AbstractOpenemsModbusComponent impleme
 				m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1, new SignedWordElement(1074)),
 				m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2, new SignedWordElement(1075)),
 				m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3, new SignedWordElement(1076)),
-				m(Heat.ChannelId.STATUS, new SignedWordElement(1077))));
+				m(HeatElement.ChannelId.STATUS, new SignedWordElement(1077))));
 	}
 
 	@Override
 	public String debugLog() {
-		return "Status: " + this.channel(Heat.ChannelId.STATUS).value() //
+		return "Status: " + this.channel(HeatElement.ChannelId.STATUS).value() //
 				+ " | Read Only: " + this.config.readOnly(); //
 	}
 

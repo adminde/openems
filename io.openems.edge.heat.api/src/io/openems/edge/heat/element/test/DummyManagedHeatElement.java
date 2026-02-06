@@ -1,4 +1,4 @@
-package io.openems.edge.heat.test;
+package io.openems.edge.heat.element.test;
 
 import io.openems.edge.common.component.AbstractOpenemsComponent;
 import io.openems.edge.common.component.OpenemsComponent;

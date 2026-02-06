@@ -1,4 +1,4 @@
-package io.openems.edge.heat.api;
+package io.openems.edge.heat.element.api;
 
 import io.openems.common.types.OptionsEnum;
 
@@ -10,7 +10,7 @@ public enum Status implements OptionsEnum {
 	UNDEFINED(-1, "Undefined"),
 
 	/**
-	 * The Heatingelement is in standby mode.
+	 * The Heating Component is in standby mode.
 	 */
 	STANDBY(0, "Standby"),
 
@@ -28,12 +28,12 @@ public enum Status implements OptionsEnum {
 	 * The Heatingelement has reached the requested or max temperature.
 	 */
 	TEMPERATURE_REACHED(3, "Temperature reached"),
-	
+
 	/**
 	 * No control signal is available.
 	 */
 	NO_CONTROL_SIGNAL(4, "No control signal"),
-	
+
 	/**
 	 * An error occurred on the device.
 	 */

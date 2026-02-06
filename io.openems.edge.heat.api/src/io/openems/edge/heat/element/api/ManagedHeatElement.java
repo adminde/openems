@@ -1,4 +1,4 @@
-package io.openems.edge.heat.api;
+package io.openems.edge.heat.element.api;
 
 import org.osgi.annotation.versioning.ProviderType;
 
