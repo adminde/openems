@@ -10,73 +10,74 @@ $font-family: var(--ion-font-family);
 
 :root[data-theme="light"] {
   /** primary **/
-  --ion-color-primary: #0A2A5E;
-  --ion-color-primary-rgb: rgb(10, 42, 94);
+  --ion-color-primary: #0256dc;
+  --ion-color-primary-rgb: rgb(2, 86, 220);
   --ion-color-primary-contrast: #ffffff;
   --ion-color-primary-contrast-rgb: rgb(255, 255, 255);
-  --ion-color-primary-shade: #061E45;
-  --ion-color-primary-shade-rgb: rgb(6, 30, 69);
-  --ion-color-primary-tint: #2F4F86;
+  --ion-color-primary-shade: #0248bb;
+  --ion-color-primary-shade-rgb: rgb(2, 72, 187);
+  --ion-color-primary-tint: #1f6fe2;
 
   /** secondary **/
-  --ion-color-secondary: #96003C;
-  --ion-color-secondary-rgb: rgb(150, 0, 60);
-  --ion-color-secondary-contrast: #ffffff;
-  --ion-color-secondary-contrast-rgb: rgb(255, 255, 255);
-  --ion-color-secondary-shade: #7A0031;
-  --ion-color-secondary-tint: #B12E63;
+  --ion-color-primary: #1e3a5f;
+  --ion-color-primary-rgb: rgb(30, 58, 95);
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: rgb(255, 255, 255);
+  --ion-color-primary-shade: #162c49;
+  --ion-color-primary-tint: #2e4d73;
 
   /** tertiary **/
-  --ion-color-tertiary: #f4f4f4;
-  --ion-color-tertiary-rgb: rgb(244, 244, 244);
+  --ion-color-tertiary: #c3a64f;
+  --ion-color-tertiary-rgb: rgb(195, 166, 79);
   --ion-color-tertiary-contrast: #000000;
   --ion-color-tertiary-contrast-rgb: rgb(0, 0, 0);
-  --ion-color-tertiary-shade: #d6d6d6;
-  --ion-color-tertiary-tint: #fafafa;
+  --ion-color-tertiary-shade: #a98f44;
+  --ion-color-tertiary-tint: #cfb56f;
 
   /** custom **/
-  --ion-color-shadow-rgba: rgba(0, 0, 0, 0.25);
-  --ion-background-color: #ffffff;
-  --ion-background-color-rgb: rgb(255, 255, 255);
+  --ion-color-shadow-rgba: rgba(0, 0, 0, 0.22);
+  --ion-background-color: #f5f5f5;
+  --ion-background-color-rgb: rgb(245, 245, 245);
   --ion-color-header-contrast: #ffffff;
   --ion-menu-color: #ffffff;
   --ion-title-color: #ffffff;
-  --ion-color-toggle-checked-border: #96003C;
+  --ion-color-toggle-checked-border: #0256dc;
+  --ion-color-toolbar-primary: #0256dc;
 }
-
 
 
 :root[data-theme="dark"] {
   /** primary **/
-  --ion-color-primary: #0F2F66; // Header Color and Active Bars.
-  --ion-color-primary-rgb: rgb(15, 47, 102);
+  --ion-color-primary: #0256dc; // Header Color and Active Bars.
+  --ion-color-primary-rgb: rgb(2, 86, 220);
   --ion-color-primary-contrast: #ffffff;
   --ion-color-primary-contrast-rgb: rgb(255, 255, 255);
-  --ion-color-primary-shade: #081E40;
-  --ion-color-primary-tint: #3A5F99;
+  --ion-color-primary-shade: #0248bb;
+  --ion-color-primary-shade-rgb: rgb(2, 72, 187);
+  --ion-color-primary-tint: #1f6fe2;
 
   /** secondary **/
-  --ion-color-secondary: #96003C;
-  --ion-color-secondary-rgb: rgb(150, 0, 60);
+  --ion-color-secondary: #1e3a5f;
+  --ion-color-secondary-rgb: rgb(30, 58, 95);
   --ion-color-secondary-contrast: #ffffff;
   --ion-color-secondary-contrast-rgb: rgb(255, 255, 255);
-  --ion-color-secondary-shade: #7A0031;
-  --ion-color-secondary-tint: #B12E63;
+  --ion-color-secondary-shade: #162c49;
+  --ion-color-secondary-tint: #2e4d73;
 
   /** tertiary **/
-  --ion-color-tertiary: #C94A7C;
-  --ion-color-tertiary-rgb: rgb(201, 74, 124);
+  --ion-color-tertiary: #c3a64f;
+  --ion-color-tertiary-rgb: rgb(195, 166, 79);
   --ion-color-tertiary-contrast: #000000;
   --ion-color-tertiary-contrast-rgb: rgb(0, 0, 0);
-  --ion-color-tertiary-shade: #A53B65;
-  --ion-color-tertiary-tint: #D9759D;
+  --ion-color-tertiary-shade: #a98f44;
+  --ion-color-tertiary-tint: #cfb56f;
 
   /** success **/
   --ion-color-success: #20bf6b;
   --ion-color-success-rgb: rgb(32, 191, 107);
   --ion-color-success-contrast: #03130b;
   --ion-color-success-contrast-rgb: rgb(3, 19, 11);
-  --ion-color-success-shade: #1aa35b;
+  --ion-color-success-shade: #1a9956;
   --ion-color-success-tint: #4dcc89;
 
   /** warning **/
@@ -96,12 +97,12 @@ $font-family: var(--ion-font-family);
   --ion-color-danger-tint: #ef627b;
 
   /** dark **/
-  --ion-color-dark: #f4f5f8;
-  --ion-color-dark-rgb: rgb(244, 245, 248);
-  --ion-color-dark-contrast: #ffffff;
-  --ion-color-dark-contrast-rgb: rgb(255, 255, 255);
-  --ion-color-dark-shade: #d7d8da;
-  --ion-color-dark-tint: #ffffff;
+  --ion-color-dark: #dbeafe;
+  --ion-color-dark-rgb: rgb(219, 234, 254);
+  --ion-color-dark-contrast: #000000;
+  --ion-color-dark-contrast-rgb: rgb(0, 0, 0);
+  --ion-color-dark-shade: #c2d8f3;
+  --ion-color-dark-tint: #e5f0ff;
 
   /** medium **/
   --ion-color-medium: #989aa2;
@@ -112,43 +113,44 @@ $font-family: var(--ion-font-family);
   --ion-color-medium-tint: #a2a4ab;
 
   /** light **/
-  --ion-color-light: #00193C; // Background color for the header of each widget.
-  --ion-color-light-rgb: rgb(0, 25, 60);
+  --ion-color-light: #1e3a5f; // Background color for the header of each widget.
+  --ion-color-light-rgb: rgb(30, 58, 95);
   --ion-color-light-contrast: #ffffff; // Used as font color in the title of all widgets.
   --ion-color-light-contrast-rgb: rgb(255, 255, 255);
-  --ion-color-light-shade: #000F24;
-  --ion-color-light-tint: #1A325A;
+  --ion-color-light-shade: #162c49;
+  --ion-color-light-tint: #2e4d73;
 
   /** custom **/
-  --ion-background-color: linear-gradient(to top left, #0B1220, #070B14);
+  --ion-background-color: linear-gradient(to top left, #0b1626, #0e1a2b);
   --ion-text-color: #c5c9d1;
-  --ion-item-background: #070b14; // Background color for the widgets in the Live tap.
+  --ion-item-background: #0e1a2b; // Background color for the widgets in the Live tap.
+  --ion-item-border-color: var(--ion-color-secondary);
   --ion-title-color: var(--ion-color-secondary);
-  --ion-color-toggle-checked-border: #96003C;
-  --ion-color-toolbar-primary: #00193C;
+  --ion-color-toggle-checked-border: #c3a64f;
+  --ion-color-toolbar-primary: #0e1a2b;
 }
 
 :root[data-theme="dark"] ion-content::part(background) { // Background color of the whole application.
   --background:
     radial-gradient(
       circle at 22% 24%,
-      rgba(11, 58, 92, 0.28) 0%,
-      rgba(11, 58, 92, 0.18) 18%,
-      rgba(11, 58, 92, 0.10) 34%,
-      rgba(4, 8, 18, 0.85) 55%
+      rgba(2, 86, 220, 0.22) 0%,
+      rgba(2, 86, 220, 0.14) 18%,
+      rgba(2, 86, 220, 0.08) 34%,
+      rgba(4, 8, 18, 0.90) 55%
     ),
     radial-gradient(
       circle at 55% 18%,
-      rgba(92, 0, 40, 0.16) 0%,
-      rgba(92, 0, 40, 0.10) 20%,
-      rgba(92, 0, 40, 0.06) 38%,
+      rgba(195, 166, 79, 0.14) 0%,
+      rgba(195, 166, 79, 0.09) 20%,
+      rgba(195, 166, 79, 0.05) 38%,
       rgba(4, 8, 18, 0.0) 60%
     ),
     linear-gradient(
       135deg,
-      #050B18 0%,
-      #040812 45%,
-      #03060D 75%,
-      #02040A 100%
+      #060a12 0%,
+      #050812 45%,
+      #04060e 75%,
+      #03050b 100%
     );
 }

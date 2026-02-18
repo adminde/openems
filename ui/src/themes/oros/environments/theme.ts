@@ -4,9 +4,10 @@ import { OemMeta } from "./oem-meta";
 export const theme: Omit<Environment, "url" | "backend" | "production" | "debugMode"> = {
     theme: "OpenEMS" as Theme,
 
-    uiTitle: "OpenEMS UI",
-    edgeShortName: "OpenEMS",
-    edgeLongName: "Open Energy Management System",
+    uiTitle: "OROS EMS",
+    uiTitleShort: "OR:EMS",
+    edgeShortName: "OROS EMS",
+    edgeLongName: "OROS Energy Management System",
     defaultLanguage: "de",
 
     docsUrlPrefix: "https://github.com/OpenEMS/openems/blob/develop/",
