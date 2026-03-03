@@ -7,7 +7,8 @@ RUN apk add --no-cache dos2unix bash
 
 COPY tools/docker/backend-edge/root/ /opt/root/
 
-RUN find /opt/root/ -type f -print0 | xargs -0 dos2unix
+RUN find /opt/ -type f -print0 | xargs -0 dos2unix
+RUN find /opt/ -type f -name 'run' -o -name '*.sh' -exec chmod +x {} \;
 
 WORKDIR /src
 
@@ -32,10 +33,13 @@ RUN apk add --update --no-cache \
 ### Build backend container
 FROM base_container
 
-COPY --from=build_backend --chown=abc:abc /opt/root/ /
-COPY --from=build_backend --chown=abc:abc /opt/openems-backend-edge.jar /opt/openems/openems-backend-edge.jar
+COPY --from=build_backend /opt/root/ /
+COPY --from=build_backend /opt/openems-backend-edge.jar /opt/openems/openems-backend-edge.jar
 
 RUN find /etc/s6-overlay/ -type f -name 'run' -exec chmod +x {} \;
+
+RUN find /etc/s6-overlay -type f -print0 | xargs -0 dos2unix && \
+    find /var/opt/openems -type f -print0 | xargs -0 dos2unix
 
 VOLUME /var/opt/openems/config
 VOLUME /var/opt/openems/data
