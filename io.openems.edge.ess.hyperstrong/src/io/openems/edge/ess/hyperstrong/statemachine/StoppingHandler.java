@@ -3,7 +3,7 @@ package io.openems.edge.ess.hyperstrong.statemachine;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.timedata.Timeout;
 import io.openems.edge.common.statemachine.StateHandler;
-import io.openems.edge.ess.hyperstrong.OperationState;
+import io.openems.edge.ess.hyperstrong.OperatingStatus;
 import io.openems.edge.ess.hyperstrong.hypercube.HyperCube;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 
@@ -23,13 +23,13 @@ public class StoppingHandler extends StateHandler<State, Context> {
 		var ess = context.getParent();
 
 		switch (ess.getOperationState().asEnum()) {
-		case OperationState.STANDBY:
-		case OperationState.DEBUG:
+		case OperatingStatus.STANDBY:
+		case OperatingStatus.DEBUG:
 			return State.STANDBY;
 
-        case OperationState.RUNNING:
-        case OperationState.STARTING:
-        case OperationState.INITIALIZED:
+        case OperatingStatus.RUNNING:
+        case OperatingStatus.STARTING:
+        case OperatingStatus.INITIALIZED:
         	// TODO: Initiate stopping procedure
 			// return State.STOPPING;
 		default:

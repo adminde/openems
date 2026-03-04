@@ -6,7 +6,8 @@ public enum ChargingMode implements OptionsEnum {
 	UNDEFINED(-1, "Undefined"),
 	IDLE(0, "Idle"),
 	CHARGE(1, "Charge"),
-	DISCHARGE(2, "Discharge");
+	DISCHARGE(2, "Discharge"),
+	OFF_GRID(3, "Off-Grid");
 
 	private final int value;
 	private final String name;

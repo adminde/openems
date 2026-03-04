@@ -3,7 +3,7 @@ package io.openems.edge.ess.hyperstrong.statemachine;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.statemachine.StateHandler;
-import io.openems.edge.ess.hyperstrong.OperationState;
+import io.openems.edge.ess.hyperstrong.OperatingStatus;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 
 public class RunningHandler extends StateHandler<State, Context> {
@@ -16,8 +16,8 @@ public class RunningHandler extends StateHandler<State, Context> {
 			return State.UNDEFINED;
 		}
 		switch (ess.getOperationState().asEnum()) {
-		case OperationState.RUNNING:
-		case OperationState.DEBUG:
+		case OperatingStatus.RUNNING:
+		case OperatingStatus.DEBUG:
 			break;
 
 		default:
