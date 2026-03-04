@@ -2,7 +2,7 @@ package io.openems.edge.ess.hyperstrong;
 
 import io.openems.common.types.OptionsEnum;
 
-public enum CoolingSystemMode implements OptionsEnum {
+public enum LiquidCoolingSystemMode implements OptionsEnum {
 	UNDEFINED(-1, "Undefined"),
 	CIRCULATING(0, "Circulating"),
 	COOLING(1, "Cooling"),
@@ -12,7 +12,7 @@ public enum CoolingSystemMode implements OptionsEnum {
 	private final int value;
 	private final String name;
 
-	private CoolingSystemMode(int value, String name) {
+	private LiquidCoolingSystemMode(int value, String name) {
 		this.value = value;
 		this.name = name;
 	}

@@ -2,6 +2,8 @@ package io.openems.edge.ess.hyperstrong.hypercube;
 
 import java.util.function.Consumer;
 
+import io.openems.edge.ess.hyperstrong.OperatingStatus;
+import io.openems.edge.ess.hyperstrong.RunMode;
 import org.osgi.service.event.EventHandler;
 
 import io.openems.common.channel.AccessMode;
@@ -23,12 +25,9 @@ import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.hyperstrong.AllowedPowerHandler;
 import io.openems.edge.ess.hyperstrong.ChargingMode;
-import io.openems.edge.ess.hyperstrong.CoolingSystemMode;
 import io.openems.edge.ess.hyperstrong.CycleProvider;
 import io.openems.edge.ess.hyperstrong.HyperBattery;
 import io.openems.edge.ess.hyperstrong.HyperInverter;
-import io.openems.edge.ess.hyperstrong.OperationState;
-import io.openems.edge.ess.hyperstrong.WorkState;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 import io.openems.edge.timedata.api.TimedataProvider;
 
@@ -62,17 +61,17 @@ public interface HyperCube extends HyperInverter, HyperBattery,
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 
+		HEARTBEAT(Doc.of(OpenemsType.INTEGER)
+				.accessMode(AccessMode.WRITE_ONLY)),
+
 		STATE_MACHINE(Doc.of(State.values())
 				.text("Current State of State-Machine")),
 		RUN_FAILED(Doc.of(Level.FAULT)
 				.text("Running the Logic failed")),
 
-		HEARTBEAT(Doc.of(OpenemsType.INTEGER)
-				.accessMode(AccessMode.WRITE_ONLY)),
-
-		WORK_STATE(Doc.of(WorkState.values())),
+		RUN_MODE(Doc.of(RunMode.values())),
 		DEVICE_MODE(Doc.of(ChargingMode.values())),
-		OPERATION_STATE(Doc.of(OperationState.values())),
+		OPERATING_STATUS(Doc.of(OperatingStatus.values())),
 
 		/**
 		 * Sets the Active Power in [W].
@@ -98,22 +97,6 @@ public interface HyperCube extends HyperInverter, HyperBattery,
 		SET_REACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.VOLT_AMPERE_REACTIVE)
 				.accessMode(AccessMode.WRITE_ONLY)),
-
-		COOLING_SYSTEM_MODE(Doc.of(CoolingSystemMode.values())),
-
-		COOLING_SYSTEM_COMMUNICATION_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
-		COOLING_SYSTEM_COMMUNICATION_CONNECTED(Doc.of(OpenemsType.BOOLEAN)),
-		COOLING_SYSTEM_COMMUNICATION_ABNORMAL(Doc.of(Level.INFO)),
-		COOLING_SYSTEM_COMMUNICATION_FAULT(Doc.of(Level.WARNING)),
-
-		COOLING_SYSTEM_MAIN_CONTACTOR_STATUS(Doc.of(OpenemsType.BOOLEAN)),
-		COOLING_SYSTEM_COMPRESSOR_STATUS(Doc.of(OpenemsType.BOOLEAN)),
-		COOLING_SYSTEM_HEATING_STATUS(Doc.of(OpenemsType.BOOLEAN)),
-
-		COOLING_SYSTEM_RETURN_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEZIDEGREE_CELSIUS)),
-		COOLING_SYSTEM_SUPPLY_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEZIDEGREE_CELSIUS)),
 		;
 
 		private final Doc doc;
@@ -242,20 +225,20 @@ public interface HyperCube extends HyperInverter, HyperBattery,
 	public HyperCubeModel getModel();
 
 	/**
-	 * Gets the Channel for {@link ChannelId#OPERATION_STATE}.
+	 * Gets the Channel for {@link ChannelId#OPERATING_STATUS}.
 	 *
 	 * @return the Channel
 	 */
-	public default Channel<OperationState> getOperationStateChannel() {
-		return this.channel(ChannelId.OPERATION_STATE);
+	public default Channel<OperatingStatus> getOperationStateChannel() {
+		return this.channel(ChannelId.OPERATING_STATUS);
 	}
 
 	/**
-	 * Gets the OperationStatus channel value for {@link ChannelId#OPERATION_STATE}.
+	 * Gets the OperationStatus channel value for {@link ChannelId#OPERATING_STATUS}.
 	 *
 	 * @return the Channel {@link Value}
 	 */
-	public default Value<OperationState> getOperationState() {
+	public default Value<OperatingStatus> getOperationState() {
 		return this.getOperationStateChannel().value();
 	}
 

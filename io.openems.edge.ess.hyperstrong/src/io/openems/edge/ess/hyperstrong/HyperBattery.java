@@ -63,7 +63,7 @@ public interface HyperBattery extends OpenemsComponent {
 		 * <li>Unit: Watt
 		 * </ul>
 		 */
-		BATTERY_CHARGE_MAX_POWER(Doc.of(OpenemsType.INTEGER)
+		BATTERY_MAX_CHARGE_POWER(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.WATT)
 				.persistencePriority(PersistencePriority.HIGH)),
 		/**
@@ -75,12 +75,13 @@ public interface HyperBattery extends OpenemsComponent {
 		 * <li>Unit: Watt
 		 * </ul>
 		 */
-		RACK_DISCHARGE_MAX_POWER(Doc.of(OpenemsType.INTEGER)
+		BATTERY_MAX_DISCHARGE_POWER(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.WATT)
 				.persistencePriority(PersistencePriority.HIGH)),
 
-		// TODO: Specify Boolean or Enum, when available in documentation
-		BATTERY_RELAY_STATUS(Doc.of(OpenemsType.INTEGER)
+		BATTERY_POSITIVE_RELAY_STATUS(Doc.of(OpenemsType.BOOLEAN)
+				.persistencePriority(PersistencePriority.HIGH)),
+		BATTERY_NEGATIVE_RELAY_STATUS(Doc.of(OpenemsType.BOOLEAN)
 				.persistencePriority(PersistencePriority.HIGH)),
 
 		BATTERY_SOC(Doc.of(OpenemsType.FLOAT)
@@ -237,20 +238,20 @@ public interface HyperBattery extends OpenemsComponent {
 		LOW_CELL_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
 		IMBALANCE_CELL_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
 		IMBALANCE_CELL_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
-		HIGH_PACK_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
-		HIGH_PACK_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
-		LOW_PACK_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
-		LOW_PACK_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
+		HIGH_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		LOW_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
+		LOW_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
 
 		// Alarm Value 2
-		EXCESSIVE_DISCHARGE_CURRENT_WARNING(Doc.of(Level.FAULT)),
-		EXCESSIVE_CHARGE_CURRENT_WARNING(Doc.of(Level.FAULT)),
-		EXTREME_HIGH_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
-		EXTREME_HIGH_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
-		EXTREME_LOW_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
-		EXTREME_LOW_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
-		EXCESSIVE_TEMPERATURE_DIFFERENTIAL_WARNING(Doc.of(Level.WARNING)),
-		EXCESSIVE_TEMPERATURE_DIFFERENTIAL_FAULT(Doc.of(Level.FAULT)),
+		HIGH_DISCHARGE_CURRENT_FAULT(Doc.of(Level.FAULT)),
+		HIGH_CHARGE_CURRENT_FAULT(Doc.of(Level.FAULT)),
+		HIGH_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
+		HIGH_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
+		LOW_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
+		LOW_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_TEMPERATURE_DIFFERENTIAL_WARNING(Doc.of(Level.WARNING)),
+		HIGH_TEMPERATURE_DIFFERENTIAL_FAULT(Doc.of(Level.FAULT)),
 		RAPID_TEMPERATURE_RISE_WARNING(Doc.of(Level.WARNING)),
 		RAPID_TEMPERATURE_RISE_FAULT(Doc.of(Level.FAULT)),
 
@@ -259,61 +260,62 @@ public interface HyperBattery extends OpenemsComponent {
 		HIGH_SOC_FAULT(Doc.of(Level.FAULT)),
 		LOW_SOC_WARNING(Doc.of(Level.WARNING)),
 		LOW_SOC_FAULT(Doc.of(Level.FAULT)),
-//		HIGH_BUSBAR_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
-//		HIGH_BUSBAR_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_BUSBAR_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
+		HIGH_BUSBAR_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
 		EXCESSIVE_BATTERY_VOLTAGE_DIFFERENTIAL_WARNING(Doc.of(Level.WARNING)),
 		EXCESSIVE_BATTERY_VOLTAGE_DIFFERENTIAL_FAULT(Doc.of(Level.FAULT)),
 
 		// Alarm Value 4
-		BCMS_COMMUNICATION_WARNING(Doc.of(Level.WARNING)),
-		BAMS_COMMUNICATION_WARNING(Doc.of(Level.WARNING)),
-		EXTREME_HIGH_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
-		EXTREME_LOW_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
-//		EXTREME_HIGH_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
-//		EXTREME_LOW_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
+		BCMS_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
+		BAMS_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
+		EXTREME_HIGH_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		EXTREME_LOW_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		EXTREME_HIGH_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
+		EXTREME_LOW_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
 
 		// Alarm Value 5
 		HIGH_CONTACTOR_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
 		HIGH_CONTACTOR_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
 		HIGH_POWER_MODULE_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
 		HIGH_POWER_MODULE_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
-		HIGH_BUSBAR_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
-		HIGH_BUSBAR_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
+		// Reserved bits for backward compatibility
+		//HIGH_BUSBAR_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
+		//HIGH_BUSBAR_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
 		HIGH_CONNECTOR_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
 		HIGH_CONNECTOR_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
 
 		// Alarm Value 6
-		MSD_DISCONNECT_WARNING(Doc.of(Level.WARNING)),
-		MAIN_POSITIVE_CONTACTOR_WARNING(Doc.of(Level.WARNING)),
-		INSULATION_MODULE_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
-		PARAMETER_CONFIGURATION_FAULT(Doc.of(Level.FAULT)),
-		HALL_SENSOR_OPEN_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
-		TEMPERATURE_SENSOR_OPEN_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
-		TEMPERATURE_SENSOR_SHORT_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
-		COOLING_SYSTEM_COMMUNICATION_TIMEOUT(Doc.of(Level.FAULT)),
-		AEROSOL_SIGNAL_DISCONNECT_FAULT(Doc.of(Level.FAULT)),
-		HIGH_VOLTAGE_CALIBRATION_FAULT(Doc.of(Level.FAULT)),
-		CURRENT_CALIBRATION_FAULT(Doc.of(Level.FAULT)),
-		FIRE_DETECTOR_COMMUNICATION_TIMEOUT(Doc.of(Level.FAULT)),
-		FIRE_DETECTOR_DISCONNECT_FAULT(Doc.of(Level.FAULT)),
+		MSD_DISCONNECT_FAULT(Doc.of(Level.FAULT)),
+		MAIN_POSITIVE_CONTACTOR_FAULT(Doc.of(Level.FAULT)),
+		INSULATION_MODULE_COMMUNICATION_WARNING(Doc.of(Level.WARNING)),
+		PARAMETER_CONFIGURATION_WARNING(Doc.of(Level.WARNING)),
+		HALL_SENSOR_OPEN_CIRCUIT_WARNING(Doc.of(Level.WARNING)),
+		TEMPERATURE_SENSOR_OPEN_CIRCUIT_WARNING(Doc.of(Level.WARNING)),
+		TEMPERATURE_SENSOR_SHORT_CIRCUIT_WARNING(Doc.of(Level.WARNING)),
+		COOLING_SYSTEM_COMMUNICATION_TIMEOUT(Doc.of(Level.WARNING)),
+		AEROSOL_SIGNAL_DISCONNECT_WARNING(Doc.of(Level.WARNING)),
+		HIGH_VOLTAGE_CALIBRATION_WARNING(Doc.of(Level.WARNING)),
+		CURRENT_CALIBRATION_WARNING(Doc.of(Level.WARNING)),
+		FIRE_DETECTOR_COMMUNICATION_TIMEOUT(Doc.of(Level.WARNING)),
+		FIRE_DETECTOR_DISCONNECT_FAULT(Doc.of(Level.WARNING)),
 
 		// Alarm Value 7
-		FIRE_DETECTOR_1_FAULT(Doc.of(Level.WARNING)),
-		FIRE_DETECTOR_2_FAULT(Doc.of(Level.WARNING)),
-		FIRE_DETECTOR_3_FAULT(Doc.of(Level.WARNING)),
-		FIRE_DETECTOR_4_FAULT(Doc.of(Level.WARNING)),
-		FIRE_DETECTOR_5_FAULT(Doc.of(Level.WARNING)),
-		FIRE_DETECTOR_6_FAULT(Doc.of(Level.WARNING)),
+		FIRE_DETECTOR_1_FAULT(Doc.of(Level.FAULT)),
+		FIRE_DETECTOR_2_FAULT(Doc.of(Level.FAULT)),
+		FIRE_DETECTOR_3_FAULT(Doc.of(Level.FAULT)),
+		FIRE_DETECTOR_4_FAULT(Doc.of(Level.FAULT)),
+		FIRE_DETECTOR_5_FAULT(Doc.of(Level.FAULT)),
+		FIRE_DETECTOR_6_FAULT(Doc.of(Level.FAULT)),
 
 		// Alarm Value 9
 		IMBALANCE_CELL_CHARGE_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
 		IMBALANCE_CELL_CHARGE_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
 		IMBALANCE_CELL_DISCHARGE_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
 		IMBALANCE_CELL_DISCHARGE_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
-//		HIGH_PACK_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
-//		HIGH_PACK_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
-//		LOW_PACK_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
-//		LOW_PACK_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_PACK_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
+		HIGH_PACK_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		LOW_PACK_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
+		LOW_PACK_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
 		COOLING_SYSTEM_MANAGEMENT_WARNING(Doc.of(Level.WARNING)),
 		COOLING_SYSTEM_MANAGEMENT_FAULT(Doc.of(Level.FAULT)),
 		;
@@ -385,17 +387,17 @@ public interface HyperBattery extends OpenemsComponent {
 	}
 
 	/**
-	 * Gets the Channel for {@link ChannelId#BATTERY_CHARGE_MAX_POWER}.
+	 * Gets the Channel for {@link ChannelId#BATTERY_MAX_CHARGE_POWER}.
 	 *
 	 * @return the Channel
 	 */
 	public default IntegerReadChannel getBatteryChargeMaxPowerChannel() {
-		return this.channel(ChannelId.BATTERY_CHARGE_MAX_POWER);
+		return this.channel(ChannelId.BATTERY_MAX_CHARGE_POWER);
 	}
 
 	/**
 	 * Gets the Battery Rack Charge Maximum Power in [W].
-	 * See {@link ChannelId#BATTERY_CHARGE_MAX_POWER}.
+	 * See {@link ChannelId#BATTERY_MAX_CHARGE_POWER}.
 	 *
 	 * @return the Channel {@link Value}
 	 */
@@ -404,17 +406,17 @@ public interface HyperBattery extends OpenemsComponent {
 	}
 
 	/**
-	 * Gets the Channel for {@link ChannelId#RACK_DISCHARGE_MAX_POWER}.
+	 * Gets the Channel for {@link ChannelId#BATTERY_MAX_DISCHARGE_POWER}.
 	 *
 	 * @return the Channel
 	 */
 	public default IntegerReadChannel getBatteryDischargeMaxPowerChannel() {
-		return this.channel(ChannelId.RACK_DISCHARGE_MAX_POWER);
+		return this.channel(ChannelId.BATTERY_MAX_DISCHARGE_POWER);
 	}
 
 	/**
 	 * Gets the Battery Rack Discharge Maximum Power in [W].
-	 * See {@link ChannelId#RACK_DISCHARGE_MAX_POWER}.
+	 * See {@link ChannelId#BATTERY_MAX_DISCHARGE_POWER}.
 	 *
 	 * @return the Channel {@link Value}
 	 */
@@ -509,7 +511,7 @@ public interface HyperBattery extends OpenemsComponent {
 
 	/**
 	 * Gets the insulation resistance in [mOhm]. See
-	 * {@link ChannelId#INSULATION_VALUE}.
+	 * {@link ChannelId#INSULATION_RESISTANCE}.
 	 *
 	 * @return the Channel {@link Value}
 	 */

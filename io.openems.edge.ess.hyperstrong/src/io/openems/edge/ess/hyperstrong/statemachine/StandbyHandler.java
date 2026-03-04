@@ -2,7 +2,7 @@ package io.openems.edge.ess.hyperstrong.statemachine;
 
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.statemachine.StateHandler;
-import io.openems.edge.ess.hyperstrong.OperationState;
+import io.openems.edge.ess.hyperstrong.OperatingStatus;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 
 public class StandbyHandler extends StateHandler<State, Context> {
@@ -12,8 +12,8 @@ public class StandbyHandler extends StateHandler<State, Context> {
 		var ess = context.getParent();
 
 		switch (ess.getOperationState().asEnum()) {
-		case OperationState.STANDBY:
-		case OperationState.DEBUG:
+		case OperatingStatus.STANDBY:
+		case OperatingStatus.DEBUG:
 			break;
 
 		default:

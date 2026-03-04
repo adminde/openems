@@ -16,7 +16,7 @@ public interface HyperInverter extends OpenemsComponent {
 
 	/**
 	 * Efficiency factor to calculate AC Charge/Discharge limits from DC. Used at
-	 * {@link ChannelManager}.
+	 * {@link AllowedPowerHandler}.
 	 */
 	public static final float EFFICIENCY_FACTOR = 0.98F;
 
@@ -28,7 +28,6 @@ public interface HyperInverter extends OpenemsComponent {
 		 * <ul>
 		 * <li>Type: {@link OpenemsType#INTEGER}
 		 * <li>Unit: {@link Unit#WATT}
-		 * <li>Range: see {@link ElectricityNode}
 		 * </ul>
 		 */
 		ACTIVE_POWER_L1(Doc.of(OpenemsType.INTEGER)
@@ -40,7 +39,6 @@ public interface HyperInverter extends OpenemsComponent {
 		 * <ul>
 		 * <li>Type: {@link OpenemsType#INTEGER}
 		 * <li>Unit: {@link Unit#WATT}
-		 * <li>Range: see {@link ElectricityNode}
 		 * </ul>
 		 */
 		ACTIVE_POWER_L2(Doc.of(OpenemsType.INTEGER)
@@ -52,7 +50,6 @@ public interface HyperInverter extends OpenemsComponent {
 		 * <ul>
 		 * <li>Type: {@link OpenemsType#INTEGER}
 		 * <li>Unit: {@link Unit#WATT}
-		 * <li>Range: see {@link ElectricityNode}
 		 * </ul>
 		 */
 		ACTIVE_POWER_L3(Doc.of(OpenemsType.INTEGER)
@@ -177,7 +174,6 @@ public interface HyperInverter extends OpenemsComponent {
 		 * <ul>
 		 * <li>Type: {@link OpenemsType#INTEGER}
 		 * <li>Unit: {@link Unit#MILLIAMPERE}
-		 * <li>Range: see {@link ElectricityNode}
 		 * </ul>
 		 */
 		CURRENT_L1(Doc.of(OpenemsType.INTEGER)
@@ -189,7 +185,6 @@ public interface HyperInverter extends OpenemsComponent {
 		 * <ul>
 		 * <li>Type: {@link OpenemsType#INTEGER}
 		 * <li>Unit: {@link Unit#MILLIAMPERE}
-		 * <li>Range: see {@link ElectricityNode}
 		 * </ul>
 		 */
 		CURRENT_L2(Doc.of(OpenemsType.INTEGER)
@@ -201,7 +196,6 @@ public interface HyperInverter extends OpenemsComponent {
 		 * <ul>
 		 * <li>Type: {@link OpenemsType#INTEGER}
 		 * <li>Unit: {@link Unit#MILLIAMPERE}
-		 * <li>Range: see {@link ElectricityNode}
 		 * </ul>
 		 */
 		CURRENT_L3(Doc.of(OpenemsType.INTEGER)
@@ -256,6 +250,193 @@ public interface HyperInverter extends OpenemsComponent {
 		private final Doc doc;
 
 		private ChannelId(Doc doc) {
+			this.doc = doc;
+		}
+
+		@Override
+		public Doc doc() {
+			return this.doc;
+		}
+	}
+
+	public enum AlarmChannelId implements io.openems.edge.common.channel.ChannelId {
+		// Alarm Value 1
+		LOW_AC_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_AC_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		LOW_FREQUENCY_FAULT(Doc.of(Level.FAULT)),
+		HIGH_FREQUENCY_FAULT(Doc.of(Level.FAULT)),
+		FAST_LOW_AC_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		FAST_HIGH_AC_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		PHASE_REVERSAL_FAULT(Doc.of(Level.FAULT)),
+		PHASE_LOSS_FAULT(Doc.of(Level.FAULT)),
+		OUTPUT_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		OFF_GRID_STARTUP_BLOCKED_FAULT(Doc.of(Level.FAULT)),
+		ISLAND_PROTECTION_FAULT(Doc.of(Level.FAULT)),
+		AC_SHORT_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
+		HIGH_AC_CURRENT_FAULT(Doc.of(Level.FAULT)),
+		PARALLEL_OVERLOAD_TIMEOUT_FAULT(Doc.of(Level.FAULT)),
+		OUTPUT_OVERLOAD_TIMEOUT_FAULT(Doc.of(Level.FAULT)),
+		AC_POWER_ANOMALY_FAULT(Doc.of(Level.FAULT)),
+		VOLTAGE_L1_L2_FAULT(Doc.of(Level.FAULT)),
+		VOLTAGE_L2_L3_FAULT(Doc.of(Level.FAULT)),
+		VOLTAGE_L3_L1_FAULT(Doc.of(Level.FAULT)),
+		DC_SOFT_START_FAULT(Doc.of(Level.FAULT)),
+		DC_RELAY_CLOSE_FAULT(Doc.of(Level.FAULT)),
+		INDUCTOR_CURRENT_BALANCE_L1_FAULT(Doc.of(Level.FAULT)),
+		INDUCTOR_CURRENT_BALANCE_L2_FAULT(Doc.of(Level.FAULT)),
+		INDUCTOR_CURRENT_BALANCE_L3_FAULT(Doc.of(Level.FAULT)),
+
+		// Alarm Value 2
+		BAMS_CURRENT_LIMIT_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
+		BAMS_POWER_LIMIT_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
+		BCMS_NO_CHARGE_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
+		BCMS_DISABLE_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
+		BAMS_CHARGE_DISABLED_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
+		BAMS_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
+		BCMS_CURRENT_LIMIT_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
+		BCMS_POWER_LIMIT_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
+		BATTERY_VOLTAGE_LIMIT_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
+		BATTERY_CURRENT_LIMIT_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
+		LOW_BATTERY_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_BATTERY_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		REVERSE_BATTERY_POLARITY_FAULT(Doc.of(Level.FAULT)),
+		HIGH_BATTERY_CURRENT_FAULT(Doc.of(Level.FAULT)),
+		INSULATION_FAULT(Doc.of(Level.FAULT)),
+		INSULATION_BATTERY_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		LOW_POSITIVE_BUS_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		LOW_NEGATIVE_BUS_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_DC_BUS1_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_DC_BUS2_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_DC_BUS3_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_DC_BUS4_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		DC_BUS1_2_VOLTAGE_IMBALANCE_FAULT(Doc.of(Level.FAULT)),
+		DC_BUS3_4_VOLTAGE_IMBALANCE_FAULT(Doc.of(Level.FAULT)),
+
+		// Alarm Value 3 – Surge arresters / DC relay / Power supplies
+		DC_SURGE_ARRESTER_WARNING(Doc.of(Level.WARNING)),
+		AC_SURGE_ARRESTER_WARNING(Doc.of(Level.WARNING)),
+		DC_RELAY_OPEN_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
+		DC_RELAY_SHORT_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
+		POWER_SUPPLY_15V_FAULT(Doc.of(Level.FAULT)),
+		POWER_SUPPLY_24V_FAULT(Doc.of(Level.FAULT)),
+
+		// Alarm Value 4
+		DC_BUS1_SHORT_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
+		DC_BUS2_SHORT_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
+		DC_BUS3_SHORT_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
+		DC_BUS4_SHORT_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
+		GRID_RELAY_L1_L2_SHORT_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
+		GRID_RELAY_L2_L3_SHORT_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
+		GRID_RELAY_L3_L1_SHORT_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
+		GRID_RELAY_L1_L2_OPEN_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
+		GRID_RELAY_L2_L3_OPEN_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
+		GRID_RELAY_L3_L1_OPEN_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
+
+		// Alarm Value 5
+		BUS_VOLTAGE_IMBALANCE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_POSITIVE_BUS_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_NEGATIVE_BUS_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		LOW_EFFICIENCY_FAULT(Doc.of(Level.FAULT)),
+		HIGH_DC_BUS1_HARDWARE_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_DC_BUS2_HARDWARE_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_DC_BUS3_HARDWARE_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_DC_BUS4_HARDWARE_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+
+		// Alarm Value 6
+		INVERTER_FAILURE(Doc.of(Level.FAULT)),
+		INVERTER_SOFT_START_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
+		INVERTER_COOLING_FAN_WARNING(Doc.of(Level.WARNING)),
+		INVERTER_IGBT_FAN_WARNING(Doc.of(Level.WARNING)),
+		INVERTER_VOLTAGE_L1_L2_FAULT(Doc.of(Level.FAULT)),
+		INVERTER_VOLTAGE_L2_L3_FAULT(Doc.of(Level.FAULT)),
+		INVERTER_VOLTAGE_L3_L1_FAULT(Doc.of(Level.FAULT)),
+		MISSING_N_LINE_FAULT(Doc.of(Level.FAULT)),
+
+		// Alarm Value 7
+		LIMITING_N_LINE_CURRENT_WARNING(Doc.of(Level.WARNING)),
+		HIGH_N_LINE_CURRENT_FAULT(Doc.of(Level.FAULT)),
+		INDUCTOR_CURRENT_BRANCH1_L1_FAULT(Doc.of(Level.FAULT)),
+		INDUCTOR_CURRENT_BRANCH1_L2_FAULT(Doc.of(Level.FAULT)),
+		INDUCTOR_CURRENT_BRANCH1_L3_FAULT(Doc.of(Level.FAULT)),
+		INDUCTOR_CURRENT_BRANCH2_L1_FAULT(Doc.of(Level.FAULT)),
+		INDUCTOR_CURRENT_BRANCH2_L2_FAULT(Doc.of(Level.FAULT)),
+		INDUCTOR_CURRENT_BRANCH2_L3_FAULT(Doc.of(Level.FAULT)),
+
+		// Alarm Value 9
+		CABIN_TEMPERATURE_SENSOR_WARNING(Doc.of(Level.WARNING)),
+		HIGH_CABIN_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_DISCHARGE_RESISTOR_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
+		LOCAL_EPO_FAULT(Doc.of(Level.FAULT)),
+		REMOTE_EPO_FAULT(Doc.of(Level.FAULT)),
+		HIGH_IGBT_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
+		HIGH_IGBT_BRANCH1_L1_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
+		HIGH_IGBT_BRANCH2_L1_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
+		HIGH_IGBT_BRANCH1_L2_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
+		HIGH_IGBT_BRANCH2_L2_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
+		HIGH_IGBT_BRANCH1_L3_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
+		HIGH_IGBT_BRANCH2_L3_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
+		HIGH_SOFT_START_RESISTOR_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
+
+		// Alarm Value 11
+		CARRIER_SYNC_FAULT(Doc.of(Level.FAULT)),
+		POWER_FREQUENCY_SYNC_FAULT(Doc.of(Level.FAULT)),
+		MODULE_ID_CONFLICT_FAULT(Doc.of(Level.FAULT)),
+		DSP_ARM_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
+		DSP_FPGA_VERSION_MISMATCH_WARNING(Doc.of(Level.WARNING)),
+
+		// Alarm Value 12
+		WAVE_LIMIT_BRANCH1_L1_WARNING(Doc.of(Level.WARNING)),
+		WAVE_LIMIT_BRANCH1_L2_WARNING(Doc.of(Level.WARNING)),
+		WAVE_LIMIT_BRANCH1_L3_WARNING(Doc.of(Level.WARNING)),
+		WAVE_LIMIT_BRANCH2_L1_WARNING(Doc.of(Level.WARNING)),
+		WAVE_LIMIT_BRANCH2_L2_WARNING(Doc.of(Level.WARNING)),
+		WAVE_LIMIT_BRANCH2_L3_WARNING(Doc.of(Level.WARNING)),
+		HIGH_GRID_VOLTAGE_LEVEL1_FAULT(Doc.of(Level.FAULT)),
+		HIGH_GRID_VOLTAGE_LEVEL2_FAULT(Doc.of(Level.FAULT)),
+		HIGH_GRID_VOLTAGE_LEVEL3_FAULT(Doc.of(Level.FAULT)),
+		HIGH_GRID_VOLTAGE_LEVEL4_FAULT(Doc.of(Level.FAULT)),
+		HIGH_GRID_VOLTAGE_LEVEL5_FAULT(Doc.of(Level.FAULT)),
+		LOW_GRID_VOLTAGE_LEVEL1_FAULT(Doc.of(Level.FAULT)),
+		LOW_GRID_VOLTAGE_LEVEL2_FAULT(Doc.of(Level.FAULT)),
+		LOW_GRID_VOLTAGE_LEVEL3_FAULT(Doc.of(Level.FAULT)),
+		LOW_GRID_VOLTAGE_LEVEL4_FAULT(Doc.of(Level.FAULT)),
+		LOW_GRID_VOLTAGE_LEVEL5_FAULT(Doc.of(Level.FAULT)),
+		HIGH_GRID_FREQUENCY_LEVEL1_FAULT(Doc.of(Level.FAULT)),
+		HIGH_GRID_FREQUENCY_LEVEL2_FAULT(Doc.of(Level.FAULT)),
+		HIGH_GRID_FREQUENCY_LEVEL3_FAULT(Doc.of(Level.FAULT)),
+		HIGH_GRID_FREQUENCY_LEVEL4_FAULT(Doc.of(Level.FAULT)),
+		HIGH_GRID_FREQUENCY_LEVEL5_FAULT(Doc.of(Level.FAULT)),
+		LOW_GRID_FREQUENCY_LEVEL1_FAULT(Doc.of(Level.FAULT)),
+
+		// Alarm Value 13
+		LOW_GRID_FREQUENCY_LEVEL2_FAULT(Doc.of(Level.FAULT)),
+		LOW_GRID_FREQUENCY_LEVEL3_FAULT(Doc.of(Level.FAULT)),
+		LOW_GRID_FREQUENCY_LEVEL4_FAULT(Doc.of(Level.FAULT)),
+		LOW_GRID_FREQUENCY_LEVEL5_FAULT(Doc.of(Level.FAULT)),
+		HIGH_MEAN_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
+		CT_PHASE_REVERSAL_WARNING(Doc.of(Level.WARNING)),
+		CT_DETECTION_WARNING(Doc.of(Level.WARNING)),
+		DETECTION_BOX_WARNING(Doc.of(Level.WARNING)),
+		ANTI_BACKFLOW_OVERLIMIT_FAULT(Doc.of(Level.FAULT)),
+		ANTI_BACKFLOW_METER_COMMUNICATION_WARNING(Doc.of(Level.WARNING)),
+		ANTI_BACKFLOW_METER_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
+
+		// Alarm Value 14
+		HOST_COMMUNICATION_WARNING(Doc.of(Level.WARNING)),
+		BCMS_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
+		DSP_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
+		BAMS_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
+		ETHERNET_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
+		BCMS_ETH_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
+		MODULE_MODEL_MISMATCH_FAULT(Doc.of(Level.FAULT)),
+		INTERNAL_PARAMETER_MISMATCH_FAULT(Doc.of(Level.FAULT)),
+		FLASH_STORAGE_FAULT(Doc.of(Level.FAULT)),
+		RTC_INIT_WARNING(Doc.of(Level.WARNING)),
+		;
+
+		private final Doc doc;
+
+		private AlarmChannelId(Doc doc) {
 			this.doc = doc;
 		}
 
