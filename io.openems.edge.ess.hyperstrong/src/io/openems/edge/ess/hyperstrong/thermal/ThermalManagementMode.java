@@ -1,18 +1,18 @@
-package io.openems.edge.ess.hyperstrong;
+package io.openems.edge.ess.hyperstrong.thermal;
 
 import io.openems.common.types.OptionsEnum;
 
-public enum LiquidCoolingSystemMode implements OptionsEnum {
+public enum ThermalManagementMode implements OptionsEnum {
 	UNDEFINED(-1, "Undefined"),
 	CIRCULATING(0, "Circulating"),
 	COOLING(1, "Cooling"),
 	HEATING(2, "Heating"),
-	OFF(10, "Off");
+	STANDBY(10, "Standby");
 
 	private final int value;
 	private final String name;
 
-	private LiquidCoolingSystemMode(int value, String name) {
+	private ThermalManagementMode(int value, String name) {
 		this.value = value;
 		this.name = name;
 	}

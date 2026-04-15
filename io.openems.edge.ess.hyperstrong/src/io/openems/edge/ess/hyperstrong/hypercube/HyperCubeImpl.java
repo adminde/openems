@@ -21,7 +21,7 @@ import io.openems.edge.ess.api.EssErrorAcknowledge;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.hyperstrong.CycleProvider;
-import io.openems.edge.ess.hyperstrong.cooling.LiquidCoolingSystem;
+import io.openems.edge.ess.hyperstrong.thermal.ThermalManagementSystem;
 import io.openems.edge.timedata.api.TimedataProvider;
 
 @Designate(ocd = Config.class, factory = true)
@@ -33,8 +33,8 @@ import io.openems.edge.timedata.api.TimedataProvider;
 @EventTopics({
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
 })
-public class HyperCubeImpl extends AbstractHyperCubeComponent implements HyperCube,
-		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge, LiquidCoolingSystem,
+public class HyperCubeImpl extends AbstractHyperCube implements HyperCube,
+		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge, ThermalManagementSystem,
 		OpenemsComponent, ModbusComponent, ModbusSlave, ComponentJsonApi,
 		CycleProvider, TimedataProvider, EventHandler, StartStoppable {
 
