@@ -149,7 +149,7 @@ public interface HyperBattery extends OpenemsComponent {
 		 * </ul>
 		 */
 		MAX_CONNECTOR_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEGREE_CELSIUS)
+				.unit(Unit.DEZIDEGREE_CELSIUS)
 				.persistencePriority(PersistencePriority.MEDIUM)
 				.text("Maximum aviation connector temperature")),
 		MAX_CONNECTOR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)
@@ -165,7 +165,7 @@ public interface HyperBattery extends OpenemsComponent {
 		 * </ul>
 		 */
 		MIN_CONNECTOR_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEGREE_CELSIUS)
+				.unit(Unit.DEZIDEGREE_CELSIUS)
 				.persistencePriority(PersistencePriority.MEDIUM)
 				.text("Minimum aviation connector temperature")),
 		MIN_CONNECTOR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)
@@ -182,7 +182,7 @@ public interface HyperBattery extends OpenemsComponent {
 		 * </ul>
 		 */
 		MAX_BUSBAR_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEGREE_CELSIUS)
+				.unit(Unit.DEZIDEGREE_CELSIUS)
 				.persistencePriority(PersistencePriority.MEDIUM)
 				.text("Maximum busbar temperature")),
 		MAX_BUSBAR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)
@@ -198,7 +198,7 @@ public interface HyperBattery extends OpenemsComponent {
 		 * </ul>
 		 */
 		MIN_BUSBAR_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEGREE_CELSIUS)
+				.unit(Unit.DEZIDEGREE_CELSIUS)
 				.persistencePriority(PersistencePriority.MEDIUM)
 				.text("Minimum busbar temperature")),
 		MIN_BUSBAR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)

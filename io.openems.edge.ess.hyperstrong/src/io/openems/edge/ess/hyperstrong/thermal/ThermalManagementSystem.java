@@ -1,4 +1,4 @@
-package io.openems.edge.ess.hyperstrong;
+package io.openems.edge.ess.hyperstrong.thermal;
 
 import io.openems.common.channel.Level;
 import io.openems.common.channel.Unit;
@@ -6,11 +6,11 @@ import io.openems.common.types.OpenemsType;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.OpenemsComponent;
 
-public interface LiquidCoolingSystem extends OpenemsComponent {
+public interface ThermalManagementSystem extends OpenemsComponent {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 
-		COOLING_SYSTEM_MODE(Doc.of(LiquidCoolingSystemMode.values())),
+		COOLING_SYSTEM_MODE(Doc.of(ThermalManagementMode.values())),
 
 		COOLING_SYSTEM_FAULT_CODE(Doc.of(OpenemsType.INTEGER)),
 

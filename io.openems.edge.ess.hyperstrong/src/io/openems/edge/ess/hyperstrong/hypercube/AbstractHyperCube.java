@@ -1,6 +1,7 @@
 package io.openems.edge.ess.hyperstrong.hypercube;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_1;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_1;
@@ -22,7 +23,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.openems.common.channel.AccessMode;
-import io.openems.edge.ess.hyperstrong.cooling.LiquidCoolingSystem;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Reference;
@@ -78,6 +78,7 @@ import io.openems.edge.ess.hyperstrong.AllowedPowerHandler;
 import io.openems.edge.ess.hyperstrong.CycleProvider;
 import io.openems.edge.ess.hyperstrong.HyperBattery;
 import io.openems.edge.ess.hyperstrong.HyperInverter;
+import io.openems.edge.ess.hyperstrong.thermal.ThermalManagementSystem;
 import io.openems.edge.ess.hyperstrong.jsonrpc.ClearTimeoutFailure;
 import io.openems.edge.ess.hyperstrong.statemachine.Context;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine;
@@ -88,12 +89,12 @@ import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 
-public abstract class AbstractHyperCubeComponent extends AbstractOpenemsModbusComponent implements HyperCube,
-		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge, LiquidCoolingSystem,
+public abstract class AbstractHyperCube extends AbstractOpenemsModbusComponent implements HyperCube,
+		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge, ThermalManagementSystem,
 		OpenemsComponent, ModbusComponent, ModbusSlave, ComponentJsonApi,
 		CycleProvider, TimedataProvider, EventHandler, StartStoppable {
 
-	protected final Logger log = LoggerFactory.getLogger(AbstractHyperCubeComponent.class);
+	protected final Logger log = LoggerFactory.getLogger(AbstractHyperCube.class);
 	protected final StateMachine stateMachine = new StateMachine(State.UNDEFINED);
 
 	protected final AtomicReference<StartStop> startStopTarget = new AtomicReference<>(StartStop.UNDEFINED);
@@ -129,12 +130,12 @@ public abstract class AbstractHyperCubeComponent extends AbstractOpenemsModbusCo
 		super.setModbus(modbus);
 	}
 
-	public AbstractHyperCubeComponent() {
+	public AbstractHyperCube() {
 		super(
 				OpenemsComponent.ChannelId.values(),
 				ModbusComponent.ChannelId.values(),
 				StartStoppable.ChannelId.values(),
-				LiquidCoolingSystem.ChannelId.values(),
+				ThermalManagementSystem.ChannelId.values(),
 				EssErrorAcknowledge.ChannelId.values(),
 				SymmetricEss.ChannelId.values(),
 				ManagedSymmetricEss.ChannelId.values(),
@@ -286,15 +287,15 @@ public abstract class AbstractHyperCubeComponent extends AbstractOpenemsModbusCo
 	 */
 	@Override
 	public Constraint[] getStaticConstraints() throws OpenemsNamedException {
-		var constaints = new ArrayList<Constraint>();
+		var constraints = new ArrayList<Constraint>();
 
 		if (this.isReadOnly()) {
-			constaints.add(this.createPowerConstraint("Read-Only Mode - Active Power", ALL, ACTIVE, EQUALS, 0));
-			constaints.add(this.createPowerConstraint("Read-Only Mode - Reactive Power", ALL, REACTIVE, EQUALS, 0));
+			constraints.add(this.createPowerConstraint("Read-Only Mode - Active Power", ALL, ACTIVE, EQUALS, 0));
+			constraints.add(this.createPowerConstraint("Read-Only Mode - Reactive Power", ALL, REACTIVE, EQUALS, 0));
 		}
 		else if (!this.isStarted()) {
-			constaints.add(this.createPowerConstraint("ESS not Started - Active Power", ALL, ACTIVE, EQUALS, 0));
-			constaints.add(this.createPowerConstraint("ESS not Started - Reactive Power", ALL, REACTIVE, EQUALS, 0));
+			constraints.add(this.createPowerConstraint("ESS not Started - Active Power", ALL, ACTIVE, EQUALS, 0));
+			constraints.add(this.createPowerConstraint("ESS not Started - Reactive Power", ALL, REACTIVE, EQUALS, 0));
 		}
 		else {
 			var model = this.getModel();
@@ -303,12 +304,12 @@ public abstract class AbstractHyperCubeComponent extends AbstractOpenemsModbusCo
 			var maxReactivePower = maxActivePower * HyperCube.REACTIVE_POWER_FACTOR;
 			var minReactivePower = minActivePower * HyperCube.REACTIVE_POWER_FACTOR;
 
-			constaints.add(this.createPowerConstraint("Maximum Active Power", ALL, ACTIVE, LESS_OR_EQUALS, maxActivePower));
-			constaints.add(this.createPowerConstraint("Minimum Active Power", ALL, ACTIVE, GREATER_OR_EQUALS, minActivePower));
-			constaints.add(this.createPowerConstraint("Maximum Reactive Power", ALL, REACTIVE, LESS_OR_EQUALS, maxReactivePower));
-			constaints.add(this.createPowerConstraint("Minimum Reactive Power", ALL, REACTIVE, GREATER_OR_EQUALS, minReactivePower));
+			constraints.add(this.createPowerConstraint("Maximum Active Power", ALL, ACTIVE, LESS_OR_EQUALS, maxActivePower));
+			constraints.add(this.createPowerConstraint("Minimum Active Power", ALL, ACTIVE, GREATER_OR_EQUALS, minActivePower));
+			constraints.add(this.createPowerConstraint("Maximum Reactive Power", ALL, REACTIVE, LESS_OR_EQUALS, maxReactivePower));
+			constraints.add(this.createPowerConstraint("Minimum Reactive Power", ALL, REACTIVE, GREATER_OR_EQUALS, minReactivePower));
 		}
-		return constaints.toArray(new Constraint[constaints.size()]);
+		return constraints.toArray(new Constraint[constraints.size()]);
 	}
 
 	protected ComponentManager getComponentManager() {
@@ -370,12 +371,12 @@ public abstract class AbstractHyperCubeComponent extends AbstractOpenemsModbusCo
 									}
 									return GridMode.UNDEFINED;
 								})),
-						m(HyperCube.ChannelId.RUN_MODE, new UnsignedWordElement(303)),
-						new DummyRegisterElement(304, 314),
-						m(HyperCube.ChannelId.SET_ACTIVE_POWER,
-								new SignedWordElement(315), SCALE_FACTOR_3),
-						m(HyperCube.ChannelId.SET_REACTIVE_POWER,
-								new SignedWordElement(316), SCALE_FACTOR_3)),
+						m(HyperCube.ChannelId.RUN_MODE, new UnsignedWordElement(303))),
+//						new DummyRegisterElement(304, 314),
+//						m(HyperCube.ChannelId.SET_ACTIVE_POWER,
+//								new SignedWordElement(315), SCALE_FACTOR_3),
+//						m(HyperCube.ChannelId.SET_REACTIVE_POWER,
+//								new SignedWordElement(316), SCALE_FACTOR_3)),
 
 				new FC4ReadInputRegistersTask(101, Priority.LOW,
 						m(HyperCube.ChannelId.DEVICE_MODE, new UnsignedWordElement(101)),
@@ -799,7 +800,7 @@ public abstract class AbstractHyperCubeComponent extends AbstractOpenemsModbusCo
 								.bit(8, HyperBattery.AlarmChannelId.FIRE_DETECTOR_5_FAULT)
 								.bit(10, HyperBattery.AlarmChannelId.FIRE_DETECTOR_6_FAULT)
 						),
-						new DummyRegisterElement(10033),
+						new DummyRegisterElement(10031, 10033),
 						m(new UnsignedWordElement(10034)).build().onUpdateCallback(value -> {
 								convertAlarm(0, value,
 										this.channel(HyperBattery.AlarmChannelId.IMBALANCE_CELL_CHARGE_VOLTAGE_WARNING),
@@ -836,32 +837,32 @@ public abstract class AbstractHyperCubeComponent extends AbstractOpenemsModbusCo
 				defineModbusBusBarAnalyticsTask(10781),
 
 				new FC4ReadInputRegistersTask(50001, Priority.LOW,
-						m(LiquidCoolingSystem.ChannelId.COOLING_SYSTEM_MODE,
+						m(ThermalManagementSystem.ChannelId.COOLING_SYSTEM_MODE,
 								new UnsignedWordElement(50001)),
-						m(LiquidCoolingSystem.ChannelId.COOLING_SYSTEM_RETURN_TEMPERATURE,
+						m(ThermalManagementSystem.ChannelId.COOLING_SYSTEM_RETURN_TEMPERATURE,
 								new SignedWordElement(50002)),
-						m(LiquidCoolingSystem.ChannelId.COOLING_SYSTEM_SUPPLY_TEMPERATURE,
+						m(ThermalManagementSystem.ChannelId.COOLING_SYSTEM_SUPPLY_TEMPERATURE,
 								new SignedWordElement(50003)),
 						m(new BitsWordElement(50004, this)
-								.bit(0, LiquidCoolingSystem.ChannelId.COOLING_SYSTEM_COMMUNICATION_ABNORMAL)
-								.bit(1, LiquidCoolingSystem.ChannelId.COOLING_SYSTEM_COMMUNICATION_CONNECTED)
-								.bit(2, LiquidCoolingSystem.ChannelId.COOLING_SYSTEM_COMMUNICATION_ENABLED)
-								.bit(3, LiquidCoolingSystem.ChannelId.COOLING_SYSTEM_COMMUNICATION_FAULT)
+								.bit(0, ThermalManagementSystem.ChannelId.COOLING_SYSTEM_COMMUNICATION_ABNORMAL)
+								.bit(1, ThermalManagementSystem.ChannelId.COOLING_SYSTEM_COMMUNICATION_CONNECTED)
+								.bit(2, ThermalManagementSystem.ChannelId.COOLING_SYSTEM_COMMUNICATION_ENABLED)
+								.bit(3, ThermalManagementSystem.ChannelId.COOLING_SYSTEM_COMMUNICATION_FAULT)
 						),
 						m(new BitsWordElement(50005, this)
-								.bit(0, LiquidCoolingSystem.ChannelId.COOLING_SYSTEM_MAIN_CONTACTOR_STATE)
-								.bit(1, LiquidCoolingSystem.ChannelId.COOLING_SYSTEM_COMPRESSOR_STATE)
-								.bit(2, LiquidCoolingSystem.ChannelId.COOLING_SYSTEM_HEATING_STATE)
+								.bit(0, ThermalManagementSystem.ChannelId.COOLING_SYSTEM_MAIN_CONTACTOR_STATE)
+								.bit(1, ThermalManagementSystem.ChannelId.COOLING_SYSTEM_COMPRESSOR_STATE)
+								.bit(2, ThermalManagementSystem.ChannelId.COOLING_SYSTEM_HEATING_STATE)
 						)),
 
 				new FC4ReadInputRegistersTask(50077, Priority.LOW,
-						m(LiquidCoolingSystem.ChannelId.COOLING_SYSTEM_FAULT_CODE,
+						m(ThermalManagementSystem.ChannelId.COOLING_SYSTEM_FAULT_CODE,
 								new UnsignedWordElement(50077)),
 						new DummyRegisterElement(50078, 50098),
-						m(LiquidCoolingSystem.ChannelId.COOLING_SYSTEM_RETURN_PRESSURE,
-								new SignedWordElement(50099), SCALE_FACTOR_3),
-						m(LiquidCoolingSystem.ChannelId.COOLING_SYSTEM_SUPPLY_PRESSURE,
-								new SignedWordElement(50100), SCALE_FACTOR_3)),
+						m(ThermalManagementSystem.ChannelId.COOLING_SYSTEM_RETURN_PRESSURE,
+								new SignedWordElement(50099), SCALE_FACTOR_1),
+						m(ThermalManagementSystem.ChannelId.COOLING_SYSTEM_SUPPLY_PRESSURE,
+								new SignedWordElement(50100), SCALE_FACTOR_1)),
 
 				new FC6WriteRegisterTask(1, 
 						m(HyperCube.ChannelId.HEARTBEAT, new UnsignedWordElement(1))),
