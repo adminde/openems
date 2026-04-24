@@ -59,6 +59,22 @@ public interface PowerConversionSystem extends
 	public float getEfficiencyFactor();
 
 	/**
+	 * Gets the nominal maximum active charge power of this inverter in [W] (positive value).
+	 * Used by to scale the ramp for {@code AllowedChargePower}.
+	 *
+	 * @return max charge power in [W]
+	 */
+	public int getMaxChargePower();
+
+	/**
+	 * Gets the nominal maximum discharge power of this inverter in [W] (positive value).
+	 * Used to scale the ramp for {@code AllowedDischargePower}.
+	 *
+	 * @return max discharge power in [W]
+	 */
+	public int getMaxDischargePower();
+
+	/**
 	 * Gets the Channel for {@link ChannelId#DC_VOLTAGE}.
 	 *
 	 * @return the Channel
