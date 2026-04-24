@@ -1,5 +1,8 @@
 package io.openems.edge.oros.ess.protection;
 
+import static io.openems.common.utils.IntUtils.maxInt;
+import static io.openems.common.utils.IntUtils.minInt;
+import static io.openems.common.utils.IntUtils.minInteger;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -9,6 +12,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Consumer;
 
+import io.openems.common.utils.IntUtils;
 import io.openems.edge.battery.api.Battery;
 import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.ClockProvider;
@@ -45,12 +49,12 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 		this.overChargeCurrentLimiter = overChargeCurrentLimiter;
 		this.deepDischargeCurrentLimiter = deepDischargeCurrentLimiter;
 
-		var model = parent.getModel();
+		var pcs = parent.getPowerConversionSystem();
 		var increaseFactor = parent.getMaxPowerIncreasePercentage() / 100.F;
 		this.maxAllowedChargePowerIncrease = max(parent.getPowerPrecision(),
-				model.getMaxChargePower() * increaseFactor);
+				pcs.getMaxChargePower() * increaseFactor);
 		this.maxAllowedDischargePowerIncrease = max(parent.getPowerPrecision(),
-				model.getMaxDischargePower() * increaseFactor);
+				pcs.getMaxDischargePower() * increaseFactor);
 	}
 
 	@Override
@@ -58,8 +62,8 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 		var battery = this.parent.getBattery();
 		var chargeMaxCurrent = battery.getChargeMaxCurrentChannel().getNextValue().get();
 		var dischargeMaxCurrent = battery.getDischargeMaxCurrentChannel().getNextValue().get();
-		chargeMaxCurrent = TypeUtils.min(chargeMaxCurrent, this.overChargeCurrentLimiter.getMaxCurrent());
-		dischargeMaxCurrent = TypeUtils.min(dischargeMaxCurrent, this.deepDischargeCurrentLimiter.getMaxCurrent());
+		chargeMaxCurrent = IntUtils.minInteger(chargeMaxCurrent, this.overChargeCurrentLimiter.getMaxCurrent());
+		dischargeMaxCurrent = IntUtils.minInteger(dischargeMaxCurrent, this.deepDischargeCurrentLimiter.getMaxCurrent());
 
 		final var voltage = battery.getVoltageChannel().getNextValue().get();
 		if (voltage == null || chargeMaxCurrent == null || dischargeMaxCurrent == null) {
@@ -82,7 +86,7 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 					0);
 			allowedDischargePower += pvProduction;
 		}
-		this.parent._setAllowedChargePower(allowedChargePower);
+		this.parent.getAllowedChargePowerChannel().setNextValue(allowedChargePower);
 		this.parent._setAllowedDischargePower(allowedDischargePower);
 	}
 

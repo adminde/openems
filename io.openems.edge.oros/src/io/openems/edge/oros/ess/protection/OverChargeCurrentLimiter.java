@@ -1,11 +1,11 @@
 package io.openems.edge.oros.ess.protection;
 
+import static io.openems.common.utils.IntUtils.minInteger;
 import static io.openems.edge.common.type.TypeUtils.multiply;
 import static io.openems.edge.common.type.TypeUtils.subtract;
 import static java.lang.Math.max;
 
-import io.openems.edge.common.filter.Pt1filter;
-import io.openems.edge.common.type.TypeUtils;
+import io.openems.edge.common.filter.PT1Filter;
 import io.openems.edge.oros.bms.BatteryManagementSystem;
 import io.openems.edge.oros.bms.protection.VoltageProtection;
 import io.openems.edge.oros.pcs.PowerConversionSystem;
@@ -27,16 +27,15 @@ public class OverChargeCurrentLimiter extends CurrentLimiter {
 				inverter.getDcMaxVoltage().get());
 	}
 
-	protected Integer calculateMaxCurrent(VoltageLimitValues values, int cycleTime, Pt1filter filter) {
-		filter.setCycleTime(cycleTime);
+	protected Integer calculateMaxCurrent(VoltageLimitValues values, int cycleTime, PT1Filter filter) {
 		var resistance = values.innerResistance() / 1000.;
 
-		var voltageLimit = TypeUtils.min(values.voltageLimit(), values.voltageProtectionLimit(),
-				values.pcsVoltageLimit());
+		int voltageLimit = minInteger(values.pcsVoltageLimit(),
+				values.voltageLimit(), values.voltageProtectionLimit());
 		var voltageDelta = multiply(subtract(values.voltage(), voltageLimit), -1);
-		var currentDelta = voltageDelta / resistance;
-		var currentLimit = TypeUtils.subtract(currentDelta, (double) values.current());
-		return filter.applyPt1Filter(max(currentLimit, -5.0));
+		double currentDelta = voltageDelta / resistance;
+		double currentLimit = currentDelta - (double) values.current();
+		return filter.applyPT1Filter(max(currentLimit, -5.0));
 	}
 
 }

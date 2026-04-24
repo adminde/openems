@@ -4,7 +4,7 @@ import java.util.function.Consumer;
 
 import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.component.ClockProvider;
-import io.openems.edge.common.filter.Pt1filter;
+import io.openems.edge.common.filter.PT1Filter;
 import io.openems.edge.oros.bms.BatteryManagementSystem;
 import io.openems.edge.oros.ess.EnergyStorageSystem;
 import io.openems.edge.oros.pcs.PowerConversionSystem;
@@ -16,10 +16,10 @@ import io.openems.edge.oros.ess.SystemChannelManager;
  * as a callback to updates of Battery Channels.
  */
 public abstract class CurrentLimiter implements Consumer<ClockProvider> {
-	public static final int FILTER_TIME_CONSTANT = 10; // [seconds]
+	public static final int FILTER_TIME_CONSTANT = 10_000; // [milliseconds]
 
 	private final EnergyStorageSystem parent;
-	private final Pt1filter maxCurrentLimitFilter;
+	private final PT1Filter maxCurrentLimitFilter;
 	private final Channel<Integer> maxCurrentChannel;
 
 	private Integer maxCurrent;
@@ -27,7 +27,7 @@ public abstract class CurrentLimiter implements Consumer<ClockProvider> {
 	protected CurrentLimiter(EnergyStorageSystem parent, Channel<Integer> channel) {
 		this.parent = parent;
 		this.maxCurrentChannel = channel;
-		this.maxCurrentLimitFilter = new Pt1filter(FILTER_TIME_CONSTANT, this.parent.getCycleTime());
+		this.maxCurrentLimitFilter = new PT1Filter(FILTER_TIME_CONSTANT);
 	}
 
 	public Integer getMaxCurrent() {
@@ -50,7 +50,7 @@ public abstract class CurrentLimiter implements Consumer<ClockProvider> {
 
 	protected abstract VoltageLimitValues getLimitValues(BatteryManagementSystem battery, PowerConversionSystem inverter);
 
-	protected abstract Integer calculateMaxCurrent(VoltageLimitValues values, int cycleTime, Pt1filter filter);
+	protected abstract Integer calculateMaxCurrent(VoltageLimitValues values, int cycleTime, PT1Filter filter);
 
 	protected record VoltageLimitValues(
 			boolean isBatteryStarted,
