@@ -1,8 +1,5 @@
 package io.openems.edge.oros.ess.protection;
 
-import static io.openems.common.utils.IntUtils.maxInt;
-import static io.openems.common.utils.IntUtils.minInt;
-import static io.openems.common.utils.IntUtils.minInteger;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -52,14 +49,14 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 		var pcs = parent.getPowerConversionSystem();
 		var increaseFactor = parent.getMaxPowerIncreasePercentage() / 100.F;
 		this.maxAllowedChargePowerIncrease = max(parent.getPowerPrecision(),
-				pcs.getMaxChargePower() * increaseFactor);
+				pcs.getChargeMaxPower() * increaseFactor);
 		this.maxAllowedDischargePowerIncrease = max(parent.getPowerPrecision(),
-				pcs.getMaxDischargePower() * increaseFactor);
+				pcs.getDischargeMaxPower() * increaseFactor);
 	}
 
 	@Override
 	public void accept(ClockProvider clockProvider) {
-		var battery = this.parent.getBattery();
+		var battery = this.parent.getBatteryManagementSystem();
 		var chargeMaxCurrent = battery.getChargeMaxCurrentChannel().getNextValue().get();
 		var dischargeMaxCurrent = battery.getDischargeMaxCurrentChannel().getNextValue().get();
 		chargeMaxCurrent = IntUtils.minInteger(chargeMaxCurrent, this.overChargeCurrentLimiter.getMaxCurrent());

@@ -13,9 +13,9 @@ import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.modbusslave.ModbusSlaveTable;
-import io.openems.edge.ess.api.ManagedSymmetricEss;
-import io.openems.edge.ess.api.SymmetricEss;
+import io.openems.edge.common.statemachine.AbstractStateMachine;
 import io.openems.edge.oros.SymmetricComponent;
+
 
 public interface PowerConversionSystem extends
 		ManagedSymmetricBatteryInverter, SymmetricBatteryInverter, BatteryInverterErrorAcknowledge,
@@ -64,7 +64,7 @@ public interface PowerConversionSystem extends
 	 *
 	 * @return max charge power in [W]
 	 */
-	public int getMaxChargePower();
+	public int getChargeMaxPower();
 
 	/**
 	 * Gets the nominal maximum discharge power of this inverter in [W] (positive value).
@@ -72,7 +72,7 @@ public interface PowerConversionSystem extends
 	 *
 	 * @return max discharge power in [W]
 	 */
-	public int getMaxDischargePower();
+	public int getDischargeMaxPower();
 
 	/**
 	 * Gets the Channel for {@link ChannelId#DC_VOLTAGE}.
@@ -147,6 +147,36 @@ public interface PowerConversionSystem extends
 				SymmetricBatteryInverter.getModbusSlaveNatureTable(accessMode),
 				ManagedSymmetricBatteryInverter.getModbusSlaveNatureTable(accessMode)
 		);
+	}
+
+	/**
+	 * Generates a default DebugLog message for {@link PowerConversionSystem} implementations with
+	 * a State-Machine.
+	 *
+	 * @param inverter      the {@link SymmetricBatteryInverter}
+	 * @param stateMachine the actual StateMachine (extends
+	 *                     {@link AbstractStateMachine})
+	 * @return a debug log String
+	 */
+	public static String generateDebugLog(SymmetricBatteryInverter inverter, AbstractStateMachine<?, ?> stateMachine) {
+		var builder = new StringBuilder()
+				.append(stateMachine.debugLog()).append("|");
+		return _generateDebugLog(inverter, builder).toString();
+	}
+
+	/**
+	 * Generates a default DebugLog message for {@link PowerConversionSystem} implementations
+	 *
+	 * @param inverter      the {@link SymmetricBatteryInverter}
+	 * @return a debug log String
+	 */
+	public static String generateDebugLog(SymmetricBatteryInverter inverter) {
+		return _generateDebugLog(inverter, new StringBuilder()).toString();
+	}
+
+	private static StringBuilder _generateDebugLog(SymmetricBatteryInverter inverter, StringBuilder builder) {
+		return builder
+				.append("Grid:").append(inverter.getGridModeChannel().value().asOptionString());
 	}
 
 }

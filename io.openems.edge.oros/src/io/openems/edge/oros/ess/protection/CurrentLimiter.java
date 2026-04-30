@@ -36,13 +36,12 @@ public abstract class CurrentLimiter implements Consumer<ClockProvider> {
 
 	@Override
 	public void accept(ClockProvider clockProvider) {
-		final var cycleTime = this.parent.getCycleTime();
-		final var battery = this.parent.getBattery();
+		final var battery = this.parent.getBatteryManagementSystem();
 		final var values = this.getLimitValues(battery, this.parent.getPowerConversionSystem());
 		if (values == null) {
 			return;
 		}
-		var maxCurrent = calculateMaxCurrent(values, cycleTime, this.maxCurrentLimitFilter);
+		var maxCurrent = calculateMaxCurrent(values, this.maxCurrentLimitFilter);
 
 		this.maxCurrentChannel.setNextValue(maxCurrent);
 		this.maxCurrent = maxCurrent;
@@ -50,7 +49,7 @@ public abstract class CurrentLimiter implements Consumer<ClockProvider> {
 
 	protected abstract VoltageLimitValues getLimitValues(BatteryManagementSystem battery, PowerConversionSystem inverter);
 
-	protected abstract Integer calculateMaxCurrent(VoltageLimitValues values, int cycleTime, PT1Filter filter);
+	protected abstract Integer calculateMaxCurrent(VoltageLimitValues values, PT1Filter filter);
 
 	protected record VoltageLimitValues(
 			boolean isBatteryStarted,

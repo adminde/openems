@@ -27,7 +27,7 @@ public class OverChargeCurrentLimiter extends CurrentLimiter {
 				inverter.getDcMaxVoltage().get());
 	}
 
-	protected Integer calculateMaxCurrent(VoltageLimitValues values, int cycleTime, PT1Filter filter) {
+	protected Integer calculateMaxCurrent(VoltageLimitValues values, PT1Filter filter) {
 		var resistance = values.innerResistance() / 1000.;
 
 		int voltageLimit = minInteger(values.pcsVoltageLimit(),

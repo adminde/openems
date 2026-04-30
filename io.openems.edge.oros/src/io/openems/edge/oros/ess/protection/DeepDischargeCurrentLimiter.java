@@ -26,7 +26,7 @@ public class DeepDischargeCurrentLimiter extends CurrentLimiter {
 				inverter.getDcMinVoltage().get());
 	}
 
-	protected Integer calculateMaxCurrent(VoltageLimitValues values, int cycleTime, PT1Filter filter) {
+	protected Integer calculateMaxCurrent(VoltageLimitValues values, PT1Filter filter) {
 		var resistance = values.innerResistance() / 1000.;
 
 		int voltageLimit = maxInteger(values.pcsVoltageLimit(),

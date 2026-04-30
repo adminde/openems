@@ -3,6 +3,9 @@ package io.openems.edge.oros.ess;
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
+import io.openems.common.utils.IntUtils;
+import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter;
+import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.jsonapi.ComponentJsonApi;
@@ -10,15 +13,19 @@ import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.modbusslave.ModbusSlaveTable;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
+import io.openems.edge.common.statemachine.AbstractStateMachine;
+import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.ess.api.EssErrorAcknowledge;
+import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
-import io.openems.edge.oros.CycleProvider;
 import io.openems.edge.oros.SymmetricComponent;
 import io.openems.edge.oros.bms.BatteryManagementSystem;
 import io.openems.edge.oros.ess.protection.PowerLimiter;
 import io.openems.edge.oros.ess.protection.VoltageProtection;
 import io.openems.edge.oros.pcs.PowerConversionSystem;
+
+import static io.openems.common.channel.PersistencePriority.HIGH;
 
 public interface EnergyStorageSystem extends
 		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge, VoltageProtection,
@@ -36,7 +43,7 @@ public interface EnergyStorageSystem extends
 		 */
 		SET_ACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.WATT)
-				.accessMode(AccessMode.WRITE_ONLY)),
+				.persistencePriority(HIGH)),
 		/**
 		 * Sets the Reactive Power in [var].
 		 *
@@ -48,7 +55,7 @@ public interface EnergyStorageSystem extends
 		 */
 		SET_REACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.VOLT_AMPERE_REACTIVE)
-				.accessMode(AccessMode.WRITE_ONLY)),
+				.persistencePriority(HIGH)),
 		;
 
 		private final Doc doc;
@@ -61,6 +68,10 @@ public interface EnergyStorageSystem extends
 		public Doc doc() {
 			return this.doc;
 		}
+	}
+
+	public default boolean isReadOnly() {
+		return false;
 	}
 
 	/**
@@ -76,7 +87,7 @@ public interface EnergyStorageSystem extends
 	 *
 	 * @return the {@link BatteryManagementSystem}
 	 */
-	public BatteryManagementSystem getBattery();
+	public BatteryManagementSystem getBatteryManagementSystem();
 
 	/**
 	 * Gets the {@link PowerConversionSystem} of this {@link EnergyStorageSystem}.
@@ -100,4 +111,43 @@ public interface EnergyStorageSystem extends
 				ManagedSymmetricEss.getModbusSlaveNatureTable(accessMode)
 		);
 	}
+
+	/**
+	 * Generates a default DebugLog message for {@link EnergyStorageSystem} implementations with
+	 * a State-Machine.
+	 *
+	 * @param ess      the {@link EnergyStorageSystem}
+	 * @param stateMachine the actual StateMachine (extends
+	 *                     {@link AbstractStateMachine})
+	 * @return a debug log String
+	 */
+	public static String generateDebugLog(EnergyStorageSystem ess, AbstractStateMachine<?, ?> stateMachine) {
+		var builder = new StringBuilder()
+				.append(stateMachine.debugLog());
+
+		builder.append("|SoC:").append(ess.getSoc().asString())
+				.append("|L:").append(ess.getActivePower().asString()).append("W");
+
+		// For hybrid systems, show the actual battery charge power and PV production power
+		var pcs = ess.getPowerConversionSystem();
+		if (ess instanceof HybridEss hybridEss && pcs instanceof HybridManagedSymmetricBatteryInverter hybridPcs) {
+			var dcPvPower = hybridPcs.getDcPvPower();
+			if (dcPvPower != null) {
+				builder.append("|Battery:").append(hybridEss.getDcDischargePower().asString()).append("W");
+				builder.append("|PV:").append(dcPvPower).append("W");
+			}
+		}
+
+		// Show max AC export/import active power:
+		// minimum of MaxAllowedCharge/DischargePower and MaxApparentPower
+		var allowedCharge = ess.getAllowedChargePower().get();
+		var allowedDischarge = ess.getAllowedDischargePower().get();
+		var maxApparent = ess.getMaxApparentPower().get();
+		builder.append("|Allowed:")
+				.append(IntUtils.maxInteger(allowedCharge, TypeUtils.multiply(maxApparent, -1))).append("W")
+				.append(";")
+				.append(IntUtils.minInteger(allowedDischarge, maxApparent)).append("W");
+		return builder.toString();
+	}
+
 }

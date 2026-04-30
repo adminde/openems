@@ -4,26 +4,127 @@ import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
+import io.openems.common.utils.IntUtils;
 import io.openems.edge.battery.api.Battery;
+import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.channel.Doc;
+import io.openems.edge.common.channel.IntegerDoc;
 import io.openems.edge.common.channel.IntegerReadChannel;
 import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.modbusslave.ModbusSlave;
-import io.openems.edge.common.modbusslave.ModbusSlaveNatureTable;
 import io.openems.edge.common.modbusslave.ModbusSlaveTable;
+import io.openems.edge.common.startstop.StartStoppable;
+import io.openems.edge.common.statemachine.AbstractStateMachine;
 
 import java.util.function.Consumer;
 
 public interface BatteryManagementSystem extends
-		Battery, OpenemsComponent, ModbusSlave {
+		Battery, OpenemsComponent, ModbusSlave, StartStoppable {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
+		/**
+		 * Rack State of Charge in Thousandths [‰].
+		 *
+		 * <ul>
+		 * <li>Interface: Battery
+		 * <li>Type: Integer
+		 * <li>Unit: %
+		 * <li>Range: 0..1000
+		 * </ul>
+		 */
+		RACK_SOC(new IntegerDoc()
+				.unit(Unit.THOUSANDTH)
+				.persistencePriority(PersistencePriority.HIGH)
+				.onChannelSetNextValue((self, value) -> {
+					value.ifPresent(newValue -> {
+						Channel<Integer> socChannel = self.channel(Battery.ChannelId.SOC);
+						socChannel.setNextValue(IntUtils.roundToPrecision(newValue / 10.0,
+								IntUtils.Round.HALF_UP, 1));
+					});
+				})),
+		/**
+		 * Rack State of Health in Thousandths [‰].
+		 *
+		 * <ul>
+		 * <li>Interface: BatteryManagementSystem
+		 * <li>Type: Integer
+		 * <li>Unit: ‰
+		 * <li>Range: 0..1000
+		 * <li>Implementation Note: mirrored to {@link Battery.ChannelId#SOH} as percent.
+		 * </ul>
+		 */
+		RACK_SOH(new IntegerDoc()
+				.unit(Unit.THOUSANDTH)
+				.persistencePriority(PersistencePriority.HIGH)
+				.onChannelSetNextValue((self, value) -> {
+					value.ifPresent(newValue -> {
+						Channel<Integer> sohChannel = self.channel(Battery.ChannelId.SOH);
+						sohChannel.setNextValue(IntUtils.roundToPrecision(newValue / 10.0,
+								IntUtils.Round.HALF_UP, 1));
+					});
+				})),
+		/**
+		 * Rack State of Energy in Thousandths [‰].
+		 *
+		 * <ul>
+		 * <li>Interface: BatteryManagementSystem
+		 * <li>Type: Integer
+		 * <li>Unit: ‰
+		 * <li>Range: 0..1000
+		 * </ul>
+		 */
+		RACK_SOE(Doc.of(OpenemsType.FLOAT)
+				.unit(Unit.THOUSANDTH)
+				.persistencePriority(PersistencePriority.HIGH)),
+
+		/**
+		 * Rack Voltage in Millivolts [mV].
+		 *
+		 * <ul>
+		 * <li>Interface: BatteryManagementSystem
+		 * <li>Type: Integer
+		 * <li>Unit: mV
+		 * <li>Implementation Note: mirrored to {@link Battery.ChannelId#VOLTAGE} as Volts.
+		 * </ul>
+		 */
+		RACK_VOLTAGE(new IntegerDoc()
+				.unit(Unit.MILLIVOLT)
+				.persistencePriority(PersistencePriority.HIGH)
+				.onChannelSetNextValue((self, value) -> {
+					value.ifPresent(newValue -> {
+						Channel<Integer> voltageChannel = self.channel(Battery.ChannelId.VOLTAGE);
+						voltageChannel.setNextValue(IntUtils.roundToPrecision(newValue / 1000.0,
+								IntUtils.Round.HALF_UP, 1));
+					});
+				})),
+
+		/**
+		 * Rack Current in Milliamperes [mA].
+		 *
+		 * <ul>
+		 * <li>Interface: BatteryManagementSystem
+		 * <li>Type: Integer
+		 * <li>Unit: mA
+		 * <li>Implementation Note: mirrored to {@link Battery.ChannelId#CURRENT} as Amperes.
+		 * </ul>
+		 */
+		RACK_CURRENT(new IntegerDoc()
+				.unit(Unit.MILLIAMPERE)
+				.persistencePriority(PersistencePriority.HIGH)
+				.onChannelSetNextValue((self, value) -> {
+					value.ifPresent(newValue -> {
+						Channel<Integer> currentChannel = self.channel(Battery.ChannelId.CURRENT);
+						currentChannel.setNextValue(IntUtils.roundToPrecision(newValue / 1000.0,
+								IntUtils.Round.HALF_UP, 1));
+					});
+				})),
+
 		/**
 		 * Open Circuit Voltage.
 		 *
 		 * <ul>
-		 * <li>Interface: OrosBattery
+		 * <li>Interface: BatteryManagementSystem
 		 * <li>Type: Integer
 		 * <li>Unit: V
 		 * </ul>
@@ -36,7 +137,7 @@ public interface BatteryManagementSystem extends
 		 * Maximum power for charging.
 		 *
 		 * <ul>
-		 * <li>Interface: OrosBattery
+		 * <li>Interface: BatteryManagementSystem
 		 * <li>Type: Integer
 		 * <li>Unit: W
 		 * </ul>
@@ -49,7 +150,7 @@ public interface BatteryManagementSystem extends
 		 * Maximum power for discharging.
 		 *
 		 * <ul>
-		 * <li>Interface: OrosBattery
+		 * <li>Interface: BatteryManagementSystem
 		 * <li>Type: Integer
 		 * <li>Unit: W
 		 * </ul>
@@ -79,6 +180,150 @@ public interface BatteryManagementSystem extends
 		public Doc doc() {
 			return this.doc;
 		}
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#RACK_SOC}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getRackSocChannel() {
+		return this.channel(ChannelId.RACK_SOC);
+	}
+
+	/**
+	 * Gets the Rack State of Charge in [‰]. See {@link ChannelId#RACK_SOC}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getRackSoc() {
+		return this.getRackSocChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#RACK_SOC} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setRackSoc(Integer value) {
+		this.getRackSocChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#RACK_SOC} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setRackSoc(int value) {
+		this.getRackSocChannel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#RACK_SOH}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getRackSohChannel() {
+		return this.channel(ChannelId.RACK_SOH);
+	}
+
+	/**
+	 * Gets the Rack State of Health in [‰]. See {@link ChannelId#RACK_SOH}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getRackSoh() {
+		return this.getRackSohChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#RACK_SOH} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setRackSoh(Integer value) {
+		this.getRackSohChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#RACK_SOH} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setRackSoh(int value) {
+		this.getRackSohChannel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#RACK_VOLTAGE}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getRackVoltageChannel() {
+		return this.channel(ChannelId.RACK_VOLTAGE);
+	}
+
+	/**
+	 * Gets the Rack Voltage in [mV]. See {@link ChannelId#RACK_VOLTAGE}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getRackVoltage() {
+		return this.getRackVoltageChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#RACK_VOLTAGE} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setRackVoltage(Integer value) {
+		this.getRackVoltageChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#RACK_VOLTAGE} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setRackVoltage(int value) {
+		this.getRackVoltageChannel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#RACK_CURRENT}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getRackCurrentChannel() {
+		return this.channel(ChannelId.RACK_CURRENT);
+	}
+
+	/**
+	 * Gets the Rack Current in [mA]. See {@link ChannelId#RACK_CURRENT}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getRackCurrent() {
+		return this.getRackCurrentChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#RACK_CURRENT} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setRackCurrent(Integer value) {
+		this.getRackCurrentChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#RACK_CURRENT} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setRackCurrent(int value) {
+		this.getRackCurrentChannel().setNextValue(value);
 	}
 
 	/**
@@ -269,6 +514,42 @@ public interface BatteryManagementSystem extends
 		return new ModbusSlaveTable(
 				OpenemsComponent.getModbusSlaveNatureTable(accessMode),
 				Battery.getModbusSlaveNatureTable(accessMode));
+	}
+
+	/**
+	 * Generates a default DebugLog message for {@link BatteryManagementSystem} implementations with
+	 * a State-Machine.
+	 *
+	 * @param battery      the {@link Battery}
+	 * @param stateMachine the actual StateMachine (extends
+	 *                     {@link AbstractStateMachine})
+	 * @return a debug log String
+	 */
+	public static String generateDebugLog(Battery battery, AbstractStateMachine<?, ?> stateMachine) {
+		var builder = new StringBuilder()
+				.append(stateMachine.debugLog()).append("|");
+		return _generateDebugLog(battery, builder).toString();
+	}
+
+	/**
+	 * Generates a default DebugLog message for {@link BatteryManagementSystem} implementations
+	 *
+	 * @param battery      the {@link Battery}
+	 * @return a debug log String
+	 */
+	public static String generateDebugLog(Battery battery) {
+		return _generateDebugLog(battery, new StringBuilder()).toString();
+	}
+
+	private static StringBuilder _generateDebugLog(Battery battery, StringBuilder builder) {
+		return builder
+				.append("SoC:").append(battery.getSoc())
+				.append("|IV:").append(battery.getCurrent()).append("A")
+				.append(";").append(battery.getVoltage()).append("V")
+				.append("|Charge:").append(battery.getChargeMaxCurrent()).append("A")
+				.append(";").append(battery.getChargeMaxVoltage()).append("V")
+				.append("|Discharge:").append(battery.getDischargeMaxCurrent()).append("A")
+				.append(";").append(battery.getDischargeMinVoltage()).append("V");
 	}
 
 	/**

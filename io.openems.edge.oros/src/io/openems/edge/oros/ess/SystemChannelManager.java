@@ -59,7 +59,7 @@ public class SystemChannelManager extends AbstractChannelListenerManager {
 	}
 
 	private void addEssSocListener() {
-		BatteryManagementSystem battery = this.parent.getBattery();
+		BatteryManagementSystem battery = this.parent.getBatteryManagementSystem();
 		Channel<Integer> batterySocChannel = battery.channel(Battery.ChannelId.SOC);
 
 		final Consumer<Value<Integer>> calculate = ignore -> {
