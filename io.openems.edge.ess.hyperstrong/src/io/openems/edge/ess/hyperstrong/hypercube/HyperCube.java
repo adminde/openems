@@ -1,52 +1,32 @@
 package io.openems.edge.ess.hyperstrong.hypercube;
 
-import java.util.function.Consumer;
-
 import io.openems.edge.ess.hyperstrong.OperatingStatus;
 import io.openems.edge.ess.hyperstrong.RunMode;
+import io.openems.edge.oros.ess.EnergyStorageSystem;
 import org.osgi.service.event.EventHandler;
 
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.Level;
-import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.channel.value.Value;
-import io.openems.edge.common.component.ClockProvider;
 import io.openems.edge.common.component.OpenemsComponent;
-import io.openems.edge.common.jsonapi.ComponentJsonApi;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.ess.api.EssErrorAcknowledge;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
-import io.openems.edge.ess.hyperstrong.AllowedPowerHandler;
 import io.openems.edge.ess.hyperstrong.ChargingMode;
-import io.openems.edge.ess.hyperstrong.CycleProvider;
-import io.openems.edge.ess.hyperstrong.HyperBattery;
-import io.openems.edge.ess.hyperstrong.HyperInverter;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 import io.openems.edge.timedata.api.TimedataProvider;
 
-public interface HyperCube extends HyperInverter, HyperBattery,
+public interface HyperCube extends EnergyStorageSystem,
 		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge,
-		OpenemsComponent, ModbusComponent, ModbusSlave, ComponentJsonApi,
-		CycleProvider, TimedataProvider, EventHandler, StartStoppable {
-
-	public static final int APPARENT_POWER_PRECISION = 1000; // [W]
-	public static final float APPARENT_POWER_FACTOR = 1.1F;
-	public static final float REACTIVE_POWER_FACTOR = 0.46F;
-
-	/**
-	 * Allow a maximum power increase per second.
-	 *
-	 * <p>
-	 * 5 % of possible allowed charge/discharge power
-	 */
-	public static final float MAX_POWER_INCREASE_PERCENTAGE = 0.05F;
+		OpenemsComponent, ModbusComponent, ModbusSlave,
+		TimedataProvider, EventHandler, StartStoppable {
 
 	/**
 	 * How often the OEM EMS controller will check for a changed heartbeat value
@@ -72,31 +52,6 @@ public interface HyperCube extends HyperInverter, HyperBattery,
 		RUN_MODE(Doc.of(RunMode.values())),
 		DEVICE_MODE(Doc.of(ChargingMode.values())),
 		OPERATING_STATUS(Doc.of(OperatingStatus.values())),
-
-		/**
-		 * Sets the Active Power in [W].
-		 *
-		 * <ul>
-		 * <li>Type: Integer
-		 * <li>Unit: W
-		 * <li>Range: negative values for Charge; positive for Discharge
-		 * </ul>
-		 */
-		SET_ACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.WATT)
-				.accessMode(AccessMode.WRITE_ONLY)),
-		/**
-		 * Sets the Reactive Power in [var].
-		 *
-		 * <ul>
-		 * <li>Type: Integer
-		 * <li>Unit: var
-		 * <li>Range: negative values for Charge; positive for Discharge
-		 * </ul>
-		 */
-		SET_REACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.VOLT_AMPERE_REACTIVE)
-				.accessMode(AccessMode.WRITE_ONLY)),
 		;
 
 		private final Doc doc;
@@ -128,7 +83,7 @@ public interface HyperCube extends HyperInverter, HyperBattery,
 		BMS_FAULT(Doc.of(Level.WARNING)),
 		PCS_FAULT(Doc.of(Level.WARNING)),
 		METER_FAULT(Doc.of(Level.FAULT)),
-		COOLING_SYSTEM_WARNING(Doc.of(Level.WARNING)),
+		THERMAL_MANAGEMENT_SYSTEM_WARNING(Doc.of(Level.WARNING)),
 		BMS_RS485_COMMUNICATION_ABNORMAL(Doc.of(Level.FAULT)),
 		PCS_RS485_COMMUNICATION_ABNORMAL(Doc.of(Level.FAULT)),
 		CABINET_EMERGENCY_STOP(Doc.of(Level.WARNING)),
@@ -148,12 +103,12 @@ public interface HyperCube extends HyperInverter, HyperBattery,
 		// Alarm Value 5
 		SUBSYSTEM_HIGH_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
 		SUBSYSTEM_LOW_VOLTAGE_WARNING(Doc.of(Level.WARNING)),
-		COOLING_SYSTEM_FAULT(Doc.of(Level.FAULT)),
+		THERMAL_MANAGEMENT_SYSTEM_FAULT(Doc.of(Level.FAULT)),
 
 		// Alarm Value 6
 		QS_FUSE_FAULT(Doc.of(Level.WARNING)),
 		QF_TRIP_FAULT(Doc.of(Level.WARNING)),
-		COOLING_SYSTEM_ALARM(Doc.of(Level.WARNING)),
+		THERMAL_MANAGEMENT_SYSTEM_ALARM(Doc.of(Level.WARNING)),
 		;
 
 		private final Doc doc;
@@ -222,8 +177,6 @@ public interface HyperCube extends HyperInverter, HyperBattery,
 	 */
 	public StartStop getStartStopTarget();
 
-	public HyperCubeModel getModel();
-
 	/**
 	 * Gets the Channel for {@link ChannelId#OPERATING_STATUS}.
 	 *
@@ -240,19 +193,6 @@ public interface HyperCube extends HyperInverter, HyperBattery,
 	 */
 	public default Value<OperatingStatus> getOperationState() {
 		return this.getOperationStateChannel().value();
-	}
-
-	public static void activateAllowedPowerHandler(HyperCube ess, ClockProvider clock,
-			AllowedPowerHandler allowedPower) {
-
-		final Consumer<Value<Integer>> accept = ignore -> {
-			allowedPower.accept(clock);
-		};
-		ess.getStartStopChannel().onChange((ignore0, ignore1) -> {
-			allowedPower.accept(clock);
-		});
-		ess.getBatteryDischargeMaxPowerChannel().onSetNextValue(accept);
-		ess.getBatteryChargeMaxPowerChannel().onSetNextValue(accept);
 	}
 
 }
