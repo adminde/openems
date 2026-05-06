@@ -8,11 +8,6 @@ import static org.osgi.service.component.annotations.ReferencePolicyOption.GREED
 
 import java.time.Clock;
 
-import io.openems.edge.battery.api.Battery;
-import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
-import io.openems.edge.common.event.EdgeEventConstants;
-import io.openems.edge.oros.bms.BatteryManagementSystem;
-import io.openems.edge.oros.pcs.PowerConversionSystem;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -49,6 +44,7 @@ import io.openems.edge.common.channel.IntegerWriteChannel;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.cycle.Cycle;
+import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
@@ -64,9 +60,11 @@ import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 import io.openems.edge.ess.hyperstrong.thermal.ThermalManagementSystem;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.oros.SymmetricComponent;
+import io.openems.edge.oros.bms.BatteryManagementSystem;
 import io.openems.edge.oros.ess.AbstractStorageSystem;
 import io.openems.edge.oros.ess.EnergyStorageSystem;
 import io.openems.edge.oros.ess.protection.VoltageProtection;
+import io.openems.edge.oros.pcs.PowerConversionSystem;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 

@@ -1,11 +1,12 @@
 package io.openems.edge.oros.ess;
 
+import static io.openems.common.channel.PersistencePriority.HIGH;
+
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.common.utils.IntUtils;
 import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter;
-import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.jsonapi.ComponentJsonApi;
@@ -24,8 +25,6 @@ import io.openems.edge.oros.bms.BatteryManagementSystem;
 import io.openems.edge.oros.ess.protection.PowerLimiter;
 import io.openems.edge.oros.ess.protection.VoltageProtection;
 import io.openems.edge.oros.pcs.PowerConversionSystem;
-
-import static io.openems.common.channel.PersistencePriority.HIGH;
 
 public interface EnergyStorageSystem extends
 		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge, VoltageProtection,

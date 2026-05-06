@@ -12,7 +12,7 @@ public @interface Config {
 	String id() default "pcs0";
 
 	@AttributeDefinition(name = "Alias", description = "Human-readable name of this Component; defaults to Component-ID")
-	String alias() default "HyperCube II PCS 0";
+	String alias() default "HyperCube II 0 PCS";
 
 	@AttributeDefinition(name = "Is enabled?", description = "Is this Component enabled?")
 	boolean enabled() default true;

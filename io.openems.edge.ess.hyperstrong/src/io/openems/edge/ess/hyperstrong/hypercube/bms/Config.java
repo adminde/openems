@@ -3,8 +3,6 @@ package io.openems.edge.ess.hyperstrong.hypercube.bms;
 import org.osgi.service.metatype.annotations.AttributeDefinition;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
-import io.openems.edge.common.startstop.StartStopConfig;
-
 @ObjectClassDefinition(
 		name = "HyperStrong HyperCube II BMS",
 		description = "Implements the HyperStrong HyperCube II Battery Management System.")
@@ -14,7 +12,7 @@ public @interface Config {
 	String id() default "bms0";
 
 	@AttributeDefinition(name = "Alias", description = "Human-readable name of this Component; defaults to Component-ID")
-	String alias() default "HyperCube II BMS 0";
+	String alias() default "HyperCube II 0 BMS";
 
 	@AttributeDefinition(name = "Is enabled?", description = "Is this Component enabled?")
 	boolean enabled() default true;
