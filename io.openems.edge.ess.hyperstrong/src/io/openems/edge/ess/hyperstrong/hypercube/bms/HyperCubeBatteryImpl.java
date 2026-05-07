@@ -139,52 +139,71 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 								new UnsignedWordElement(10017)),
 						m(new UnsignedWordElement(10018)).build().onUpdateCallback(value -> {
 							convertAlarm(0, value,
-									this.channel(AlarmChannelId.HIGH_CELL_VOLTAGE_WARNING),
-									this.channel(AlarmChannelId.HIGH_CELL_VOLTAGE_FAULT));
+									this.channel(AlarmChannelId.HIGH_CELL_VOLTAGE_FAULT),
+									this.channel(AlarmChannelId.HIGH_CELL_VOLTAGE_INFO),
+									this.channel(AlarmChannelId.HIGH_CELL_VOLTAGE_WARNING));
 							convertAlarm(2, value,
-									this.channel(AlarmChannelId.LOW_CELL_VOLTAGE_WARNING),
-									this.channel(AlarmChannelId.LOW_CELL_VOLTAGE_FAULT));
+									this.channel(AlarmChannelId.LOW_CELL_VOLTAGE_FAULT),
+									this.channel(AlarmChannelId.LOW_CELL_VOLTAGE_INFO),
+									this.channel(AlarmChannelId.LOW_CELL_VOLTAGE_WARNING));
 							convertAlarm(4, value,
+									this.channel(AlarmChannelId.IMBALANCE_CELL_VOLTAGE_FAULT),
 									this.channel(AlarmChannelId.IMBALANCE_CELL_VOLTAGE_WARNING),
-									this.channel(AlarmChannelId.IMBALANCE_CELL_VOLTAGE_FAULT));
+									this.channel(AlarmChannelId.IMBALANCE_CELL_VOLTAGE_SEVERE_WARNING));
 							convertAlarm(12, value,
-									this.channel(AlarmChannelId.HIGH_VOLTAGE_WARNING),
-									this.channel(AlarmChannelId.HIGH_VOLTAGE_FAULT));
+									this.channel(AlarmChannelId.HIGH_VOLTAGE_FAULT),
+									this.channel(AlarmChannelId.HIGH_VOLTAGE_INFO),
+									this.channel(AlarmChannelId.HIGH_VOLTAGE_WARNING));
 							convertAlarm(14, value,
-									this.channel(AlarmChannelId.LOW_VOLTAGE_WARNING),
-									this.channel(AlarmChannelId.LOW_VOLTAGE_FAULT));
+									this.channel(AlarmChannelId.LOW_VOLTAGE_FAULT),
+									this.channel(AlarmChannelId.LOW_VOLTAGE_INFO),
+									this.channel(AlarmChannelId.LOW_VOLTAGE_WARNING));
 						}),
 						new DummyRegisterElement(10019),
 						m(new UnsignedWordElement(10020)).build().onUpdateCallback(value -> {
-							convertAlarm(0, value, this.channel(AlarmChannelId.HIGH_DISCHARGE_CURRENT_FAULT));
-							convertAlarm(2, value, this.channel(AlarmChannelId.HIGH_CHARGE_CURRENT_FAULT));
+							convertAlarm(0, value,
+									this.channel(AlarmChannelId.HIGH_DISCHARGE_CURRENT_FAULT),
+									this.channel(AlarmChannelId.HIGH_DISCHARGE_CURRENT_SEVERE_FAULT),
+									this.channel(AlarmChannelId.HIGH_DISCHARGE_CURRENT_CRITICAL_FAULT));
+							convertAlarm(2, value,
+									this.channel(AlarmChannelId.HIGH_CHARGE_CURRENT_FAULT),
+									this.channel(AlarmChannelId.HIGH_CHARGE_CURRENT_SEVERE_FAULT),
+									this.channel(AlarmChannelId.HIGH_CHARGE_CURRENT_CRITICAL_FAULT));
 							convertAlarm(4, value,
-									this.channel(AlarmChannelId.HIGH_TEMPERATURE_WARNING),
-									this.channel(AlarmChannelId.HIGH_TEMPERATURE_FAULT));
+									this.channel(AlarmChannelId.HIGH_TEMPERATURE_FAULT),
+									this.channel(AlarmChannelId.HIGH_TEMPERATURE_INFO),
+									this.channel(AlarmChannelId.HIGH_TEMPERATURE_WARNING));
 							convertAlarm(6, value,
-									this.channel(AlarmChannelId.LOW_TEMPERATURE_WARNING),
-									this.channel(AlarmChannelId.LOW_TEMPERATURE_FAULT));
+									this.channel(AlarmChannelId.LOW_TEMPERATURE_FAULT),
+									this.channel(AlarmChannelId.LOW_TEMPERATURE_INFO),
+									this.channel(AlarmChannelId.LOW_TEMPERATURE_WARNING));
 							convertAlarm(8, value,
-									this.channel(AlarmChannelId.HIGH_TEMPERATURE_DIFFERENTIAL_WARNING),
-									this.channel(AlarmChannelId.HIGH_TEMPERATURE_DIFFERENTIAL_FAULT));
+									this.channel(AlarmChannelId.HIGH_TEMPERATURE_DIFFERENTIAL_FAULT),
+									this.channel(AlarmChannelId.HIGH_TEMPERATURE_DIFFERENTIAL_INFO),
+									this.channel(AlarmChannelId.HIGH_TEMPERATURE_DIFFERENTIAL_WARNING));
 							convertAlarm(10, value,
+									this.channel(AlarmChannelId.RAPID_TEMPERATURE_RISE_FAULT),
 									this.channel(AlarmChannelId.RAPID_TEMPERATURE_RISE_WARNING),
-									this.channel(AlarmChannelId.RAPID_TEMPERATURE_RISE_FAULT));
+									this.channel(AlarmChannelId.RAPID_TEMPERATURE_RISE_SEVERE_WARNING));
 						}),
 						new DummyRegisterElement(10021),
 						m(new UnsignedWordElement(10022)).build().onUpdateCallback(value -> {
 							convertAlarm(4, value,
-									this.channel(AlarmChannelId.HIGH_SOC_WARNING),
-									this.channel(AlarmChannelId.HIGH_SOC_FAULT));
+									this.channel(AlarmChannelId.HIGH_SOC_FAULT),
+									this.channel(AlarmChannelId.HIGH_SOC_INFO),
+									this.channel(AlarmChannelId.HIGH_SOC_WARNING));
 							convertAlarm(6, value,
-									this.channel(AlarmChannelId.LOW_SOC_WARNING),
-									this.channel(AlarmChannelId.LOW_SOC_FAULT));
+									this.channel(AlarmChannelId.LOW_SOC_FAULT),
+									this.channel(AlarmChannelId.LOW_SOC_INFO),
+									this.channel(AlarmChannelId.LOW_SOC_WARNING));
 							convertAlarm(12, value,
-									this.channel(AlarmChannelId.HIGH_BUSBAR_TEMPERATURE_WARNING),
-									this.channel(AlarmChannelId.HIGH_BUSBAR_TEMPERATURE_FAULT));
+									this.channel(AlarmChannelId.HIGH_BUSBAR_TEMPERATURE_FAULT),
+									this.channel(AlarmChannelId.HIGH_BUSBAR_TEMPERATURE_INFO),
+									this.channel(AlarmChannelId.HIGH_BUSBAR_TEMPERATURE_WARNING));
 							convertAlarm(14, value,
+									this.channel(AlarmChannelId.EXCESSIVE_BATTERY_VOLTAGE_DIFFERENTIAL_FAULT),
 									this.channel(AlarmChannelId.EXCESSIVE_BATTERY_VOLTAGE_DIFFERENTIAL_WARNING),
-									this.channel(AlarmChannelId.EXCESSIVE_BATTERY_VOLTAGE_DIFFERENTIAL_FAULT));
+									this.channel(AlarmChannelId.EXCESSIVE_BATTERY_VOLTAGE_DIFFERENTIAL_SEVERE_WARNING));
 						}),
 						new DummyRegisterElement(10023),
 						m(new BitsWordElement(10024, this)
@@ -198,14 +217,17 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 						new DummyRegisterElement(10025),
 						m(new UnsignedWordElement(10026)).build().onUpdateCallback(value -> {
 							convertAlarm(2, value,
+									this.channel(AlarmChannelId.HIGH_CONTACTOR_TEMPERATURE_FAULT),
 									this.channel(AlarmChannelId.HIGH_CONTACTOR_TEMPERATURE_WARNING),
-									this.channel(AlarmChannelId.HIGH_CONTACTOR_TEMPERATURE_FAULT));
+									this.channel(AlarmChannelId.HIGH_CONTACTOR_TEMPERATURE_SEVERE_WARNING));
 							convertAlarm(4, value,
+									this.channel(AlarmChannelId.HIGH_POWER_MODULE_TEMPERATURE_FAULT),
 									this.channel(AlarmChannelId.HIGH_POWER_MODULE_TEMPERATURE_WARNING),
-									this.channel(AlarmChannelId.HIGH_POWER_MODULE_TEMPERATURE_FAULT));
+									this.channel(AlarmChannelId.HIGH_POWER_MODULE_TEMPERATURE_SEVERE_WARNING));
 							convertAlarm(8, value,
+									this.channel(AlarmChannelId.HIGH_CONNECTOR_TEMPERATURE_FAULT),
 									this.channel(AlarmChannelId.HIGH_CONNECTOR_TEMPERATURE_WARNING),
-									this.channel(AlarmChannelId.HIGH_CONNECTOR_TEMPERATURE_FAULT));
+									this.channel(AlarmChannelId.HIGH_CONNECTOR_TEMPERATURE_SEVERE_WARNING));
 						}),
 						new DummyRegisterElement(10027),
 						m(new BitsWordElement(10028, this)
@@ -235,20 +257,25 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 						new DummyRegisterElement(10031, 10033),
 						m(new UnsignedWordElement(10034)).build().onUpdateCallback(value -> {
 							convertAlarm(0, value,
+									this.channel(AlarmChannelId.IMBALANCE_CELL_CHARGE_VOLTAGE_FAULT),
 									this.channel(AlarmChannelId.IMBALANCE_CELL_CHARGE_VOLTAGE_WARNING),
-									this.channel(AlarmChannelId.IMBALANCE_CELL_CHARGE_VOLTAGE_FAULT));
+									this.channel(AlarmChannelId.IMBALANCE_CELL_CHARGE_VOLTAGE_SEVERE_WARNING));
 							convertAlarm(2, value,
+									this.channel(AlarmChannelId.IMBALANCE_CELL_DISCHARGE_VOLTAGE_FAULT),
 									this.channel(AlarmChannelId.IMBALANCE_CELL_DISCHARGE_VOLTAGE_WARNING),
-									this.channel(AlarmChannelId.IMBALANCE_CELL_DISCHARGE_VOLTAGE_FAULT));
+									this.channel(AlarmChannelId.IMBALANCE_CELL_DISCHARGE_VOLTAGE_SEVERE_WARNING));
 							convertAlarm(4, value,
-									this.channel(AlarmChannelId.HIGH_PACK_VOLTAGE_WARNING),
-									this.channel(AlarmChannelId.HIGH_PACK_VOLTAGE_FAULT));
+									this.channel(AlarmChannelId.HIGH_PACK_VOLTAGE_FAULT),
+									this.channel(AlarmChannelId.HIGH_PACK_VOLTAGE_INFO),
+									this.channel(AlarmChannelId.HIGH_PACK_VOLTAGE_WARNING));
 							convertAlarm(6, value,
-									this.channel(AlarmChannelId.LOW_PACK_VOLTAGE_WARNING),
-									this.channel(AlarmChannelId.LOW_PACK_VOLTAGE_FAULT));
+									this.channel(AlarmChannelId.LOW_PACK_VOLTAGE_FAULT),
+									this.channel(AlarmChannelId.LOW_PACK_VOLTAGE_INFO),
+									this.channel(AlarmChannelId.LOW_PACK_VOLTAGE_WARNING));
 							convertAlarm(8, value,
-									this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_WARNING),
-									this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_FAULT), 3);
+									this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_FAULT),
+									this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_SEVERE_FAULT),
+									this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_WARNING));
 						})),
 
 				//defineModbusCellAnalyticsTask(10057),

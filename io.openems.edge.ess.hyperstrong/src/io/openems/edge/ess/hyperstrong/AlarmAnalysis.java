@@ -17,112 +17,72 @@ import io.openems.edge.common.channel.Channel;
 public class AlarmAnalysis {
 
 	/**
-	 * Decodes a 16-bit alarm register and sets an alarm channel,
-	 * using the default fault threshold of {@code 1}.
-	 *
-	 * @param bit            the bit-pair index (0–14)
-	 * @param register       the register value; if {@code null} both channels are
-	 *                       set to {@code null}
-	 * @param channel        the channel set to {@code true} when the 2-bit pair is
-	 *                       above a specified threshold
-	 */
-	public static void convertAlarm(int bit, Integer register, Channel<Level> channel) {
-		convertAlarm(bit, register, channel, 1);
-	}
-
-	/**
-	 * Decodes a 16-bit alarm register and sets an alarm channel
-	 * with a configurable alarm threshold.
+	 * Decodes a 16-bit alarm registers 2-bit pair and dispatches one of three
+	 * severity-channels based on the encoded code value.
 	 *
 	 * <p>
 	 * Each 2-bit pair is interpreted as an integer status code:
 	 * <ul>
-	 * <li>{@code 0} = no alarm</li>
-	 * <li>{@code ≥ threshold} = alarm</li>
+	 * <li>{@code 0} = no alarm (all channels false)</li>
+	 * <li>{@code 1} = {@code code1Channel} is set true</li>
+	 * <li>{@code 2} = {@code code2Channel} is set true</li>
+	 * <li>{@code 3} = {@code code3Channel} is set true</li>
 	 * </ul>
 	 *
-	 * @param bit            the bit-pair index (0–14)
-	 * @param register       the register value; if {@code null} both channels are
-	 *                       set to {@code null}
-	 * @param channel        the channel set to {@code true} when the 2-bit pair is
-	 *                       above a specified threshold
-	 * @param threshold      the minimum status code considered an alarm (typically
-	 *                       {@code 1} to {@code 3})
+	 * <p>
+	 * Each channel parameter may be {@code null} if that code is not used for
+	 * this alarm. When {@code register} is {@code null}, all non-null channels
+	 * are reset to {@code null}.
+	 *
+	 * <p>
+	 * The mapping of code values to OpenEMS {@link Level} severities is encoded
+	 * by the caller via the channel's {@code Doc.of(Level.…)}. Common
+	 * HyperStrong patterns:
+	 * <ul>
+	 * <li>Variant A (Default, {@code 0:Normal, 1:Fault, 2~3:Warning}): pass
+	 *     channels with Levels FAULT / INFO / WARNING.</li>
+	 * <li>Variant A-Strict (safety-critical): pass channels with Levels
+	 *     FAULT / WARNING / WARNING (suffixed {@code _SEVERE_WARNING}).</li>
+	 * <li>Variant B ({@code 1~3:Fault}): pass channels with Levels
+	 *     FAULT / FAULT / FAULT (suffixed {@code _SEVERE_FAULT} /
+	 *     {@code _CRITICAL_FAULT}).</li>
+	 * <li>Variant C ({@code 1~2:Fault, 3:Warning}): pass channels with Levels
+	 *     FAULT / FAULT / WARNING.</li>
+	 * </ul>
+	 *
+	 * @param bit           the bit-pair index (0–14)
+	 * @param register      the register value; if {@code null} all non-null
+	 *                      channels are set to {@code null}
+	 * @param code1Channel  channel set {@code true} on code 1, may be {@code null}
+	 * @param code2Channel  channel set {@code true} on code 2, may be {@code null}
+	 * @param code3Channel  channel set {@code true} on code 3, may be {@code null}
 	 */
 	public static void convertAlarm(int bit, Integer register,
-			Channel<Level> channel, int threshold) {
+			Channel<Level> code1Channel,
+			Channel<Level> code2Channel,
+			Channel<Level> code3Channel) {
 		if (register == null) {
-			channel.setNextValue(null);
+			if (code1Channel != null) {
+				code1Channel.setNextValue(null);
+			}
+			if (code2Channel != null) {
+				code2Channel.setNextValue(null);
+			}
+			if (code3Channel != null) {
+				code3Channel.setNextValue(null);
+			}
 			return;
 		}
-		int alarm = convertAlarmInteger(bit, register);
-
-		channel.setNextValue(alarm >= threshold);
-	}
-
-	/**
-	 * Decodes a 16-bit alarm register and sets warning and fault channels
-	 * with an alarm threshold of 2.
-	 *
-	 * <p>
-	 * Each 2-bit pair is interpreted as an integer status code:
-	 * <ul>
-	 * <li>{@code 0} = no alarm</li>
-	 * <li>{@code < threshold} = fault</li>
-	 * <li>{@code ≥ threshold} = warning</li>
-	 * </ul>
-	 *
-	 * @param bit            the bit-pair index (0–14)
-	 * @param register       the register value; if {@code null} both channels are
-	 *                       set to {@code null}
-	 * @param warnChannel    the channel set to {@code true} when the 2-bit pair is
-	 *                       above a specified threshold
-	 * @param faultChannel   the channel set to {@code true} when the 2-bit pair is
-	 *                       above a specified threshold
-	 */
-	public static void convertAlarm(int bit, Integer register,
-				Channel<Level> warnChannel, Channel<Level> faultChannel) {
-		convertAlarm(bit, register, warnChannel, faultChannel, 2);
-	}
-
-	/**
-	 * Decodes a 16-bit alarm register and sets warning and fault channels
-	 * with a configurable alarm threshold.
-	 *
-	 * <p>
-	 * Each 2-bit pair is interpreted as an integer status code:
-	 * <ul>
-	 * <li>{@code 0} = no alarm</li>
-	 * <li>{@code < threshold} = fault</li>
-	 * <li>{@code ≥ threshold} = warning</li>
-	 * </ul>
-	 *
-	 * @param bit            the bit-pair index (0–14)
-	 * @param register       the register value; if {@code null} both channels are
-	 *                       set to {@code null}
-	 * @param warnChannel    the channel set to {@code true} when the 2-bit pair is
-	 *                       above a specified threshold
-	 * @param faultChannel   the channel set to {@code true} when the 2-bit pair is
-	 *                       above a specified threshold
-	 * @param threshold      the minimum status code considered an alarm (typically
-	 *                       {@code 2} or {@code 3})
-	 */
-	public static void convertAlarm(int bit, Integer register,
-				Channel<Level> warnChannel, Channel<Level> faultChannel, int threshold) {
-		if (register == null) {
-			warnChannel.setNextValue(null);
-			faultChannel.setNextValue(null);
-			return;
+		int code = convertAlarmInteger(bit, register);
+		if (code1Channel != null) {
+			code1Channel.setNextValue(code == 1);
 		}
-		int alarm = convertAlarmInteger(bit, register);
-		boolean warning = false;
-		boolean fault = false;
-		if (alarm > 0) {
-			fault = alarm < threshold;
-			warning = alarm >= threshold;
+		if (code2Channel != null) {
+			code2Channel.setNextValue(code == 2);
 		}
-		warnChannel.setNextValue(warning);
-		faultChannel.setNextValue(fault);
+		if (code3Channel != null) {
+			code3Channel.setNextValue(code == 3);
+		}
 	}
 
 	/**
