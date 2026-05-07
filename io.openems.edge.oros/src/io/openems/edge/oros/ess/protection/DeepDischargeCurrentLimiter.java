@@ -6,7 +6,7 @@ import static java.lang.Math.max;
 
 import io.openems.edge.common.filter.PT1Filter;
 import io.openems.edge.oros.bms.BatteryManagementSystem;
-import io.openems.edge.oros.bms.protection.VoltageProtection;
+import io.openems.edge.oros.bms.BatteryProtection;
 import io.openems.edge.oros.pcs.PowerConversionSystem;
 import io.openems.edge.oros.ess.EnergyStorageSystem;
 
@@ -22,7 +22,7 @@ public class DeepDischargeCurrentLimiter extends CurrentLimiter {
 				battery.getCurrent().get(),
 				battery.getVoltage().get(),
 				battery.getDischargeMinVoltage().get(),
-				battery instanceof VoltageProtection b ? b.getDeepDischargeProtectionVoltage().get() : null,
+				battery instanceof BatteryProtection b ? b.getDeepDischargeProtectionVoltage().get() : null,
 				inverter.getDcMinVoltage().get());
 	}
 

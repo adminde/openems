@@ -7,7 +7,7 @@ import static java.lang.Math.max;
 
 import io.openems.edge.common.filter.PT1Filter;
 import io.openems.edge.oros.bms.BatteryManagementSystem;
-import io.openems.edge.oros.bms.protection.VoltageProtection;
+import io.openems.edge.oros.bms.BatteryProtection;
 import io.openems.edge.oros.pcs.PowerConversionSystem;
 import io.openems.edge.oros.ess.EnergyStorageSystem;
 
@@ -23,7 +23,7 @@ public class OverChargeCurrentLimiter extends CurrentLimiter {
 				battery.getCurrent().get(),
 				battery.getVoltage().get(),
 				battery.getChargeMaxVoltage().get(),
-				battery instanceof VoltageProtection b ? b.getOverChargeProtectionVoltage().get() : null,
+				battery instanceof BatteryProtection b ? b.getOverChargeProtectionVoltage().get() : null,
 				inverter.getDcMaxVoltage().get());
 	}
 

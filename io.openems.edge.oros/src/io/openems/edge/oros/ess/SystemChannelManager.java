@@ -96,12 +96,14 @@ public class SystemChannelManager extends AbstractChannelListenerManager {
 	}
 
 	private void addInverterListener(PowerConversionSystem inverter) {
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				BatteryInverterErrorAcknowledge.ChannelId.TIMEOUT_START_BATTERY_INVERTER,
-				EssErrorAcknowledge.ChannelId.TIMEOUT_START_BATTERY_INVERTER);
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				BatteryInverterErrorAcknowledge.ChannelId.TIMEOUT_STOP_BATTERY_INVERTER,
-				EssErrorAcknowledge.ChannelId.TIMEOUT_STOP_BATTERY_INVERTER);
+		if (inverter instanceof BatteryInverterErrorAcknowledge) {
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					BatteryInverterErrorAcknowledge.ChannelId.TIMEOUT_START_BATTERY_INVERTER,
+					EssErrorAcknowledge.ChannelId.TIMEOUT_START_BATTERY_INVERTER);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					BatteryInverterErrorAcknowledge.ChannelId.TIMEOUT_STOP_BATTERY_INVERTER,
+					EssErrorAcknowledge.ChannelId.TIMEOUT_STOP_BATTERY_INVERTER);
+		}
 
 		this.<Long>addOnSetNextMirrorListener(inverter,
 				SymmetricBatteryInverter.ChannelId.GRID_MODE,
@@ -109,28 +111,31 @@ public class SystemChannelManager extends AbstractChannelListenerManager {
 		this.<Long>addOnSetNextMirrorListener(inverter,
 				SymmetricBatteryInverter.ChannelId.MAX_APPARENT_POWER,
 				SymmetricEss.ChannelId.MAX_APPARENT_POWER);
-		switch (inverter) {
-			case HybridManagedSymmetricBatteryInverter hybridInverter -> {
-				this.<Long>addOnSetNextMirrorListener(hybridInverter,
-						HybridManagedSymmetricBatteryInverter.ChannelId.DC_CHARGE_ENERGY,
-						HybridEss.ChannelId.DC_CHARGE_ENERGY);
-				this.<Long>addOnSetNextMirrorListener(hybridInverter,
-						HybridManagedSymmetricBatteryInverter.ChannelId.DC_DISCHARGE_ENERGY,
-						HybridEss.ChannelId.DC_DISCHARGE_ENERGY);
-				this.<Long>addOnSetNextMirrorListener(hybridInverter,
-						HybridManagedSymmetricBatteryInverter.ChannelId.DC_DISCHARGE_POWER,
-						HybridEss.ChannelId.DC_DISCHARGE_POWER);
-			}
-			case ManagedSymmetricBatteryInverter batteryInverter -> {
-				this.<Long>addOnSetNextMirrorListener(batteryInverter,
-						SymmetricBatteryInverter.ChannelId.ACTIVE_CHARGE_ENERGY,
-						HybridEss.ChannelId.DC_CHARGE_ENERGY);
-				this.<Long>addOnSetNextMirrorListener(batteryInverter,
-						SymmetricBatteryInverter.ChannelId.ACTIVE_DISCHARGE_ENERGY,
-						HybridEss.ChannelId.DC_DISCHARGE_ENERGY);
-				this.<Long>addOnSetNextMirrorListener(batteryInverter,
-						SymmetricBatteryInverter.ChannelId.ACTIVE_POWER,
-						HybridEss.ChannelId.DC_DISCHARGE_POWER);
+
+		if (this.parent instanceof HybridEss) {
+			switch (inverter) {
+				case HybridManagedSymmetricBatteryInverter hybridInverter -> {
+					this.<Long>addOnSetNextMirrorListener(hybridInverter,
+							HybridManagedSymmetricBatteryInverter.ChannelId.DC_CHARGE_ENERGY,
+							HybridEss.ChannelId.DC_CHARGE_ENERGY);
+					this.<Long>addOnSetNextMirrorListener(hybridInverter,
+							HybridManagedSymmetricBatteryInverter.ChannelId.DC_DISCHARGE_ENERGY,
+							HybridEss.ChannelId.DC_DISCHARGE_ENERGY);
+					this.<Long>addOnSetNextMirrorListener(hybridInverter,
+							HybridManagedSymmetricBatteryInverter.ChannelId.DC_DISCHARGE_POWER,
+							HybridEss.ChannelId.DC_DISCHARGE_POWER);
+				}
+				case ManagedSymmetricBatteryInverter batteryInverter -> {
+					this.<Long>addOnSetNextMirrorListener(batteryInverter,
+							SymmetricBatteryInverter.ChannelId.ACTIVE_CHARGE_ENERGY,
+							HybridEss.ChannelId.DC_CHARGE_ENERGY);
+					this.<Long>addOnSetNextMirrorListener(batteryInverter,
+							SymmetricBatteryInverter.ChannelId.ACTIVE_DISCHARGE_ENERGY,
+							HybridEss.ChannelId.DC_DISCHARGE_ENERGY);
+					this.<Long>addOnSetNextMirrorListener(batteryInverter,
+							SymmetricBatteryInverter.ChannelId.ACTIVE_POWER,
+							HybridEss.ChannelId.DC_DISCHARGE_POWER);
+				}
 			}
 		}
 		this.<Long>addOnSetNextMirrorListener(inverter,
@@ -195,13 +200,14 @@ public class SystemChannelManager extends AbstractChannelListenerManager {
 	}
 
 	private void addBatteryListener(ClockProvider clock, BatteryManagementSystem battery) {
-		this.<Long>addOnSetNextMirrorListener(battery,
-				BatteryErrorAcknowledge.ChannelId.TIMEOUT_START_BATTERY,
-				EssErrorAcknowledge.ChannelId.TIMEOUT_START_BATTERY);
-		this.<Long>addOnSetNextMirrorListener(battery,
-				BatteryErrorAcknowledge.ChannelId.TIMEOUT_STOP_BATTERY,
-				EssErrorAcknowledge.ChannelId.TIMEOUT_STOP_BATTERY);
-
+		if (battery instanceof BatteryErrorAcknowledge) {
+			this.<Long>addOnSetNextMirrorListener(battery,
+					BatteryErrorAcknowledge.ChannelId.TIMEOUT_START_BATTERY,
+					EssErrorAcknowledge.ChannelId.TIMEOUT_START_BATTERY);
+			this.<Long>addOnSetNextMirrorListener(battery,
+					BatteryErrorAcknowledge.ChannelId.TIMEOUT_STOP_BATTERY,
+					EssErrorAcknowledge.ChannelId.TIMEOUT_STOP_BATTERY);
+		}
 		this.addOnSetNextValueListener(battery, Battery.ChannelId.CHARGE_MAX_VOLTAGE,
 				ignored -> this.overChargeCurrentLimiter.accept(clock));
 		this.addOnSetNextValueListener(battery, Battery.ChannelId.DISCHARGE_MIN_VOLTAGE,

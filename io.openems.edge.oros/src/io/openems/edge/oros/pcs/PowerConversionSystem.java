@@ -4,7 +4,6 @@ import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
-import io.openems.edge.batteryinverter.api.BatteryInverterErrorAcknowledge;
 import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.common.channel.Doc;
@@ -18,7 +17,7 @@ import io.openems.edge.oros.SymmetricComponent;
 
 
 public interface PowerConversionSystem extends
-		ManagedSymmetricBatteryInverter, SymmetricBatteryInverter, BatteryInverterErrorAcknowledge,
+		ManagedSymmetricBatteryInverter, SymmetricBatteryInverter,
 		ModbusSlave, SymmetricComponent, OpenemsComponent  {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {

@@ -30,9 +30,6 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 	private final OverChargeCurrentLimiter overChargeCurrentLimiter;
 	private final DeepDischargeCurrentLimiter deepDischargeCurrentLimiter;
 
-	private final float maxAllowedChargePowerIncrease;
-	private final float maxAllowedDischargePowerIncrease;
-
 	private float lastAllowedChargePower;
 	private float lastAllowedDischargePower;
 
@@ -45,13 +42,6 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 		this.parent = parent;
 		this.overChargeCurrentLimiter = overChargeCurrentLimiter;
 		this.deepDischargeCurrentLimiter = deepDischargeCurrentLimiter;
-
-		var pcs = parent.getPowerConversionSystem();
-		var increaseFactor = parent.getMaxPowerIncreasePercentage() / 100.F;
-		this.maxAllowedChargePowerIncrease = max(parent.getPowerPrecision(),
-				pcs.getChargeMaxPower() * increaseFactor);
-		this.maxAllowedDischargePowerIncrease = max(parent.getPowerPrecision(),
-				pcs.getDischargeMaxPower() * increaseFactor);
 	}
 
 	@Override
@@ -85,29 +75,6 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 		}
 		this.parent.getAllowedChargePowerChannel().setNextValue(allowedChargePower);
 		this.parent._setAllowedDischargePower(allowedDischargePower);
-	}
-
-	/**
-	 * Applies the max increase ramp.
-	 *
-	 * @param maxIncrease the maximum increase per second in [W]
-	 * @param lastValue   the result value in [W] of previous run
-	 * @param newValue    the current value in [W]
-	 * @param lastInstant the timestamp of the previous run
-	 * @param thisInstant the current timestamp
-	 * @return the ramped value in [W]
-	 */
-	private static float calculateMaxIncrease(float maxIncrease, float lastValue, float newValue,
-				Instant lastInstant, Instant thisInstant) {
-		final float seconds;
-		if (lastValue < 0 || lastInstant == null) {
-			// Was in Force-Mode before
-			lastValue = 0;
-			seconds = 1.F;
-		} else {
-			seconds = Duration.between(lastInstant, thisInstant).toMillis() / 1000.F;
-		}
-		return min(newValue, lastValue + newValue * maxIncrease * seconds);
 	}
 
 	/**
@@ -170,18 +137,53 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 		 * In Non-Force Mode: apply the max increase ramp.
 		 */
 		if (charge > 0) {
-			charge = calculateMaxIncrease(this.maxAllowedChargePowerIncrease,
-					this.lastAllowedChargePower, charge,
-					this.lastCalculate, now);
+			charge = this.calculateMaxAllowedChargePower(charge, now);
 		}
 		if (discharge > 0) {
-			discharge = calculateMaxIncrease(this.maxAllowedDischargePowerIncrease,
-					this.lastAllowedDischargePower, discharge,
-					this.lastCalculate, now);
+			discharge = this.calculateMaxAllowedDischargePower(discharge, now);
 		}
 		this.lastCalculate = now;
 		this.lastAllowedChargePower = charge;
 		this.lastAllowedDischargePower = discharge;
+	}
+
+	private float calculateMaxAllowedChargePower(float chargePower, Instant thisCalculate) {
+		var maxIncreaseFactor = parent.getMaxPowerIncreasePercentage() / 100.F;
+		var maxIncrease = max(parent.getPowerPrecision(),
+				parent.getPowerConversionSystem().getChargeMaxPower() * maxIncreaseFactor);
+
+		return calculateMaxIncreasePower(this.lastAllowedDischargePower, chargePower, maxIncrease, this.lastCalculate, thisCalculate);
+	}
+
+	private float calculateMaxAllowedDischargePower(float dischargePower, Instant thisCalculate) {
+		var maxIncreaseFactor = parent.getMaxPowerIncreasePercentage() / 100.F;
+		var maxIncrease = max(parent.getPowerPrecision(),
+				parent.getPowerConversionSystem().getDischargeMaxPower() * maxIncreaseFactor);
+
+		return calculateMaxIncreasePower(this.lastAllowedDischargePower, dischargePower, maxIncrease, this.lastCalculate, thisCalculate);
+	}
+
+	/**
+	 * Applies the max increase ramp.
+	 *
+	 * @param maxIncrease the maximum increase per second in [W]
+	 * @param lastValue   the result value in [W] of previous run
+	 * @param newValue    the current value in [W]
+	 * @param lastInstant the timestamp of the previous run
+	 * @param thisInstant the current timestamp
+	 * @return the ramped value in [W]
+	 */
+	private static float calculateMaxIncreasePower(float lastValue, float newValue, float maxIncrease,
+				Instant lastInstant, Instant thisInstant) {
+		final float seconds;
+		if (lastValue < 0 || lastInstant == null) {
+			// Was in Force-Mode before
+			lastValue = 0;
+			seconds = 1.F;
+		} else {
+			seconds = Duration.between(lastInstant, thisInstant).toMillis() / 1000.F;
+		}
+		return min(newValue, lastValue + newValue * maxIncrease * seconds);
 	}
 
 	public void checkProtectionExtremes(ClockProvider clockProvider,

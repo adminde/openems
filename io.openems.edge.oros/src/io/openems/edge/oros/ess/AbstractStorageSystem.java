@@ -37,7 +37,6 @@ import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.power.api.Constraint;
 import io.openems.edge.oros.SymmetricComponent;
-import io.openems.edge.oros.ess.protection.VoltageProtection;
 import io.openems.edge.oros.pcs.PowerConversionSystem;
 import io.openems.edge.timedata.api.TimedataProvider;
 
@@ -46,7 +45,7 @@ import io.openems.edge.timedata.api.TimedataProvider;
  * consisting of a Power Conversion System component and a Battery Management System component.
  */
 public abstract class AbstractStorageSystem extends AbstractOpenemsModbusComponent implements EnergyStorageSystem,
-		ManagedSymmetricEss, SymmetricEss, SymmetricComponent, VoltageProtection, EssErrorAcknowledge,
+		ManagedSymmetricEss, SymmetricEss, SymmetricComponent, EnergyStorageProtection, EssErrorAcknowledge,
 		OpenemsComponent, ModbusComponent, ModbusSlave, ComponentJsonApi, RuntimeChannels,
 		TimedataProvider, EventHandler, StartStoppable {
 
@@ -116,6 +115,7 @@ public abstract class AbstractStorageSystem extends AbstractOpenemsModbusCompone
 		}
 		if (event.getTopic().equals(EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE)) {
 			this.handleStateMachine();
+			this.runtimeChannelsProvider.updateStateTime(this.getState());
 		}
 	}
 

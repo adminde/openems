@@ -23,11 +23,10 @@ import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.oros.SymmetricComponent;
 import io.openems.edge.oros.bms.BatteryManagementSystem;
 import io.openems.edge.oros.ess.protection.PowerLimiter;
-import io.openems.edge.oros.ess.protection.VoltageProtection;
 import io.openems.edge.oros.pcs.PowerConversionSystem;
 
 public interface EnergyStorageSystem extends
-		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge, VoltageProtection,
+		ManagedSymmetricEss, SymmetricEss, EnergyStorageProtection, EssErrorAcknowledge,
 		SymmetricComponent, OpenemsComponent, ComponentJsonApi, ModbusSlave, StartStoppable {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
@@ -42,6 +41,7 @@ public interface EnergyStorageSystem extends
 		 */
 		SET_ACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.WATT)
+				.accessMode(AccessMode.READ_WRITE)
 				.persistencePriority(HIGH)),
 		/**
 		 * Sets the Reactive Power in [var].
@@ -54,6 +54,7 @@ public interface EnergyStorageSystem extends
 		 */
 		SET_REACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.VOLT_AMPERE_REACTIVE)
+				.accessMode(AccessMode.READ_WRITE)
 				.persistencePriority(HIGH)),
 		;
 

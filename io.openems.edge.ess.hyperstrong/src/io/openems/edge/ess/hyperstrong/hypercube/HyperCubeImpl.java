@@ -62,8 +62,9 @@ import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.oros.SymmetricComponent;
 import io.openems.edge.oros.bms.BatteryManagementSystem;
 import io.openems.edge.oros.ess.AbstractStorageSystem;
+import io.openems.edge.oros.ess.EnergyStorageProtection;
 import io.openems.edge.oros.ess.EnergyStorageSystem;
-import io.openems.edge.oros.ess.protection.VoltageProtection;
+import io.openems.edge.oros.ess.RuntimeChannels;
 import io.openems.edge.oros.pcs.PowerConversionSystem;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
@@ -79,9 +80,9 @@ import io.openems.edge.timedata.api.TimedataProvider;
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
 })
 public class HyperCubeImpl extends AbstractStorageSystem implements HyperCube,
-		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, SymmetricComponent, EssErrorAcknowledge,
-		ThermalManagementSystem, VoltageProtection, OpenemsComponent, ModbusComponent, ModbusSlave,
-		TimedataProvider, EventHandler, StartStoppable {
+		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, SymmetricComponent,
+		EnergyStorageProtection, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave,
+		ThermalManagementSystem, RuntimeChannels, TimedataProvider, EventHandler, StartStoppable {
 
 	private final Logger log = LoggerFactory.getLogger(HyperCubeImpl.class);
 	private final StateMachine stateMachine = new StateMachine(State.UNDEFINED);
@@ -123,12 +124,16 @@ public class HyperCubeImpl extends AbstractStorageSystem implements HyperCube,
 				OpenemsComponent.ChannelId.values(),
 				ModbusComponent.ChannelId.values(),
 				StartStoppable.ChannelId.values(),
-				ThermalManagementSystem.ChannelId.values(),
-				EssErrorAcknowledge.ChannelId.values(),
+				SymmetricComponent.ChannelId.values(),
 				SymmetricEss.ChannelId.values(),
 				ManagedSymmetricEss.ChannelId.values(),
+				EnergyStorageSystem.ChannelId.values(),
+				EnergyStorageProtection.ChannelId.values(),
+				EssErrorAcknowledge.ChannelId.values(),
+				RuntimeChannels.ChannelId.values(),
 				HyperCube.ChannelId.values(),
-				HyperCube.AlarmChannelId.values()
+				HyperCube.AlarmChannelId.values(),
+				ThermalManagementSystem.ChannelId.values()
 		);
 	}
 

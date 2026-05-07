@@ -1,4 +1,4 @@
-package io.openems.edge.oros.ess.protection;
+package io.openems.edge.oros.ess;
 
 import static io.openems.common.channel.PersistencePriority.MEDIUM;
 import static io.openems.common.channel.Unit.AMPERE;
@@ -11,7 +11,7 @@ import io.openems.edge.common.channel.StateChannel;
 import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.OpenemsComponent;
 
-public interface VoltageProtection extends OpenemsComponent {
+public interface EnergyStorageProtection extends OpenemsComponent {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 		OVER_CHARGE_PROTECTION_CURRENT(Doc.of(INTEGER)
