@@ -192,7 +192,6 @@ public abstract class AbstractStorageSystem extends AbstractOpenemsModbusCompone
 		return constraints.toArray(new Constraint[constraints.size()]);
 	}
 
-	@Override
 	public StartStop getStartStopTarget() {
 		return switch (this.startStopConfig) {
 		case AUTO -> this.startStopTarget.get();

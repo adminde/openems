@@ -93,6 +93,24 @@ public interface PowerConversionSystem extends
 	}
 
 	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#DC_VOLTAGE} Channel.
+	 *
+	 * @param value the next value in [mV]
+	 */
+	public default void _setDcVoltage(Integer value) {
+		this.getDcVoltageChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#DC_VOLTAGE} Channel.
+	 *
+	 * @param value the next value in [mV]
+	 */
+	public default void _setDcVoltage(int value) {
+		this.getDcVoltageChannel().setNextValue(value);
+	}
+
+	/**
 	 * Gets the Channel for {@link ChannelId#DC_CURRENT}.
 	 *
 	 * @return the Channel
@@ -109,6 +127,24 @@ public interface PowerConversionSystem extends
 	 */
 	public default Value<Integer> getDcCurrent() {
 		return this.getDcCurrentChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#DC_CURRENT} Channel.
+	 *
+	 * @param value the next value in [mA]
+	 */
+	public default void _setDcCurrent(Integer value) {
+		this.getDcCurrentChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#DC_CURRENT} Channel.
+	 *
+	 * @param value the next value in [mA]
+	 */
+	public default void _setDcCurrent(int value) {
+		this.getDcCurrentChannel().setNextValue(value);
 	}
 
 	/**
@@ -131,12 +167,48 @@ public interface PowerConversionSystem extends
 	}
 
 	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#DC_POWER} Channel.
+	 *
+	 * @param value the next value in [W]
+	 */
+	public default void _setDcPower(Integer value) {
+		this.getDcPowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#DC_POWER} Channel.
+	 *
+	 * @param value the next value in [W]
+	 */
+	public default void _setDcPower(int value) {
+		this.getDcPowerChannel().setNextValue(value);
+	}
+
+	/**
 	 * Gets the Channel for {@link ChannelId#AIR_TEMPERATURE}.
 	 *
 	 * @return the Channel
 	 */
 	public default IntegerReadChannel getAirTemperatureChannel() {
 		return this.channel(ChannelId.AIR_TEMPERATURE);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#AIR_TEMPERATURE} Channel.
+	 *
+	 * @param value the next value in [dezi-°C]
+	 */
+	public default void _setAirTemperature(Integer value) {
+		this.getAirTemperatureChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#AIR_TEMPERATURE} Channel.
+	 *
+	 * @param value the next value in [dezi-°C]
+	 */
+	public default void _setAirTemperature(int value) {
+		this.getAirTemperatureChannel().setNextValue(value);
 	}
 
 	@Override

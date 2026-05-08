@@ -4,6 +4,7 @@ import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
+import static io.openems.edge.common.channel.ChannelUtils.setValue;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -15,6 +16,7 @@ import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.ClockProvider;
 import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.ess.api.HybridEss;
+import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.oros.ess.SystemChannelManager;
 import io.openems.edge.oros.ess.EnergyStorageSystem;
 
@@ -73,8 +75,8 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 					0);
 			allowedDischargePower += pvProduction;
 		}
-		this.parent.getAllowedChargePowerChannel().setNextValue(allowedChargePower);
-		this.parent._setAllowedDischargePower(allowedDischargePower);
+		setValue(this.parent, ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER, allowedChargePower);
+		setValue(this.parent, ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER, allowedDischargePower);
 	}
 
 	/**

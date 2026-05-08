@@ -9,14 +9,11 @@ import io.openems.common.utils.IntUtils;
 import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.OpenemsComponent;
-import io.openems.edge.common.jsonapi.ComponentJsonApi;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.modbusslave.ModbusSlaveTable;
-import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.common.statemachine.AbstractStateMachine;
 import io.openems.edge.common.type.TypeUtils;
-import io.openems.edge.ess.api.EssErrorAcknowledge;
 import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
@@ -26,8 +23,8 @@ import io.openems.edge.oros.ess.protection.PowerLimiter;
 import io.openems.edge.oros.pcs.PowerConversionSystem;
 
 public interface EnergyStorageSystem extends
-		ManagedSymmetricEss, SymmetricEss, EnergyStorageProtection, EssErrorAcknowledge,
-		SymmetricComponent, OpenemsComponent, ComponentJsonApi, ModbusSlave, StartStoppable {
+		ManagedSymmetricEss, SymmetricEss, EnergyStorageProtection,
+		SymmetricComponent, OpenemsComponent, ModbusSlave, StartStoppable {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 		/**
@@ -96,13 +93,6 @@ public interface EnergyStorageSystem extends
 	 */
 	public PowerConversionSystem getPowerConversionSystem();
 
-	/**
-	 * Gets the target Start/Stop mode from config or StartStop-Channel.
-	 *
-	 * @return {@link StartStop}
-	 */
-	public StartStop getStartStopTarget();
-
 	@Override
 	public default ModbusSlaveTable getModbusSlaveTable(AccessMode accessMode) {
 		return new ModbusSlaveTable(
@@ -123,17 +113,30 @@ public interface EnergyStorageSystem extends
 	 */
 	public static String generateDebugLog(EnergyStorageSystem ess, AbstractStateMachine<?, ?> stateMachine) {
 		var builder = new StringBuilder()
-				.append(stateMachine.debugLog());
+				.append(stateMachine.debugLog()).append("|");
+		return _generateDebugLog(ess, builder).toString();
+	}
 
-		builder.append("|SoC:").append(ess.getSoc().asString())
-				.append("|L:").append(ess.getActivePower().asString()).append("W");
+	/**
+	 * Generates a default DebugLog message for {@link EnergyStorageSystem} implementations
+	 *
+	 * @param ess      the {@link EnergyStorageSystem}
+	 * @return a debug log String
+	 */
+	public static String generateDebugLog(EnergyStorageSystem ess) {
+		return _generateDebugLog(ess, new StringBuilder()).toString();
+	}
+
+	private static StringBuilder _generateDebugLog(EnergyStorageSystem ess, StringBuilder builder) {
+		builder.append("SoC:").append(ess.getSoc().asString())
+				.append("|L:").append(ess.getActivePower().asString());
 
 		// For hybrid systems, show the actual battery charge power and PV production power
 		var pcs = ess.getPowerConversionSystem();
 		if (ess instanceof HybridEss hybridEss && pcs instanceof HybridManagedSymmetricBatteryInverter hybridPcs) {
 			var dcPvPower = hybridPcs.getDcPvPower();
 			if (dcPvPower != null) {
-				builder.append("|Battery:").append(hybridEss.getDcDischargePower().asString()).append("W");
+				builder.append("|Battery:").append(hybridEss.getDcDischargePower().asString());
 				builder.append("|PV:").append(dcPvPower).append("W");
 			}
 		}
@@ -147,7 +150,7 @@ public interface EnergyStorageSystem extends
 				.append(IntUtils.maxInteger(allowedCharge, TypeUtils.multiply(maxApparent, -1))).append("W")
 				.append(";")
 				.append(IntUtils.minInteger(allowedDischarge, maxApparent)).append("W");
-		return builder.toString();
+		return builder;
 	}
 
 }

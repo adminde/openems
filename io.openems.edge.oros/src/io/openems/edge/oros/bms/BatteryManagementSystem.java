@@ -544,12 +544,12 @@ public interface BatteryManagementSystem extends
 	private static StringBuilder _generateDebugLog(Battery battery, StringBuilder builder) {
 		return builder
 				.append("SoC:").append(battery.getSoc())
-				.append("|IV:").append(battery.getCurrent()).append("A")
-				.append(";").append(battery.getVoltage()).append("V")
-				.append("|Charge:").append(battery.getChargeMaxCurrent()).append("A")
-				.append(";").append(battery.getChargeMaxVoltage()).append("V")
-				.append("|Discharge:").append(battery.getDischargeMaxCurrent()).append("A")
-				.append(";").append(battery.getDischargeMinVoltage()).append("V");
+				.append("|IV:").append(battery.getCurrent())
+				.append(";").append(battery.getVoltage())
+				.append("|Charge:").append(battery.getChargeMaxCurrent())
+				.append(";").append(battery.getChargeMaxVoltage())
+				.append("|Discharge:").append(battery.getDischargeMaxCurrent())
+				.append(";").append(battery.getDischargeMinVoltage());
 	}
 
 	/**
