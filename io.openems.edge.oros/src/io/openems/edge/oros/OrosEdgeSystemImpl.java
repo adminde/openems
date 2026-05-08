@@ -46,7 +46,7 @@ public class OrosEdgeSystemImpl extends AbstractOpenemsComponent implements Oros
 	public static final String OROS_ENERGY_FULL_NAME = "OROS Energy Europe GmbH";
 
 	public static final String PACKAGE = "openems";
-	public static final String VERSION = "2024.4.1";  // TODO: Use versioneer or something similar
+	public static final String VERSION = "2024.5.1";  // TODO: Use versioneer or something similar
 
 	private static final List<Language> REQUIRED_LANGUAGES = List.of(
 			Language.DE,
