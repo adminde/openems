@@ -100,18 +100,19 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent
 		if (!this.isEnabled()) {
 			return;
 		}
-		var soc = bms.getRackSocChannel().value().get() / 100F;
+		// RACK_SOC channel is in [0.1 %] (per-mille) -> divide by 10 to get percent.
+		var soc = bms.getRackSocChannel().value().get() / 10F;
 
 		int maxChargePower = calculateAllowedChargePower(soc, this.config.maxChargePower());
 		int maxDischargePower = calculateAllowedDischargePower(soc, this.config.maxDischargePower());
-		if (soc == 100F && activePower < 0) {
+		if (soc >= 100F && activePower < 0) {
 			activePower = 0;
 			maxChargePower = 0;
 		}
 		else if (activePower < maxChargePower * -1) {
-			activePower = maxChargePower;
+			activePower = maxChargePower * -1;
 		}
-		if (soc == 0F && activePower > 0) {
+		if (soc <= 0F && activePower > 0) {
 			activePower = 0;
 			maxDischargePower = 0;
 		}

@@ -9,11 +9,13 @@ import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.metatype.annotations.Designate;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.edge.battery.api.Battery;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
+import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
@@ -31,6 +33,9 @@ public class BatteryManagementSimulatorImpl extends AbstractOpenemsComponent
 		OpenemsComponent, ModbusSlave, StartStoppable {
 
 	public static final float VOLTAGE_DERATING_ZONE = 5F;
+
+	@Reference
+	private ComponentManager componentManager;
 
 	private Config config;
 
@@ -70,33 +75,33 @@ public class BatteryManagementSimulatorImpl extends AbstractOpenemsComponent
 	}
 
 	@Override
-	public void run(int setPower) {
+	public void run(int power) {
 		if (!this.isEnabled()) {
 			return;
 		}
-		var now = Instant.now();
-		var capacity = this.config.capacity() * 3600F /* [Wsec] */ * 1000 /* [Wmsec] */;
+		var now = Instant.now(this.componentManager.getClock());
+		var capacity = (long) this.config.capacity() * 3600L /* [Wsec] */ * 1000L /* [Wmsec] */;
 
 		if (this.lastTimestamp == null) {
 			// Initialise energy from configured initial SoC
-			this.energy = (long) capacity * this.getRackSoc().get() /* [current SoC] */ / 1000;
+			this.energy = (long) (capacity * this.getRackSoc().get() /* [current SoC, in 0.1%] */ / 1000L);
 		}
 		else {
 			// Calculate duration since last value
 			var duration /* [msec] */ = Duration.between(this.lastTimestamp, now).toMillis();
 
-			// Calculate energy since last run in [Wh]
-			var energy /* [Wmsec] */ = setPower /* [W] */ * duration /* [msec] */;
-			energy = Math.max(0, Math.min((long) capacity, energy));
-
-			// Adding the energy to the initial energy.
+			// Calculate energy delta since last run [Wmsec]; positive setPower = discharge -> energy decreases
+			var energy /* [Wmsec] */ = (long) power /* [W] */ * duration /* [msec] */;
 			this.energy -= energy;
+
+			// Clamp internal energy to [0, capacity] so it cannot drift out of physical bounds
+			this.energy = Math.max(0L, Math.min((long) capacity, this.energy));
 		}
 		this.lastTimestamp = now;
 
-		var soc = this.energy / capacity * 100;
+		var soc = this.energy / capacity * 100F;
 		var voltage = calculateRackVoltage(soc);
-		var current = setPower / voltage;
+		var current = power / voltage;
 
 		this._setRackSoc(Math.round(soc * 10));
 		this._setRackCurrent(current);
