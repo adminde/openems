@@ -2,7 +2,6 @@ package io.openems.edge.heat.mypv.acthor9s;
 
 import io.openems.common.test.AbstractComponentConfig;
 import io.openems.common.utils.ConfigUtils;
-import io.openems.edge.heat.mypv.acthor9s.Config;
 
 @SuppressWarnings("all")
 public class MyConfig extends AbstractComponentConfig implements Config {

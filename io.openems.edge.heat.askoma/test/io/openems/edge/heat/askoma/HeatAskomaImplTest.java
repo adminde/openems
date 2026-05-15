@@ -21,8 +21,8 @@ import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.ComponentTest;
 import io.openems.edge.common.test.DummyComponentManager;
 import io.openems.edge.controller.test.ControllerTest;
-import io.openems.edge.heat.api.Heat;
-import io.openems.edge.heat.api.ManagedHeatElement;
+import io.openems.edge.heat.api.Heating;
+import io.openems.edge.heat.element.api.ManagedHeatElement;
 
 class HeatAskomaImplTest {
 
@@ -60,12 +60,12 @@ class HeatAskomaImplTest {
 						.build()) //
 				// Actual (50.0 °C) < Target (60.0 °C) → keep heating at maximum power
 				.next(new TestCase("Actual below target: keep heating") //
-						.input(Heat.ChannelId.TEMPERATURE, 500) // 50.0 °C in deci-degree
+						.input(Heating.ChannelId.TEMPERATURE, 500) // 50.0 °C in deci-degree
 						.input(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT, 600) // 60.0 °C in deci-degree
 						.output(ManagedHeatElement.ChannelId.TARGET_ACTIVE_POWER, -10_050)) //
 				// Actual (60.0 °C) >= Target (60.0 °C) → stop heating and switch mode to OFF
 				.next(new TestCase("Actual reaches target: stop heating") //
-						.input(Heat.ChannelId.TEMPERATURE, 600) // 60.0 °C in deci-degree
+						.input(Heating.ChannelId.TEMPERATURE, 600) // 60.0 °C in deci-degree
 						.input(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT, 600) // 60.0 °C in deci-degree
 						.onAfterControllersCallbacks(() -> { //
 							var config = configurationAdmin.getOrCreateEmptyConfiguration("component0"); //
@@ -109,14 +109,14 @@ class HeatAskomaImplTest {
 						.build()) //
 				// Actual (50.0 °C) < target (60.0 °C) → keep heating at maximum power
 				.next(new TestCase("Actual below target: keep heating at max power") //
-						.input(Heat.ChannelId.TEMPERATURE, 500) // 50.0 °C in deci-degree
+						.input(Heating.ChannelId.TEMPERATURE, 500) // 50.0 °C in deci-degree
 						.input(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT, 600) // 60.0 °C in deci-degree
 						.output(ManagedHeatElement.ChannelId.TARGET_ACTIVE_POWER, -10_050)) //
 				// Advance clock past FAST_HEAT_DURATION (10 hours) → fast heat expires, mode
 				// should switch to SURPLUS
 				.next(new TestCase("fast heat expired: switch to SURPLUS") //
 						.timeleap(clock, 10, ChronoUnit.HOURS) //
-						.input(Heat.ChannelId.TEMPERATURE, 500) // still below target
+						.input(Heating.ChannelId.TEMPERATURE, 500) // still below target
 						.input(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT, 600) //
 						.onAfterControllersCallbacks(() -> { //
 							var config = configurationAdmin.getOrCreateEmptyConfiguration("component0"); //
@@ -152,7 +152,7 @@ class HeatAskomaImplTest {
 				sut.channel(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT).getMetaInfo());
 		assertEquals(//
 				new ChannelMetaInfo(638),//
-				sut.channel(Heat.ChannelId.TEMPERATURE).getMetaInfo());
+				sut.channel(Heating.ChannelId.TEMPERATURE).getMetaInfo());
 		assertNull(sut.channel(ManagedHeatElement.ChannelId.TARGET_ACTIVE_POWER).getMetaInfo());
 		this.assertBitsRegister109Mapping(sut);
 	}
@@ -184,7 +184,7 @@ class HeatAskomaImplTest {
 				sut.channel(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT).getMetaInfo());
 		assertEquals(//
 				new ChannelMetaInfo(638),//
-				sut.channel(Heat.ChannelId.TEMPERATURE).getMetaInfo());
+				sut.channel(Heating.ChannelId.TEMPERATURE).getMetaInfo());
 		assertEquals(//
 				new ChannelMetaInfo(202),//
 				sut.channel(ManagedHeatElement.ChannelId.TARGET_ACTIVE_POWER).getMetaInfo());

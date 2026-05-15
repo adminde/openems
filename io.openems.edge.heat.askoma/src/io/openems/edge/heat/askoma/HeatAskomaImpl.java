@@ -54,10 +54,6 @@ import io.openems.edge.heat.api.Heating;
 import io.openems.edge.heat.element.api.HeatElement;
 import io.openems.edge.heat.element.api.ManagedHeatElement;
 import io.openems.edge.heat.element.api.Status;
-import io.openems.edge.controller.api.Controller;
-import io.openems.edge.heat.api.Heat;
-import io.openems.edge.heat.api.ManagedHeatElement;
-import io.openems.edge.heat.api.Status;
 import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
@@ -73,8 +69,8 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 		})
 @GenerateTargetsFromReferences("Modbus")
 public class HeatAskomaImpl extends AbstractOpenemsModbusComponent implements HeatAskoma, 
-		ModbusComponent, OpenemsComponent, ElectricityMeter, Heating, HeatElement, ManagedHeatElement, 
-		Controller, TimedataProvider, EventHandler {
+		ElectricityMeter, Heating, HeatElement, ManagedHeatElement, OpenemsComponent, ModbusComponent, 
+		TimedataProvider, Controller {
 
 	private final Logger log = LoggerFactory.getLogger(HeatAskomaImpl.class);
 
@@ -112,7 +108,7 @@ public class HeatAskomaImpl extends AbstractOpenemsModbusComponent implements He
 				ElectricityMeter.ChannelId.values(), //
 				Heating.ChannelId.values(), //
 				HeatElement.ChannelId.values(), //
-				ManagedHeatElement.ChannelId.values() //
+				ManagedHeatElement.ChannelId.values(), //
 				Controller.ChannelId.values() //
 		);
 
@@ -159,7 +155,7 @@ public class HeatAskomaImpl extends AbstractOpenemsModbusComponent implements He
 						m(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT, new UnsignedWordElement(597), SCALE_FACTOR_1)),
 
 				new FC4ReadInputRegistersTask(638, Priority.HIGH, //
-						m(Heat.ChannelId.TEMPERATURE, new UnsignedWordElement(638), SCALE_FACTOR_1))); //
+						m(Heating.ChannelId.TEMPERATURE, new UnsignedWordElement(638), SCALE_FACTOR_1))); //
 
 		if (!this.config.readOnly()) {
 			// Askoma spec: MODBUS_CMD_LOAD_FEEDIN_VALUE, signed int16, -30000..30000 W
@@ -269,7 +265,7 @@ public class HeatAskomaImpl extends AbstractOpenemsModbusComponent implements He
 	}
 
 	protected void updateStatusChannel() {
-		ChannelUtils.setValue(this, Heat.ChannelId.STATUS, this.calculateStatus());
+		ChannelUtils.setValue(this, HeatElement.ChannelId.STATUS, this.calculateStatus());
 	}
 
 	private Status calculateStatus() {

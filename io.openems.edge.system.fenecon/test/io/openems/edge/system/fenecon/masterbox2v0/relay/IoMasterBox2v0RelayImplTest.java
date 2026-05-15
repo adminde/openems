@@ -4,8 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import io.openems.common.test.DummyConfigurationAdmin;
 import io.openems.edge.bridge.modbus.test.DummyModbusBridge;
-import io.openems.edge.common.test.AbstractComponentTest.TestCase;
-import io.openems.edge.heat.askoma.HeatAskomaImpl;
 import io.openems.edge.common.test.ComponentTest;
 
 public class IoMasterBox2v0RelayImplTest {
