@@ -21,6 +21,7 @@ import io.openems.edge.oros.bms.BatteryManagementSystem;
 import io.openems.edge.oros.ess.protection.DeepDischargeCurrentLimiter;
 import io.openems.edge.oros.ess.protection.OverChargeCurrentLimiter;
 import io.openems.edge.oros.ess.protection.PowerLimiter;
+import io.openems.edge.oros.ess.protection.StateOfChargeLimiter;
 import io.openems.edge.oros.pcs.PowerConversionSystem;
 
 import java.util.function.Consumer;
@@ -32,12 +33,36 @@ public class SystemChannelManager extends AbstractChannelListenerManager {
 	private final OverChargeCurrentLimiter overChargeCurrentLimiter;
 	private final DeepDischargeCurrentLimiter deepDischargeCurrentLimiter;
 
+	private StateOfChargeLimiter stateOfChargeLimiter;
+
 	public SystemChannelManager(EnergyStorageSystem parent) {
 		super();
+		this.stateOfChargeLimiter = new StateOfChargeLimiter(parent);
 		this.overChargeCurrentLimiter = new OverChargeCurrentLimiter(parent);
 		this.deepDischargeCurrentLimiter = new DeepDischargeCurrentLimiter(parent);
 		this.powerLimiter = new PowerLimiter(parent, this.overChargeCurrentLimiter, this.deepDischargeCurrentLimiter);
 		this.parent = parent;
+	}
+
+	public SystemChannelManager setStateOfChargeLimiter(StateOfChargeLimiter limiter) {
+		this.stateOfChargeLimiter = limiter;
+		return this;
+	}
+
+	public StateOfChargeLimiter getStateOfChargeLimiter() {
+		return this.stateOfChargeLimiter;
+	}
+
+	public DeepDischargeCurrentLimiter getDeepDischargeCurrentLimiter() {
+		return this.deepDischargeCurrentLimiter;
+	}
+
+	public OverChargeCurrentLimiter getOverChargeCurrentLimiter() {
+		return this.overChargeCurrentLimiter;
+	}
+
+	public PowerLimiter getPowerLimiter() {
+		return this.powerLimiter;
 	}
 
 	/**
@@ -53,46 +78,16 @@ public class SystemChannelManager extends AbstractChannelListenerManager {
 	}
 
 	private void addEssListener(ClockProvider clock) {
-		this.addEssSocListener();
+		this.addEssSocListener(clock, this.parent.getBatteryManagementSystem());
 		this.addOnChangeListener(this.parent, StartStoppable.ChannelId.START_STOP, (ignored0, ignored1) ->
 				this.powerLimiter.accept(clock));
 	}
 
-	private void addEssSocListener() {
-		BatteryManagementSystem battery = this.parent.getBatteryManagementSystem();
-		Channel<Integer> batterySocChannel = battery.channel(Battery.ChannelId.SOC);
-
-		final Consumer<Value<Integer>> calculate = ignore -> {
-			var batterySoc = batterySocChannel.value();
-			var batteryChargeMaxCurrent = battery.getChargeMaxCurrentChannel().getNextValue();
-			var batteryDischargeMaxCurrent = battery.getDischargeMaxCurrentChannel().getNextValue();
-			final Integer soc;
-			if (batterySoc.isDefined()) {
-				if (batteryDischargeMaxCurrent.isDefined()
-						&& batterySoc.get() < 3
-						&& batteryDischargeMaxCurrent.get() <= 0) {
-					// Set the SoC to 0 if it is less than 3 %
-					soc = 0;
-
-				} else if (batteryChargeMaxCurrent.isDefined()
-						&& batterySoc.get() > 97
-						&& batteryChargeMaxCurrent.get() <= 0) {
-					// Set the SoC to 100 if it is more than 97 %
-					soc = 100;
-
-				} else {
-					// Apply the normal SoC if it not in the above ranges.
-					soc = batterySoc.get();
-				}
-			} else {
-				// Original Battery-SoC is undefined
-				soc = null;
-			}
-			this.parent._setSoc(soc);
-		};
-		batterySocChannel.onSetNextValue(calculate);
-		battery.getChargeMaxCurrentChannel().onSetNextValue(calculate);
-		battery.getDischargeMaxCurrentChannel().onSetNextValue(calculate);
+	private void addEssSocListener(ClockProvider clock, BatteryManagementSystem battery) {
+		final Consumer<Value<Integer>> trigger = ignored -> getStateOfChargeLimiter().accept(clock);
+		battery.getSocChannel().onSetNextValue(trigger);
+		battery.getChargeMaxCurrentChannel().onSetNextValue(trigger);
+		battery.getDischargeMaxCurrentChannel().onSetNextValue(trigger);
 	}
 
 	private void addInverterListener(PowerConversionSystem inverter) {

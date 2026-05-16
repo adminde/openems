@@ -82,6 +82,10 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 			return;
 		}
 		this._setCapacity(EFFECTIVE_CAPACITY);
+
+		HyperCubeBattery.mirrorOpenCircuitVoltageFromPrecharge(this);
+		BatteryManagementSystem.calculateRackPowerFromVoltageAndCurrent(this);
+		BatteryManagementSystem.calculateMaxCurrentFromPowerAndVoltage(this);
 	}
 
 	@Override

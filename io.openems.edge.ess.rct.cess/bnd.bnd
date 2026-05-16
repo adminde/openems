@@ -1,4 +1,4 @@
-Bundle-Name: OpenEMS Edge ESS HyperStrong
+Bundle-Name: OpenEMS Edge RCT Power CESS
 Bundle-Vendor: OROS Energy Europe GmbH
 Bundle-License: https://opensource.org/licenses/EPL-2.0
 Bundle-Version: 1.0.0.${tstamp}
@@ -10,6 +10,7 @@ Bundle-Version: 1.0.0.${tstamp}
 	io.openems.edge.battery.api,\
 	io.openems.edge.batteryinverter.api,\
 	io.openems.edge.bridge.modbus,\
+	io.openems.edge.meter.api,\
 	io.openems.edge.timedata.api,\
 	io.openems.edge.common,\
 	io.openems.edge.oros,\

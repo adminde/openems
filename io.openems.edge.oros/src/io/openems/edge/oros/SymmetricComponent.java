@@ -924,7 +924,7 @@ public interface SymmetricComponent extends OpenemsComponent {
 	    );
 	}
 
-	private static <S> void _calculatePhasePowersFromVoltageAndCurrent(
+	public static <S> void _calculatePhasePowersFromVoltageAndCurrent(
 	        S symmetric,
 	        FloatReadChannel powerFactorChannel,
 	        Function<S, IntegerReadChannel> activePower,

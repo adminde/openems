@@ -1,5 +1,7 @@
 package io.openems.edge.ess.hyperstrong.hypercube.bms;
 
+import java.util.function.Consumer;
+
 import io.openems.common.channel.Level;
 import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
@@ -311,6 +313,15 @@ public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 	 */
 	public default Value<Integer> getPrechargeVoltage() {
 		return this.getPrechargeVoltageChannel().value();
+	}
+
+	public static void mirrorOpenCircuitVoltageFromPrecharge(HyperCubeBattery battery) {
+		final Consumer<Value<Integer>> accept = value -> {
+			if (value.isDefined()) {
+				battery._setOpenCircuitVoltage(value.get());
+			}
+		};
+		battery.getPrechargeVoltageChannel().onSetNextValue(accept);
 	}
 
 }

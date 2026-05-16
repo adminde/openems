@@ -139,9 +139,14 @@ public class HyperCubeImpl extends AbstractStorageSystem implements HyperCube,
 
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
-		super.activate(context, config.id(), config.alias(), config.enabled(), this.cm, 1,
-				config.modbus_id(), config.pcs_id(), config.bms_id(), config.startStop());
+		if (super.activate(context, config.id(), config.alias(), config.enabled(), this.cm, 1,
+				config.modbus_id(), config.pcs_id(), config.bms_id(), config.startStop())) {
+			return;
+		}
 		this.config = config;
+		this.getChannelManager().activate(this.getComponentManager(),
+				this.getBatteryManagementSystem(),
+				this.getPowerConversionSystem());
 	}
 
 	@Override

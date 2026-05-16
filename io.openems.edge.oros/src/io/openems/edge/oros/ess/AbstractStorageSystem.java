@@ -68,27 +68,36 @@ public abstract class AbstractStorageSystem extends AbstractOpenemsModbusCompone
 		throw new IllegalArgumentException("Invalid activate() method");
 	}
 
-	protected void activate(ComponentContext context, String id, String alias, boolean enabled, ConfigurationAdmin cm,
+	protected boolean activate(ComponentContext context, String id, String alias, boolean enabled, ConfigurationAdmin cm,
 			int unitId, String modbusId, String pcsId, String bmsId,
 			StartStopConfig startStop) throws OpenemsException {
+		return activate(context, id, alias, enabled, cm, unitId, modbusId, pcsId, bmsId, startStop, true);
+	}
+
+	protected boolean activate(ComponentContext context, String id, String alias, boolean enabled, ConfigurationAdmin cm,
+			int unitId, String modbusId, String pcsId, String bmsId,
+			StartStopConfig startStop, boolean activateChannelManager) throws OpenemsException {
 		if (super.activate(context, id, alias, enabled, unitId, cm, "Modbus", modbusId)) {
-			return;
+			return true;
 		}
 		this.startStopConfig = startStop;
 
 		// update filter for 'PowerConversionSystem'
 		if (OpenemsComponent.updateReferenceFilter(cm, this.servicePid(), "pcs", pcsId)) {
-			return;
+			return true;
 		}
 
 		// update filter for 'BatteryManagementSystem'
 		if (OpenemsComponent.updateReferenceFilter(cm, this.servicePid(), "bms", bmsId)) {
-			return;
+			return true;
 		}
 
-		this.getChannelManager().activate(this.getComponentManager(),
-				this.getBatteryManagementSystem(),
-				this.getPowerConversionSystem());
+		if (activateChannelManager) {
+			this.getChannelManager().activate(this.getComponentManager(),
+					this.getBatteryManagementSystem(),
+					this.getPowerConversionSystem());
+		}
+		return false;
 	}
 
 	@Override

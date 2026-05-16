@@ -1,5 +1,7 @@
 package io.openems.edge.oros.bms;
 
+import java.util.function.Consumer;
+
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
@@ -16,8 +18,6 @@ import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.modbusslave.ModbusSlaveTable;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.common.statemachine.AbstractStateMachine;
-
-import java.util.function.Consumer;
 
 public interface BatteryManagementSystem extends
 		Battery, OpenemsComponent, ModbusSlave, StartStoppable {
@@ -119,6 +119,19 @@ public interface BatteryManagementSystem extends
 								IntUtils.Round.HALF_UP, 1));
 					});
 				})),
+
+		/**
+		 * Rack Power in Watts [W].
+		 *
+		 * <ul>
+		 * <li>Interface: BatteryManagementSystem
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * </ul>
+		 */
+		RACK_POWER(new IntegerDoc()
+				.unit(Unit.WATT)
+				.persistencePriority(PersistencePriority.HIGH)),
 
 		/**
 		 * Open Circuit Voltage.
@@ -324,6 +337,45 @@ public interface BatteryManagementSystem extends
 	 */
 	public default void _setRackCurrent(int value) {
 		this.getRackCurrentChannel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#RACK_POWER}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getRackPowerChannel() {
+		return this.channel(ChannelId.RACK_POWER);
+	}
+
+	/**
+	 * Gets the Power in [W]. See
+	 * {@link ChannelId#RACK_POWER}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getRackPower() {
+		return this.getRackPowerChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#RACK_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setRackPower(Integer value) {
+		this.getRackPowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#RACK_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setRackPower(int value) {
+		this.getRackPowerChannel().setNextValue(value);
 	}
 
 	/**
@@ -595,6 +647,19 @@ public interface BatteryManagementSystem extends
 		}
 		// Ri = (V_OCV - V_terminal) / I, converted from Ohm to mOhm (* 1000)
 		return Math.abs((prechargeVoltage - voltage) * 1000 / current);
+	}
+
+	public static void calculateRackPowerFromVoltageAndCurrent(BatteryManagementSystem battery) {
+		final Consumer<Value<Integer>> calculate = ignore -> {
+			var voltage = battery.getRackVoltage();
+			var current = battery.getRackCurrent();
+			if (!current.isDefined() || !voltage.isDefined()) {
+				return;
+			}
+			battery._setRackPower(Math.round((voltage.get() / 1000F) * (current.get() / 1000F)));
+		};
+		battery.getVoltageChannel().onSetNextValue(calculate);
+		battery.getCurrentChannel().onSetNextValue(calculate);
 	}
 
 	public static void calculateMaxPowerFromCurrentAndVoltage(BatteryManagementSystem battery) {
