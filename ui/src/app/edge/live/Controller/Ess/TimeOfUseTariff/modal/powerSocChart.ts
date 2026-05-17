@@ -115,8 +115,8 @@ export class SchedulePowerAndSocChartComponent extends AbstractHistoryChart impl
                 data: gridSellArray.map(v => Utils.divideSafely(v, 1000)), // [W] to [kW]
                 hidden: true,
                 order: 1,
-                backgroundColor: ColorUtils.rgbStringToRgba(ChartConstants.Colors.PURPLE, 0.2),
-                borderColor: ChartConstants.Colors.PURPLE,
+                backgroundColor: ColorUtils.rgbStringToRgba(ChartConstants.Colors.GRID_SELL, 0.2),
+                borderColor: ChartConstants.Colors.GRID_SELL,
             });
 
             datasets.push({
