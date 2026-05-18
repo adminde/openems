@@ -15,6 +15,8 @@ export interface Environment {
     readonly edgeLongName: string;
     readonly headerLogo?: string;
     readonly headerTitleShow?: boolean;
+    readonly headerTitleHtml?: string;
+    readonly footerTextHtml?: string;
     readonly defaultLanguage: string;
 
     readonly url: string;
