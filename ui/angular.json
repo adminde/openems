@@ -66,7 +66,7 @@
                 "src/assets",
                 {
                   "glob": "**/*",
-                  "input": "src/themes/openems/root",
+                  "input": "src/themes/th-e-energy/root",
                   "output": ""
                 },
                 {
@@ -82,11 +82,11 @@
               ],
               "stylePreprocessorOptions": {
                 "includePaths": [
-                  "src/themes/openems/scss"
+                  "src/themes/th-e-energy/scss"
                 ]
               },
               "styles": [
-                "src/themes/openems/scss/variables.scss",
+                "src/themes/th-e-energy/scss/variables.scss",
                 "src/global.scss",
                 "src/global-ion-custom.scss"
               ]
@@ -95,15 +95,15 @@
               "fileReplacements": [
                 {
                   "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
+                  "with": "src/themes/th-e-energy/environments/theme.ts"
                 },
                 {
                   "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/backend-dev.ts"
+                  "with": "src/themes/th-e-energy/environments/backend-dev.ts"
                 },
                 {
                   "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
+                  "with": "src/themes/th-e-energy/environments/oem-meta.ts"
                 }
               ]
             },
@@ -111,15 +111,15 @@
               "fileReplacements": [
                 {
                   "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
+                  "with": "src/themes/th-e-energy/environments/theme.ts"
                 },
                 {
                   "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/backend-prod.ts"
+                  "with": "src/themes/th-e-energy/environments/backend-prod.ts"
                 },
                 {
                   "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
+                  "with": "src/themes/th-e-energy/environments/oem-meta.ts"
                 }
               ]
             },
@@ -127,15 +127,15 @@
               "fileReplacements": [
                 {
                   "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
+                  "with": "src/themes/th-e-energy/environments/theme.ts"
                 },
                 {
                   "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/edge-dev.ts"
+                  "with": "src/themes/th-e-energy/environments/edge-dev.ts"
                 },
                 {
                   "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
+                  "with": "src/themes/th-e-energy/environments/oem-meta.ts"
                 }
               ]
             },
@@ -143,15 +143,15 @@
               "fileReplacements": [
                 {
                   "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
+                  "with": "src/themes/th-e-energy/environments/theme.ts"
                 },
                 {
                   "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/edge-prod.ts"
+                  "with": "src/themes/th-e-energy/environments/edge-prod.ts"
                 },
                 {
                   "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
+                  "with": "src/themes/th-e-energy/environments/oem-meta.ts"
                 }
               ]
             },
@@ -159,15 +159,15 @@
               "fileReplacements": [
                 {
                   "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
+                  "with": "src/themes/th-e-energy/environments/theme.ts"
                 },
                 {
                   "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/edge-docker.ts"
+                  "with": "src/themes/th-e-energy/environments/edge-docker.ts"
                 },
                 {
                   "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
+                  "with": "src/themes/th-e-energy/environments/oem-meta.ts"
                 }
               ]
             },
@@ -175,15 +175,15 @@
               "fileReplacements": [
                 {
                   "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
+                  "with": "src/themes/th-e-energy/environments/theme.ts"
                 },
                 {
                   "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/backend-docker.ts"
+                  "with": "src/themes/th-e-energy/environments/backend-docker.ts"
                 },
                 {
                   "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
+                  "with": "src/themes/th-e-energy/environments/oem-meta.ts"
                 }
               ]
             },
@@ -191,15 +191,15 @@
               "fileReplacements": [
                 {
                   "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
+                  "with": "src/themes/th-e-energy/environments/theme.ts"
                 },
                 {
                   "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/gitpod.ts"
+                  "with": "src/themes/th-e-energy/environments/gitpod.ts"
                 },
                 {
                   "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
+                  "with": "src/themes/th-e-energy/environments/oem-meta.ts"
                 }
               ]
             }
@@ -248,8 +248,8 @@
             "fileReplacements": [
               {
                 "replace": "src/environments/dummy.ts",
-                "with": "src/themes/openems/environments/karma.ts"
-              },
+                "with": "src/themes/th-e-energy/environments/karma.ts"
+              }
             ]
           },
           "configurations": {
