@@ -7,7 +7,10 @@ export const theme: Omit<Environment, "url" | "backend" | "production" | "debugM
     uiTitle: "TH-E EMS",
     uiTitleShort: "TH-E EMS",
     edgeShortName: "TH-E",
-    edgeLongName: "Thermal/Electric Energy Management System",
+    edgeLongName: "Thermal/Electric",
+    headerLogo: "th-e-logo.svg",
+    headerTitleShow: false,
+    footerTextHtml: "TH-E EMS",
     defaultLanguage: "en",
 
     docsUrlPrefix: "https://github.com/adminde/openems/blob/develop/",
