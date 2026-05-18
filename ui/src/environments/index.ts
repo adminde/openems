@@ -13,6 +13,8 @@ export interface Environment {
     readonly uiTitleShort: string;
     readonly edgeShortName: string;
     readonly edgeLongName: string;
+    readonly headerLogo?: string;
+    readonly headerTitleShow?: boolean;
     readonly defaultLanguage: string;
 
     readonly url: string;
