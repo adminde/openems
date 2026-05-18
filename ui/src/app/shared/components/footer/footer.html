@@ -11,9 +11,13 @@
                   |
                 </span>
               }
-              <span>
-                {{displayValues.id}}
-              </span>
+              @if (environment.footerTextHtml) {
+                <span [innerHTML]="environment.footerTextHtml"></span>
+              } @else {
+                <span>
+                  {{displayValues.id}}
+                </span>
+              }
               |
               @if ((service.metadata | async)?.user?.globalRole; as role) {
                 <a routerLink="/device/{{edge.id}}/settings/system" style="color: var(--ion-color-primary-footer)">
