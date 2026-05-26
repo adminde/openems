@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   id="root"
+   width="1em"
+   height="1em"
+   viewBox="0 0 24 24"
+   version="1.1"
+   sodipodi:docname="storage.svg"
+   inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs6" />
+  <sodipodi:namedview
+     id="namedview6"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="64"
+     inkscape:cx="14.75"
+     inkscape:cy="12.117187"
+     inkscape:window-width="2240"
+     inkscape:window-height="1294"
+     inkscape:window-x="-11"
+     inkscape:window-y="-11"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g5" />
+  <g
+     transform="rotate(90 12 12)"
+     fill="currentColor"
+     id="g6">
+    <path
+       fill-rule="evenodd"
+       d="M16.67 4H15V2H9v2H7.33A1.33 1.33 0 0 0 6 5.33v15.34C6 21.4 6.6 22 7.33 22h9.34A1.33 1.33 0 0 0 18 20.67V5.33C18 4.6 17.4 4 16.67 4ZM8 6h8v15H8z"
+       id="path1" />
+    <g
+       shape-rendering="crispEdges"
+       id="g5">
+      <rect
+         x="7"
+         y="17.5"
+         width="10"
+         height="4"
+         display="var(--storage-segment-0)"
+         id="rect1"
+         style="stroke-width:1.11803" />
+      <rect
+         x="7"
+         y="14.5"
+         width="10"
+         height="4"
+         display="var(--storage-segment-1)"
+         id="rect2"
+         style="stroke-width:1.11803" />
+      <rect
+         x="7"
+         y="11.5"
+         width="10"
+         height="4"
+         display="var(--storage-segment-2)"
+         id="rect3"
+         style="stroke-width:1.11803" />
+      <rect
+         x="7"
+         y="8.5"
+         width="10"
+         height="4"
+         display="var(--storage-segment-3)"
+         id="rect4"
+         style="stroke-width:1.11803" />
+      <rect
+         x="7"
+         y="5.5"
+         width="10"
+         height="4"
+         display="var(--storage-segment-4)"
+         id="rect5"
+         style="stroke-width:1.11803" />
+    </g>
+  </g>
+</svg>

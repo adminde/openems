@@ -125,8 +125,8 @@ $font-family: var(--ion-font-family);
     /** primary **/
     --ion-color-primary: #dca015;
     --ion-color-primary-rgb: 220, 160, 21;
-    --ion-color-primary-contrast: #2a2820;
-    --ion-color-primary-contrast-rgb: 42, 40, 32;
+    --ion-color-primary-contrast: #5c460a;
+    --ion-color-primary-contrast-rgb: 92, 70, 10;
     --ion-color-primary-shade: #b8880e;
     --ion-color-primary-shade-rgb: 184, 136, 14;
     --ion-color-primary-tint: #e4b540;
@@ -179,51 +179,55 @@ $font-family: var(--ion-font-family);
     --ion-color-storage-discharge-tint: #cfd8a4;
 
     /** widget-cards **/
-    --ion-background-color-card-header: #ebe5d5;
+    --ion-background-color-card-header: #ede7da;
+    --ion-item-background: #ffffff;
     --ion-card-content: #4a4840;
 
     /** energy monitor **/
-    --ion-color-medium-soft: #d8d5c8;
-    --ion-background-percentagebar-color: #d8d5c8;
+    --ion-color-medium-soft: #eff1d9;
+    --ion-color-active-percentagebar: #8a9e3a;
+    --ion-background-percentagebar-color: var(--ion-color-light-tint);
     --ion-text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 
     /** navigation & titel **/
-    --ion-color-header-contrast: #2a2820;
-    --ion-menu-color: #2a2820;
-    --ion-title-color: #2a2820;
+    --ion-color-header-contrast: #2a2620;
+    --ion-menu-color: #2a2620;
+    --ion-title-color: #2a2620;
     --ion-color-toggle-checked-border: #7a8430;
 
     /** toolbar & footer **/
     --ion-color-toolbar-primary: #f2f0e8;
     --ion-color-footer-primary: #dca015;
-    --ion-color-primary-footer: #2a2820;
-    --ion-segment-button-color: #b8880e;
+    --ion-color-footer-contrast: var(--ion-color-primary-contrast);
+    --ion-segment-button-color: var(--ion-color-primary);
 
     /** app background & text **/
     --ion-color-shadow-rgba: rgba(0, 0, 0, 0.15);
-    --ion-background-color: #fafaf6;
+    --ion-background-color: #faf6ee;
     --ion-background-color-rgb: 250, 250, 246;
     --ion-text-color: #2a2820;
-    --ion-item-background: #ffffff;
 }
 
+:root[data-theme="dark"] img[src$="th-e-logo.svg"] {
+    content: url("/th-e-logo-white-text.svg");
+}
 :root[data-theme="dark"] {
 
     /** primary **/
-    --ion-color-primary: #c08a18;
+    --ion-color-primary: #dca015;
     --ion-color-primary-rgb: 192, 138, 24;
-    --ion-color-primary-contrast: #1a1408;
-    --ion-color-primary-contrast-rgb: 26, 20, 8;
+    --ion-color-primary-contrast: #5c460a;
+    --ion-color-primary-contrast-rgb: 92, 70, 10;
     --ion-color-primary-shade: #a07215;
     --ion-color-primary-tint: #d4a030;
 
     /** secondary **/
-    --ion-color-secondary: #352a18;
-    --ion-color-secondary-rgb: 53, 42, 24;
-    --ion-color-secondary-contrast: #dca015;
-    --ion-color-secondary-contrast-rgb: 220, 160, 21;
-    --ion-color-secondary-shade: #281e10;
-    --ion-color-secondary-tint: #443622;
+    --ion-color-secondary: #576020;
+    --ion-color-secondary-rgb: 87, 96, 32;
+    --ion-color-secondary-contrast: #eff1d9;
+    --ion-color-secondary-contrast-rgb: 239, 241, 217;
+    --ion-color-secondary-shade: #4d541c;
+    --ion-color-secondary-tint: #687036;
 
     /** tertiary **/
     --ion-color-tertiary: #7a8430;
@@ -301,9 +305,11 @@ $font-family: var(--ion-font-family);
 
     /** widget cards **/
     --ion-background-color-card-header: #222324;
+    --ion-item-background: #1c1d1e;
     --ion-card-content: #c0c2c8;
 
     /** energy monitor **/
+    --ion-color-active-percentagebar: #7a8430;
     --ion-background-percentagebar-color: #242628;
     --ion-text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 
@@ -311,15 +317,14 @@ $font-family: var(--ion-font-family);
     --ion-menu-color: #c0c2c8;
 
     /** toolbar & footer **/
-    --ion-color-toolbar-primary: #1c1b18;
-    --ion-color-footer-primary: #8a620a;
-    --ion-color-primary-footer: #fbf0d0;
-    --ion-segment-button-color: #dca015;
+    --ion-color-toolbar-primary: #2a3015;
+    --ion-color-footer-primary: var(--ion-color-secondary);
+    --ion-color-footer-contrast: var(--ion-color-secondary-contrast);
+    --ion-segment-button-color: #7a8430;
 
     /** app background & text **/
-    --ion-background-color: linear-gradient(to top left, #121314, #111213);
+    --ion-background-color: linear-gradient(to top left, #131611, #111310);
     --ion-text-color: #c0c2c8;
-    --ion-item-background: #1c1d1e;
     --ion-title-color: var(--ion-color-toggle-background);
     --ion-color-toggle-checked-border: #dca015;
 }

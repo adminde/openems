@@ -11,16 +11,16 @@ export const OemMeta: BaseMeta = {
     },
     icons: {
         COMMON: {
-            CONSUMPTION: "assets/img/icon/consumption.svg",
-            SELFCONSUMPTION: "assets/img/icon/selfconsumption.svg",
-            GENERATOR: "assets/img/icon/generator.svg",
-            GRID: "assets/img/icon/grid.svg",
+            CONSUMPTION: "assets/th-e/icons/lightbulb.svg",
+            SELFCONSUMPTION: "assets/th-e/icons/lightbulb-outline.svg",
+            GENERATOR: "assets/th-e/icons/generator.svg",
+            GRID: "assets/th-e/icons/grid.svg",
             GRID_STORAGE: "assets/img/icon/gridStorage.svg",
             GRID_RESTRICTION: "assets/img/icon/gridRestriction.svg",
             MEGAFON: "assets/img/icon/megafon.svg",
-            OFFGRID: "assets/img/icon/offgrid.svg",
-            PRODUCTION: "assets/img/icon/production.svg",
-            STORAGE: "assets/img/icon/storage.svg",
+            OFFGRID: "assets/th-e/icons/grid-off.svg",
+            PRODUCTION: "assets/th-e/icons/solar.svg",
+            STORAGE: "assets/th-e/icons/storage.svg",
             WEATHER: {
                 CLEAR_DAY: "assets/img/icon/clear_day.svg",
                 CLEAR_NIGHT: "assets/img/icon/clear_night.svg",
@@ -45,7 +45,7 @@ export const OemMeta: BaseMeta = {
         },
         COMPONENT: {
             HEATPUMP: flame,
-            EVCS: "assets/img/icon/evcs.svg",
+            EVCS: "assets/th-e/icons/evcs.svg",
         },
         STATUS: {
             CHECKMARK: checkmarkDoneCircleOutline,
