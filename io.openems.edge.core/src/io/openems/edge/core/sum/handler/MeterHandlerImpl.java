@@ -36,6 +36,13 @@ public class MeterHandlerImpl {
 	private final CalculateLongSum gridBuyActiveEnergy = new CalculateLongSum();
 	private final CalculateLongSum gridSellActiveEnergy = new CalculateLongSum();
 
+    private final CalculateIntegerSum gridReactivePower = new CalculateIntegerSum();
+    private final CalculateIntegerSum gridReactivePowerL1 = new CalculateIntegerSum();
+    private final CalculateIntegerSum gridReactivePowerL2 = new CalculateIntegerSum();
+    private final CalculateIntegerSum gridReactivePowerL3 = new CalculateIntegerSum();
+    private final CalculateLongSum gridLaggingReactiveEnergy = new CalculateLongSum();
+    private final CalculateLongSum gridLeadingReactiveEnergy = new CalculateLongSum();
+
 	// Production Calculators
 	private final CalculateIntegerSum productionAcActivePower = new CalculateIntegerSum();
 	private final CalculateIntegerSum productionAcActivePowerL1 = new CalculateIntegerSum();
@@ -92,11 +99,19 @@ public class MeterHandlerImpl {
 			switch (meter.getMeterType()) {
 			case GRID, GRID_GENSET -> {
 				this.gridActivePower.addValue(meter.getActivePowerChannel());
-				this.gridBuyActiveEnergy.addValue(meter.getActiveProductionEnergyChannel());
-				this.gridSellActiveEnergy.addValue(meter.getActiveConsumptionEnergyChannel());
 				this.gridActivePowerL1.addValue(meter.getActivePowerL1Channel());
 				this.gridActivePowerL2.addValue(meter.getActivePowerL2Channel());
 				this.gridActivePowerL3.addValue(meter.getActivePowerL3Channel());
+				
+				this.gridReactivePower.addValue(meter.getReactivePowerChannel());
+				this.gridReactivePowerL1.addValue(meter.getReactivePowerL1Channel());
+				this.gridReactivePowerL2.addValue(meter.getReactivePowerL2Channel());
+				this.gridReactivePowerL3.addValue(meter.getReactivePowerL3Channel());
+
+				this.gridBuyActiveEnergy.addValue(meter.getActiveProductionEnergyChannel());
+				this.gridSellActiveEnergy.addValue(meter.getActiveConsumptionEnergyChannel());
+				this.gridLaggingReactiveEnergy.addValue(meter.getReactiveLaggingEnergyChannel());
+				this.gridLeadingReactiveEnergy.addValue(meter.getReactiveLeadingEnergyChannel());
 
 				if (meter.getMeterType() == MeterType.GRID_GENSET) {
 					this.gridGensetActivePower.addValue(meter.getActivePowerChannel());
@@ -142,6 +157,12 @@ public class MeterHandlerImpl {
 		this.gridGensetActivePowerL3.reset();
 		this.gridBuyActiveEnergy.reset();
 		this.gridSellActiveEnergy.reset();
+		this.gridReactivePower.reset();
+		this.gridReactivePowerL1.reset();
+		this.gridReactivePowerL2.reset();
+		this.gridReactivePowerL3.reset();
+		this.gridLaggingReactiveEnergy.reset();
+		this.gridLeadingReactiveEnergy.reset();
 		this.productionAcActivePower.reset();
 		this.productionAcActivePowerL1.reset();
 		this.productionAcActivePowerL2.reset();
@@ -241,6 +262,61 @@ public class MeterHandlerImpl {
 	 */
 	public Long getGridSellActiveEnergy() {
 		return this.gridSellActiveEnergy.calculate();
+	}
+
+	/**
+	 * Returns the total reactive power of all GRID meters.
+	 *
+	 * @return summed reactive power in var
+	 */
+	public Integer getGridReactivePower() {
+		return this.gridReactivePower.calculate();
+	}
+
+	/**
+	 * Returns the summed reactive power of phase L1 for all GRID meters.
+	 *
+	 * @return summed reactive power for L1 in var
+	 */
+	public Integer getGridReactivePowerL1() {
+		return this.gridReactivePowerL1.calculate();
+	}
+
+	/**
+	 * Returns the summed reactive power of phase L1 for all GRID meters.
+	 *
+	 * @return summed reactive power for L1 in var
+	 */
+	public Integer getGridReactivePowerL2() {
+		return this.gridReactivePowerL2.calculate();
+	}
+
+	/**
+	 * Returns the summed reactive power of phase L1 for all GRID meters.
+	 *
+	 * @return summed reactive power for L1 in var
+	 */
+	public Integer getGridReactivePowerL3() {
+		return this.gridReactivePowerL3.calculate();
+	}
+
+	/**
+	 * Returns the total lagging (inductive) reactive energy of the grid
+	 * meters.
+	 *
+	 * @return summed imported energy in varh
+	 */
+	public Long getGridLaggingReactiveEnergy() {
+		return this.gridLaggingReactiveEnergy.calculate();
+	}
+
+	/**
+	 * Returns the total leading (capacitive) reactive energy of the grid.
+	 *
+	 * @return summed exported energy in varh
+	 */
+	public Long getGridLeadingReactiveEnergy() {
+		return this.gridLeadingReactiveEnergy.calculate();
 	}
 
 	// Production Getters

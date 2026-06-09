@@ -227,10 +227,20 @@ public class SumImpl extends AbstractOpenemsComponent implements Sum, OpenemsCom
 		setValue(this, Sum.ChannelId.GRID_GENSET_ACTIVE_POWER_L2, this.meterHandler.gridGensetActivePowerL2());
 		setValue(this, Sum.ChannelId.GRID_GENSET_ACTIVE_POWER_L3, this.meterHandler.gridGensetActivePowerL3());
 
+		setValue(this, Sum.ChannelId.GRID_REACTIVE_POWER, this.meterHandler.getGridReactivePower());
+		setValue(this, Sum.ChannelId.GRID_REACTIVE_POWER_L1, this.meterHandler.getGridReactivePowerL1());
+		setValue(this, Sum.ChannelId.GRID_REACTIVE_POWER_L2, this.meterHandler.getGridReactivePowerL2());
+		setValue(this, Sum.ChannelId.GRID_REACTIVE_POWER_L3, this.meterHandler.getGridReactivePowerL3());
+
 		this.energyValuesHandler.setValue(Sum.ChannelId.GRID_BUY_ACTIVE_ENERGY,
 				this.meterHandler.getGridBuyActiveEnergy());
 		this.energyValuesHandler.setValue(Sum.ChannelId.GRID_SELL_ACTIVE_ENERGY,
 				this.meterHandler.getGridSellActiveEnergy());
+
+		this.energyValuesHandler.setValue(Sum.ChannelId.GRID_LAGGING_REACTIVE_ENERGY,
+				this.meterHandler.getGridLaggingReactiveEnergy());
+		this.energyValuesHandler.setValue(Sum.ChannelId.GRID_LEADING_REACTIVE_ENERGY,
+				this.meterHandler.getGridLeadingReactiveEnergy());
 	}
 
 	private void assignProductionChannels() {

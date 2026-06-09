@@ -8,6 +8,7 @@ import static io.openems.common.channel.Unit.MONEY_PER_MEGAWATT_HOUR;
 import static io.openems.common.channel.Unit.PERCENT;
 import static io.openems.common.channel.Unit.VOLT_AMPERE;
 import static io.openems.common.channel.Unit.VOLT_AMPERE_REACTIVE;
+import static io.openems.common.channel.Unit.VOLT_AMPERE_REACTIVE_HOURS;
 import static io.openems.common.channel.Unit.WATT;
 import static io.openems.common.channel.Unit.WATT_HOURS;
 import static io.openems.common.types.OpenemsType.DOUBLE;
@@ -58,7 +59,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: SymmetricEss)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: negative values for Charge; positive for Discharge
+		 * <li>Range: Negative values for Charge; positive for Discharge
 		 * </ul>
 		 */
 		ESS_ACTIVE_POWER(Doc.of(INTEGER)//
@@ -89,7 +90,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: AsymmetricEss)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: negative values for Charge; positive for Discharge
+		 * <li>Range: Negative values for Charge; positive for Discharge
 		 * </ul>
 		 */
 		ESS_ACTIVE_POWER_L1(Doc.of(INTEGER)//
@@ -107,7 +108,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: AsymmetricEss)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: negative values for Charge; positive for Discharge
+		 * <li>Range: Negative values for Charge; positive for Discharge
 		 * </ul>
 		 */
 		ESS_ACTIVE_POWER_L2(Doc.of(INTEGER)//
@@ -125,7 +126,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: AsymmetricEss)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: negative values for Charge; positive for Discharge
+		 * <li>Range: Negative values for Charge; positive for Discharge
 		 * </ul>
 		 */
 		ESS_ACTIVE_POWER_L3(Doc.of(INTEGER)//
@@ -143,7 +144,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: SymmetricEss)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: negative values for Charge; positive for Discharge
+		 * <li>Range: Negative values for Charge; positive for Discharge
 		 * <li>For AC coupled energy storage systems this is the same as
 		 * {@link ChannelId#ESS_ACTIVE_POWER}; for DC coupled or hybrid ESS this is the
 		 * {@link ChannelId#ESS_ACTIVE_POWER} minus
@@ -165,7 +166,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: SymmetricEss)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: negative values or '0'
+		 * <li>Range: Negative values or '0'
 		 * </ul>
 		 */
 		ESS_MIN_DISCHARGE_POWER(Doc.of(INTEGER)//
@@ -225,7 +226,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: ElectricityMeter)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: negative values for Consumption (power that is 'leaving the
+		 * <li>Range: Negative values for Consumption (power that is 'leaving the
 		 * system', e.g. feed-to-grid); positive for Production (power that is 'entering
 		 * the system')
 		 * </ul>
@@ -243,7 +244,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: ElectricityMeter)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: negative values for Consumption (power that is 'leaving the
+		 * <li>Range: Negative values for Consumption (power that is 'leaving the
 		 * system', e.g. feed-to-grid); positive for Production (power that is 'entering
 		 * the system')
 		 * </ul>
@@ -261,7 +262,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: ElectricityMeter)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: negative values for Consumption (power that is 'leaving the
+		 * <li>Range: Negative values for Consumption (power that is 'leaving the
 		 * system', e.g. feed-to-grid); positive for Production (power that is 'entering
 		 * the system')
 		 * </ul>
@@ -279,7 +280,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: ElectricityMeter))
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: negative values or '0'
+		 * <li>Range: Negative values or '0'
 		 * </ul>
 		 */
 		GRID_MIN_ACTIVE_POWER(Doc.of(INTEGER)//
@@ -299,6 +300,78 @@ public interface Sum extends OpenemsComponent {
 		GRID_MAX_ACTIVE_POWER(Doc.of(INTEGER)//
 				.unit(WATT)//
 				.persistencePriority(VERY_HIGH)),
+
+		/**
+		 * Grid: Reactive Power.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: ElectricityMeter))
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: Negative values for leading (capacitive); positive for lagging
+		 * (inductive) reactive power
+		 * </ul>
+		 */
+		GRID_REACTIVE_POWER(Doc.of(INTEGER)//
+				.unit(VOLT_AMPERE_REACTIVE)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Grid reactive power. "//
+						+ "Negative values for leading (capacitive); "//
+						+ "positive for lagging (inductive) reactive power")),
+
+		/**
+		 * Grid: Reactive Power L1.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: ElectricityMeter)
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: Negative values for leading (capacitive); positive for lagging
+		 * (inductive) reactive power
+		 * </ul>
+		 */
+		GRID_REACTIVE_POWER_L1(Doc.of(INTEGER)//
+				.unit(VOLT_AMPERE_REACTIVE)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Grid reactive power on phase L1. "//
+						+ "Negative values for leading (capacitive); "//
+						+ "positive for lagging (inductive) reactive power")),
+
+		/**
+		 * Grid: Reactive Power L2.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: ElectricityMeter)
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: Negative values for leading (capacitive); positive for lagging
+		 * (inductive) reactive power
+		 * </ul>
+		 */
+		GRID_REACTIVE_POWER_L2(Doc.of(INTEGER)//
+				.unit(VOLT_AMPERE_REACTIVE)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Grid reactive power on phase L2. "//
+						+ "Negative values for leading (capacitive); "//
+						+ "positive for lagging (inductive) reactive power")),
+
+		/**
+		 * Grid: Reactive Power L3.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: ElectricityMeter)
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: Negative values for leading (capacitive); positive for lagging
+		 * (inductive) reactive power
+		 * </ul>
+		 */
+		GRID_REACTIVE_POWER_L3(Doc.of(INTEGER)//
+				.unit(VOLT_AMPERE_REACTIVE)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Grid reactive power on phase L3. "//
+						+ "Negative values for leading (capacitive); "//
+						+ "positive for lagging (inductive) reactive power")),
 
 		/**
 		 * Grid: Price for Buy-from-Grid.
@@ -750,6 +823,34 @@ public interface Sum extends OpenemsComponent {
 				.unit(CUMULATED_WATT_HOURS)//
 				.persistencePriority(VERY_HIGH)//
 				.text("Accumulated electrical energy of grid feed-in")), //
+
+		/**
+		 * Grid: Lagging Reactive Energy.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: ElectricityMeter)
+		 * <li>Type: Long
+		 * <li>Unit: varh_Σ
+		 * </ul>
+		 */
+		GRID_LAGGING_REACTIVE_ENERGY(Doc.of(LONG)//
+				.unit(VOLT_AMPERE_REACTIVE_HOURS)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Accumulated electrical energy of lagging (inductive) reactive power to the grid")), //
+
+		/**
+		 * Grid: Leading Reactive Energy.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: ElectricityMeter)
+		 * <li>Type: Long
+		 * <li>Unit: varh_Σ
+		 * </ul>
+		 */
+		GRID_LEADING_REACTIVE_ENERGY(Doc.of(LONG)//
+				.unit(VOLT_AMPERE_REACTIVE_HOURS)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Accumulated electrical energy of leading (capacitive) reactive power to the grid")), //
 
 		/**
 		 * Production: Energy.
@@ -1344,6 +1445,82 @@ public interface Sum extends OpenemsComponent {
 	}
 
 	/**
+	 * Gets the Channel for {@link ChannelId#GRID_REACTIVE_POWER}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getGridReactivePowerChannel() {
+		return this.channel(ChannelId.GRID_REACTIVE_POWER);
+	}
+
+	/**
+	 * Gets the Total Grid Reactive Power in [var]. See
+	 * {@link ChannelId#GRID_REACTIVE_POWER}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getGridReactivePower() {
+		return this.getGridReactivePowerChannel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#GRID_REACTIVE_POWER_L1}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getGridReactivePowerL1Channel() {
+		return this.channel(ChannelId.GRID_REACTIVE_POWER_L1);
+	}
+
+	/**
+	 * Gets the Total Grid Reactive Power on L1 in [var]. See
+	 * {@link ChannelId#GRID_REACTIVE_POWER_L1}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getGridReactivePowerL1() {
+		return this.getGridReactivePowerL1Channel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#GRID_REACTIVE_POWER_L2}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getGridReactivePowerL2Channel() {
+		return this.channel(ChannelId.GRID_REACTIVE_POWER_L2);
+	}
+
+	/**
+	 * Gets the Total Grid Reactive Power on L2 in [var]. See
+	 * {@link ChannelId#GRID_REACTIVE_POWER_L2}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getGridReactivePowerL2() {
+		return this.getGridReactivePowerL2Channel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#GRID_REACTIVE_POWER_L3}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getGridReactivePowerL3Channel() {
+		return this.channel(ChannelId.GRID_REACTIVE_POWER_L3);
+	}
+
+	/**
+	 * Gets the Total Grid Active Power on L3 in [var]. See
+	 * {@link ChannelId#GRID_REACTIVE_POWER_L3}.
+	 *
+	 * @return the Channel {@link Value}
+	 */	
+	public default Value<Integer> getGridReactivePowerL3() {
+		return this.getGridReactivePowerL3Channel().value();
+	}
+
+	/**
 	 * Gets the Channel for {@link ChannelId#GRID_BUY_PRICE}.
 	 *
 	 * @return the Channel
@@ -1869,6 +2046,44 @@ public interface Sum extends OpenemsComponent {
 	 */
 	public default Value<Long> getGridSellActiveEnergy() {
 		return this.getGridSellActiveEnergyChannel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#GRID_LAGGING_REACTIVE_ENERGY}.
+	 *
+	 * @return the Channel
+	 */
+	public default LongReadChannel getGridLaggingReactiveEnergyChannel() {
+		return this.channel(ChannelId.GRID_LAGGING_REACTIVE_ENERGY);
+	}
+
+	/**
+	 * Gets the Total Grid Lagging Reactive Energy in [varh_Σ]. See
+	 * {@link ChannelId#GRID_LAGGING_REACTIVE_ENERGY}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Long> getGridLaggingReactiveEnergy() {
+		return this.getGridLaggingReactiveEnergyChannel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#GRID_LEADING_REACTIVE_ENERGY}.
+	 *
+	 * @return the Channel
+	 */
+	public default LongReadChannel getGridLeadingReactiveEnergyChannel() {
+		return this.channel(ChannelId.GRID_LEADING_REACTIVE_ENERGY);
+	}
+
+	/**
+	 * Gets the Total Grid Leading Reactive Energy in [varh_Σ]. See
+	 * {@link ChannelId#GRID_LEADING_REACTIVE_ENERGY}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Long> getGridLeadingReactiveEnergy() {
+		return this.getGridLeadingReactiveEnergyChannel().value();
 	}
 
 	/**
