@@ -63,12 +63,15 @@ public final class ModbusSlaveNatureTable {
 			} else {
 				// Channel did not pass filter -> show as Reserved
 				switch (type) {
-				case FLOAT32 -> this.float32Reserved(offset);
-				case FLOAT64 -> this.float64Reserved(offset);
-				case STRING16 -> this.string16Reserved(offset);
 				case ENUM16, UINT16 -> this.uint16Reserved(offset);
 				case UINT32 -> this.uint32Reserved(offset);
 				case UINT64 -> this.uint64Reserved(offset);
+				case INT16 -> this.int16Reserved(offset);
+				case INT32 -> this.int32Reserved(offset);
+				case INT64 -> this.int64Reserved(offset);
+				case FLOAT32 -> this.float32Reserved(offset);
+				case FLOAT64 -> this.float64Reserved(offset);
+				case STRING16 -> this.string16Reserved(offset);
 				}
 			}
 			return this;
@@ -137,6 +140,21 @@ public final class ModbusSlaveNatureTable {
 		}
 
 		/**
+		 * Add Unsigned Int 16 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder uint16Reserved(int start, int end) {
+			for (int i = start; i <= end; i++) {
+				this.add(new ModbusRecordUint16Reserved(i));
+			}
+			return this;
+		}
+
+		/**
 		 * Add a Unsigned Int 32 Reserved value to the {@link ModbusSlaveNatureTable}
 		 * {@link Builder}.
 		 * 
@@ -149,6 +167,21 @@ public final class ModbusSlaveNatureTable {
 		}
 
 		/**
+		 * Add Unsigned Int 32 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder uint32Reserved(int start, int end) {
+			for (int i = start; i <= end; i = i + 2) {
+				this.add(new ModbusRecordUint32Reserved(i));
+			}
+			return this;
+		}
+
+		/**
 		 * Add a Unsigned Int 64 Reserved value to the {@link ModbusSlaveNatureTable}
 		 * {@link Builder}.
 		 * 
@@ -157,6 +190,144 @@ public final class ModbusSlaveNatureTable {
 		 */
 		public Builder uint64Reserved(int offset) {
 			this.add(new ModbusRecordUint64Reserved(offset));
+			return this;
+		}
+
+		/**
+		 * Add Unsigned Int 64 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder uint64Reserved(int start, int end) {
+			for (int i = start; i <= end; i = i + 4) {
+				this.add(new ModbusRecordUint64Reserved(i));
+			}
+			return this;
+		}
+
+		/**
+		 * Add a Signed Int 16 value to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param offset the address offset
+		 * @param name   the name of the register
+		 * @param value  the value
+		 * @return myself
+		 */
+		public Builder int16(int offset, String name, int value) {
+			this.add(new ModbusRecordInt16(offset, name, value));
+			return this;
+		}
+
+		/**
+		 * Add a Signed Int 16 Reserved value to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param offset the address offset
+		 * @return myself
+		 */
+		public Builder int16Reserved(int offset) {
+			this.add(new ModbusRecordInt16Reserved(offset));
+			return this;
+		}
+
+		/**
+		 * Add Signed Int 16 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder int16Reserved(int start, int end) {
+			for (int i = start; i <= end; i++) {
+				this.add(new ModbusRecordInt16Reserved(i));
+			}
+			return this;
+		}
+
+		/**
+		 * Add a Signed Int 32 value to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param offset the address offset
+		 * @param name   the name of the register
+		 * @param value  the value
+		 * @return myself
+		 */
+		public Builder int32(int offset, String name, long value) {
+			this.add(new ModbusRecordInt32(offset, name, value));
+			return this;
+		}
+
+		/**
+		 * Add a Signed Int 32 Reserved value to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param offset the address offset
+		 * @return myself
+		 */
+		public Builder int32Reserved(int offset) {
+			this.add(new ModbusRecordInt32Reserved(offset));
+			return this;
+		}
+
+		/**
+		 * Add Signed Int 32 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder int32Reserved(int start, int end) {
+			for (int i = start; i <= end; i = i + 2) {
+				this.add(new ModbusRecordInt32Reserved(i));
+			}
+			return this;
+		}
+
+		/**
+		 * Add a Signed Int 64 value to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param offset the address offset
+		 * @param name   the name of the register
+		 * @param value  the value
+		 * @return myself
+		 */
+		public Builder int64(int offset, String name, long value) {
+			this.add(new ModbusRecordInt64(offset, name, value));
+			return this;
+		}
+
+		/**
+		 * Add a Signed Int 64 Reserved value to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param offset the address offset
+		 * @return myself
+		 */
+		public Builder int64Reserved(int offset) {
+			this.add(new ModbusRecordInt64Reserved(offset));
+			return this;
+		}
+
+		/**
+		 * Add Signed Int 64 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder int64Reserved(int start, int end) {
+			for (int i = start; i <= end; i = i + 4) {
+				this.add(new ModbusRecordInt64Reserved(i));
+			}
 			return this;
 		}
 
@@ -186,6 +357,21 @@ public final class ModbusSlaveNatureTable {
 		}
 
 		/**
+		 * Add Float 32 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder float32Reserved(int start, int end) {
+			for (int i = start; i <= end; i = i + 2) {
+				this.add(new ModbusRecordInt32Reserved(i));
+			}
+			return this;
+		}
+
+		/**
 		 * Add a Float 64 value to the {@link ModbusSlaveNatureTable} {@link Builder}.
 		 * 
 		 * @param offset the address offset
@@ -207,6 +393,21 @@ public final class ModbusSlaveNatureTable {
 		 */
 		public Builder float64Reserved(int offset) {
 			this.add(new ModbusRecordFloat64Reserved(offset));
+			return this;
+		}
+
+		/**
+		 * Add Float 64 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder float64Reserved(int start, int end) {
+			for (int i = start; i <= end; i = i + 4) {
+				this.add(new ModbusRecordFloat64Reserved(i));
+			}
 			return this;
 		}
 

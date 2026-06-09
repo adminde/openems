@@ -65,12 +65,15 @@ public class ModbusRecordCycleValue<T extends OpenemsComponent> extends ModbusRe
 	@Override
 	public byte[] getValue(OpenemsComponent component) {
 		return switch (this.getType()) {
-		case FLOAT32 -> ModbusRecordFloat32.toByteArray(this.value);
-		case FLOAT64 -> ModbusRecordFloat64.toByteArray(this.value);
-		case STRING16 -> ModbusRecordString16.toByteArray(this.value);
 		case ENUM16, UINT16 -> ModbusRecordUint16.toByteArray(this.value);
 		case UINT32 -> ModbusRecordUint32.toByteArray(this.value);
 		case UINT64 -> ModbusRecordUint64.toByteArray(this.value);
+		case INT16 -> ModbusRecordInt16.toByteArray(this.value);
+		case INT32 -> ModbusRecordInt32.toByteArray(this.value);
+		case INT64 -> ModbusRecordInt64.toByteArray(this.value);
+		case FLOAT32 -> ModbusRecordFloat32.toByteArray(this.value);
+		case FLOAT64 -> ModbusRecordFloat64.toByteArray(this.value);
+		case STRING16 -> ModbusRecordString16.toByteArray(this.value);
 		};
 	}
 

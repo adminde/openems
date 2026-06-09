@@ -36,12 +36,15 @@ public class ModbusRecordChannel extends ModbusRecord {
 
 		// initialize buffer
 		var byteLength = switch (this.getType()) {
-		case FLOAT32 -> ModbusRecordFloat32.BYTE_LENGTH;
-		case FLOAT64 -> ModbusRecordFloat64.BYTE_LENGTH;
-		case STRING16 -> ModbusRecordString16.BYTE_LENGTH;
 		case ENUM16, UINT16 -> ModbusRecordUint16.BYTE_LENGTH;
 		case UINT32 -> ModbusRecordUint32.BYTE_LENGTH;
 		case UINT64 -> ModbusRecordUint64.BYTE_LENGTH;
+		case INT16 -> ModbusRecordInt16.BYTE_LENGTH;
+		case INT32 -> ModbusRecordInt32.BYTE_LENGTH;
+		case INT64 -> ModbusRecordInt64.BYTE_LENGTH;
+		case FLOAT32 -> ModbusRecordFloat32.BYTE_LENGTH;
+		case FLOAT64 -> ModbusRecordFloat64.BYTE_LENGTH;
+		case STRING16 -> ModbusRecordString16.BYTE_LENGTH;
 		};
 		this.writeValueBuffer = new Byte[byteLength];
 	}
@@ -116,21 +119,6 @@ public class ModbusRecordChannel extends ModbusRecord {
 		}
 
 		return switch (this.getType()) {
-		case FLOAT32 -> //
-			switch (this.accessMode) {
-			case READ_ONLY, READ_WRITE -> ModbusRecordFloat32.toByteArray(value);
-			case WRITE_ONLY -> ModbusRecordFloat32.UNDEFINED_BYTE_ARRAY;
-			};
-		case FLOAT64 -> //
-			switch (this.accessMode) {
-			case READ_ONLY, READ_WRITE -> ModbusRecordFloat64.toByteArray(value);
-			case WRITE_ONLY -> ModbusRecordFloat64.UNDEFINED_BYTE_ARRAY;
-			};
-		case STRING16 -> //
-			switch (this.accessMode) {
-			case READ_ONLY, READ_WRITE -> ModbusRecordString16.toByteArray(value);
-			case WRITE_ONLY -> ModbusRecordString16.UNDEFINED_BYTE_ARRAY;
-			};
 		case ENUM16, UINT16 -> //
 			switch (this.accessMode) {
 			case READ_ONLY, READ_WRITE -> ModbusRecordUint16.toByteArray(value);
@@ -145,6 +133,36 @@ public class ModbusRecordChannel extends ModbusRecord {
 			switch (this.accessMode) {
 			case READ_ONLY, READ_WRITE -> ModbusRecordUint64.toByteArray(value);
 			case WRITE_ONLY -> ModbusRecordUint64.UNDEFINED_BYTE_ARRAY;
+			};
+		case INT16 -> //
+			switch (this.accessMode) {
+			case READ_ONLY, READ_WRITE -> ModbusRecordInt16.toByteArray(value);
+			case WRITE_ONLY -> ModbusRecordInt16.UNDEFINED_BYTE_ARRAY;
+			};
+		case INT32 -> //
+			switch (this.accessMode) {
+			case READ_ONLY, READ_WRITE -> ModbusRecordInt32.toByteArray(value);
+			case WRITE_ONLY -> ModbusRecordInt32.UNDEFINED_BYTE_ARRAY;
+			};
+		case INT64 -> //
+			switch (this.accessMode) {
+			case READ_ONLY, READ_WRITE -> ModbusRecordInt64.toByteArray(value);
+			case WRITE_ONLY -> ModbusRecordInt64.UNDEFINED_BYTE_ARRAY;
+			};
+		case FLOAT32 -> //
+			switch (this.accessMode) {
+			case READ_ONLY, READ_WRITE -> ModbusRecordFloat32.toByteArray(value);
+			case WRITE_ONLY -> ModbusRecordFloat32.UNDEFINED_BYTE_ARRAY;
+			};
+		case FLOAT64 -> //
+			switch (this.accessMode) {
+			case READ_ONLY, READ_WRITE -> ModbusRecordFloat64.toByteArray(value);
+			case WRITE_ONLY -> ModbusRecordFloat64.UNDEFINED_BYTE_ARRAY;
+			};
+		case STRING16 -> //
+			switch (this.accessMode) {
+			case READ_ONLY, READ_WRITE -> ModbusRecordString16.toByteArray(value);
+			case WRITE_ONLY -> ModbusRecordString16.UNDEFINED_BYTE_ARRAY;
 			};
 		};
 	}
@@ -191,12 +209,12 @@ public class ModbusRecordChannel extends ModbusRecord {
 
 		// Get Value-Object from ByteBuffer
 		var value = switch (this.getType()) {
-		case FLOAT64 -> buff.getDouble();
+		case ENUM16, UINT16, INT16 -> buff.getShort();
+		case UINT32, INT32 -> buff.getInt();
+		case UINT64, INT64 -> buff.getLong();
 		case FLOAT32 -> buff.getFloat();
+		case FLOAT64 -> buff.getDouble();
 		case STRING16 -> ""; // TODO implement String conversion
-		case ENUM16, UINT16 -> buff.getShort();
-		case UINT32 -> buff.getInt();
-		case UINT64 -> buff.getLong();
 		};
 
 		// Forward Value to ApiWorker
