@@ -2,6 +2,7 @@ package io.openems.edge.common.modbusslave;
 
 import static io.openems.common.channel.AccessMode.READ_WRITE;
 import static io.openems.common.channel.AccessMode.WRITE_ONLY;
+import static io.openems.edge.common.modbusslave.ModbusType.INT16;
 import static io.openems.edge.common.modbusslave.ModbusType.UINT16;
 import static org.junit.Assert.assertArrayEquals;
 
@@ -59,7 +60,7 @@ public class ModbusRecordChannelTest {
 	}
 
 	@Test
-	public void testGetValue() {
+	public void testGetUnsignedValue() {
 		var component = new DummyComponent("foo0") //
 				.withReadOnlyChannel(100) //
 				.withReadWriteChannel(200);
@@ -70,6 +71,16 @@ public class ModbusRecordChannelTest {
 
 		assertArrayEquals(ModbusRecordUint16.toByteArray(100),
 				new ModbusRecordChannel(0, UINT16, DummyComponent.ChannelId.READ_ONLY_CHANNEL, READ_WRITE)
+						.getValue(component));
+	}
+
+	@Test
+	public void testGetSignedValue() {
+		var component = new DummyComponent("foo0") //
+				.withReadOnlyChannel(-100);
+
+		assertArrayEquals(ModbusRecordInt16.toByteArray(-100),
+				new ModbusRecordChannel(0, INT16, DummyComponent.ChannelId.READ_ONLY_CHANNEL, READ_WRITE)
 						.getValue(component));
 	}
 

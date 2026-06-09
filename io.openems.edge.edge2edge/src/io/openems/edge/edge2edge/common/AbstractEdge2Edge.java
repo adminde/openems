@@ -33,6 +33,9 @@ import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
 import io.openems.edge.bridge.modbus.api.element.FloatDoublewordElement;
 import io.openems.edge.bridge.modbus.api.element.FloatQuadruplewordElement;
 import io.openems.edge.bridge.modbus.api.element.ModbusElement;
+import io.openems.edge.bridge.modbus.api.element.SignedDoublewordElement;
+import io.openems.edge.bridge.modbus.api.element.SignedQuadruplewordElement;
+import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
 import io.openems.edge.bridge.modbus.api.element.StringWordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedDoublewordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedQuadruplewordElement;
@@ -44,6 +47,9 @@ import io.openems.edge.common.modbusslave.ModbusRecord;
 import io.openems.edge.common.modbusslave.ModbusRecordChannel;
 import io.openems.edge.common.modbusslave.ModbusRecordFloat32;
 import io.openems.edge.common.modbusslave.ModbusRecordFloat64;
+import io.openems.edge.common.modbusslave.ModbusRecordInt16;
+import io.openems.edge.common.modbusslave.ModbusRecordInt32;
+import io.openems.edge.common.modbusslave.ModbusRecordInt64;
 import io.openems.edge.common.modbusslave.ModbusRecordUint16;
 import io.openems.edge.common.modbusslave.ModbusRecordUint32;
 import io.openems.edge.common.modbusslave.ModbusRecordUint64;
@@ -359,6 +365,9 @@ public abstract class AbstractEdge2Edge extends AbstractOpenemsModbusComponent
 		case ENUM16, UINT16 -> new UnsignedWordElement(address);
 		case UINT32 -> new UnsignedDoublewordElement(address);
 		case UINT64 -> new UnsignedQuadruplewordElement(address);
+		case INT16 -> new SignedWordElement(address);
+		case INT32 -> new SignedDoublewordElement(address);
+		case INT64 -> new SignedQuadruplewordElement(address);
 		case FLOAT32 -> new FloatDoublewordElement(address);
 		case FLOAT64 -> new FloatQuadruplewordElement(address);
 		case STRING16 -> new StringWordElement(address, 16);
@@ -373,12 +382,15 @@ public abstract class AbstractEdge2Edge extends AbstractOpenemsModbusComponent
 	 */
 	protected static ElementToChannelConverter getConverterForType(ModbusType type) {
 		return switch (type) {
-		case FLOAT32 -> SET_NULL_FOR_DEFAULT(ModbusRecordFloat32.UNDEFINED_VALUE);
-		case FLOAT64 -> SET_NULL_FOR_DEFAULT(ModbusRecordFloat64.UNDEFINED_VALUE);
-		case STRING16 -> DIRECT_1_TO_1; // TODO
 		case ENUM16, UINT16 -> SET_NULL_FOR_DEFAULT(ModbusRecordUint16.UNDEFINED_VALUE);
 		case UINT32 -> SET_NULL_FOR_DEFAULT(ModbusRecordUint32.UNDEFINED_VALUE);
 		case UINT64 -> SET_NULL_FOR_DEFAULT(ModbusRecordUint64.UNDEFINED_VALUE);
+		case INT16 -> SET_NULL_FOR_DEFAULT(ModbusRecordInt16.UNDEFINED_VALUE);
+		case INT32 -> SET_NULL_FOR_DEFAULT(ModbusRecordInt32.UNDEFINED_VALUE);
+		case INT64 -> SET_NULL_FOR_DEFAULT(ModbusRecordInt64.UNDEFINED_VALUE);
+		case FLOAT32 -> SET_NULL_FOR_DEFAULT(ModbusRecordFloat32.UNDEFINED_VALUE);
+		case FLOAT64 -> SET_NULL_FOR_DEFAULT(ModbusRecordFloat64.UNDEFINED_VALUE);
+		case STRING16 -> DIRECT_1_TO_1; // TODO
 		};
 	}
 
