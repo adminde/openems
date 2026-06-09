@@ -99,7 +99,7 @@ public class BatteryManagementSimulatorImpl extends AbstractOpenemsComponent
 		}
 		this.lastTimestamp = now;
 
-		var soc = this.energy / capacity * 100F;
+		float soc = this.energy / (float) capacity * 100F;
 		var voltage = calculateRackVoltage(soc);
 		var current = power / voltage;
 
@@ -119,18 +119,18 @@ public class BatteryManagementSimulatorImpl extends AbstractOpenemsComponent
 	 * @return rack voltage [mV]
 	 */
 	private int calculateRackVoltage(float soc) {
-		float minV = this.config.minDischargeVoltage();
-		float maxV = this.config.maxChargeVoltage();
-		float midSlope = (maxV - minV) / (float) (100 - 2 * VOLTAGE_DERATING_ZONE); // V per SoC-%
-		float v;
+		float voltageMin = this.config.minDischargeVoltage();
+		float voltageMax = this.config.maxChargeVoltage();
+		float voltageMidSlope = (voltageMax - voltageMin) / (float) (100 - 2 * VOLTAGE_DERATING_ZONE); // V per SoC-%
+		float voltage;
 		if (soc < VOLTAGE_DERATING_ZONE) {
-			v = minV + (soc - VOLTAGE_DERATING_ZONE) * midSlope * 3F;
+			voltage = voltageMin + (soc - VOLTAGE_DERATING_ZONE) * voltageMidSlope * 3F;
 		} else if (soc > (100 - VOLTAGE_DERATING_ZONE)) {
-			v = maxV + (soc - (100 - VOLTAGE_DERATING_ZONE)) * midSlope * 3F;
+			voltage = voltageMax + (soc - (100 - VOLTAGE_DERATING_ZONE)) * voltageMidSlope * 3F;
 		} else {
-			v = minV + (soc - VOLTAGE_DERATING_ZONE) * midSlope;
+			voltage = voltageMin + (soc - VOLTAGE_DERATING_ZONE) * voltageMidSlope;
 		}
-		return Math.round(v * 1000F);
+		return Math.round(voltage * 1000F);
 	}
 
 	/** Calculates Open Circuit Voltage in [V] */
