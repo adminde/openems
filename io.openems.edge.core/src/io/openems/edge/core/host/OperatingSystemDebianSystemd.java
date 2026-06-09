@@ -19,7 +19,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
@@ -108,7 +107,7 @@ public class OperatingSystemDebianSystemd implements OperatingSystem {
 		return switch (this.network) {
 		case NETWORK_MANAGER -> this.readNetworkManagerConfig();
 		case SYSTEMD_NETWORKD -> this.readNetworkdConfig();
-		case UNDEFINED -> throw new OpenemsException("Network daemon undefined");
+		case UNDEFINED -> throw new OpenemsException("Network service undefined");
 		};
 	}
 
@@ -210,7 +209,7 @@ public class OperatingSystemDebianSystemd implements OperatingSystem {
 		switch (this.network) {
 		case NETWORK_MANAGER -> this.writeNetworkManagerConfig(user, oldNetworkConfiguration, newInterfacesToCreate, request);
 		case SYSTEMD_NETWORKD -> this.writeNetworkdConfig(user, oldNetworkConfiguration, newInterfacesToCreate, request);
-		case UNDEFINED -> throw new OpenemsException("Network daemon undefined");
+		case UNDEFINED -> throw new OpenemsException("Network service undefined");
 		}
 	}
 
@@ -294,18 +293,57 @@ public class OperatingSystemDebianSystemd implements OperatingSystem {
 			NetworkConfiguration oldNetworkConfiguration,
 			List<NetworkInterface<?>> newInterfacesToCreate,
 			SetNetworkConfig.Request request) throws OpenemsNamedException {
-		// TODO: Handle creation of newInterfacesToCreate
 
+		// First create .nmconnection files for new interfaces
+		for (NetworkInterface<?> newInterface : newInterfacesToCreate) {
+			var fileName = newInterface.getName() + ".nmconnection";
+			var file = new File(NETWORK_MANAGER_BASE_PATH, fileName);
+			var lines = toNetworkManagerFileFormat(user, newInterface);
+			this.handleExecuteSystemWriteFile(file.toPath(), lines);
+			// NetworkManager refuses to load connections unless permissions are 0600
+			this.handleExecuteSystemCommandRequest(
+					ExecuteSystemCommandRequest.withRootPrivileges("chmod 600 " + file.toPath(), false, 5));
+
+			// Add the new interface to oldNetworkConfiguration
+			oldNetworkConfiguration.getInterfaces().put(//
+					newInterface.getName(), //
+					new NetworkInterface<>(//
+							newInterface.getName(), //
+							newInterface.getDhcp(), //
+							newInterface.getLinkLocalAddressing(), //
+							newInterface.getGateway(), //
+							newInterface.getDns(), //
+							newInterface.getAddresses(), //
+							newInterface.getDhcpRouteMetric(), //
+							newInterface.getIpv4Forwarding(), //
+							newInterface.getIpMasquerade(), //
+							newInterface.getDestination(), //
+							newInterface.getGatewayOnLink(), //
+							newInterface.getRoutes(), //
+							file));
+
+			log.info("Created new network interface configuration file: " + fileName);
+		}
+
+		// Update configuration files for existing interfaces
 		var touchedInterfaces = new ArrayList<String>();
 		for (Entry<String, NetworkInterface<?>> entry : oldNetworkConfiguration.getInterfaces().entrySet()) {
 			if (request.networkInterfaces().stream().noneMatch(i -> i.getName().equals(entry.getKey()))) {
 				continue;
 			}
+
+			// Skip newly created interfaces
+			if (newInterfacesToCreate.stream().anyMatch(ni -> ni.getName().equals(entry.getKey()))) {
+				continue;
+			}
+
 			NetworkInterface<?> iface = entry.getValue();
 			var file = (File) iface.getAttachment();
 			if (file == null) {
-				// no existing .nmconnection file — skip (creation is out of scope)
-				continue;
+				// Create file if it doesn't exist (fallback for old interfaces)
+				var fileName = iface.getName() + ".nmconnection";
+				file = new File(NETWORK_MANAGER_BASE_PATH, fileName);
+				log.warn("NetworkManager connection file not found for " + iface.getName() + ", creating new file");
 			}
 			var lines = toNetworkManagerFileFormat(user, iface);
 			this.handleExecuteSystemWriteFile(file.toPath(), lines);
@@ -315,9 +353,15 @@ public class OperatingSystemDebianSystemd implements OperatingSystem {
 			touchedInterfaces.add(iface.getName());
 		}
 
-		// reload connection files and bring interfaces back up
+		// Reload connection files so NetworkManager picks up the changes
 		this.handleExecuteSystemCommandRequest(
 				ExecuteSystemCommandRequest.withRootPrivileges("nmcli connection reload", true, 0));
+		// Activate newly created connections
+		for (var newInterface : newInterfacesToCreate) {
+			this.handleExecuteSystemCommandRequest(ExecuteSystemCommandRequest
+					.withRootPrivileges("nmcli connection up " + newInterface.getName(), true, 0));
+		}
+		// Re-apply changed connections on their devices
 		for (var name : touchedInterfaces) {
 			this.handleExecuteSystemCommandRequest(
 					ExecuteSystemCommandRequest.withRootPrivileges("nmcli device reapply " + name, true, 0));
@@ -1243,6 +1287,14 @@ public class OperatingSystemDebianSystemd implements OperatingSystem {
 
 	@Override
 	public void deleteNetworkInterfaces(User user, List<String> interfaceNames) throws OpenemsNamedException {
+		switch (this.network) {
+		case NETWORK_MANAGER -> this.deleteNetworkManagerInterfaces(interfaceNames);
+		case SYSTEMD_NETWORKD -> this.deleteNetworkdInterfaces(interfaceNames);
+		case UNDEFINED -> throw new OpenemsException("Network service undefined");
+		}
+	}
+
+	private void deleteNetworkdInterfaces(List<String> interfaceNames) throws OpenemsNamedException {
 		var errors = new ArrayList<String>();
 
 		for (var interfaceName : interfaceNames) {
@@ -1269,6 +1321,39 @@ public class OperatingSystemDebianSystemd implements OperatingSystem {
 		// Restart systemd-networkd to apply changes
 		this.handleExecuteSystemCommandRequest(ExecuteSystemCommandRequest
 				.runInBackgroundWithoutAuthentication("systemctl restart systemd-networkd --no-block"));
+	}
+
+	private void deleteNetworkManagerInterfaces(List<String> interfaceNames) throws OpenemsNamedException {
+		var errors = new ArrayList<String>();
+
+		for (var interfaceName : interfaceNames) {
+			// 'nmcli connection delete' removes the connection and its keyfile. The
+			// connection id equals the interface name for connections managed by OpenEMS.
+			var request = ExecuteSystemCommandRequest
+					.withRootPrivileges("nmcli connection delete " + interfaceName, false, 5);
+			try {
+				var response = this.handleExecuteSystemCommandRequest(request).get();
+				if (response.scr.exitcode() == 0) {
+					log.info("Deleted NetworkManager connection: " + interfaceName);
+				} else {
+					// non-zero exit (e.g. unknown connection) is treated as a warning, in line
+					// with the "file not found" handling of the systemd-networkd backend
+					log.warn("NetworkManager connection not deleted [" + interfaceName + "]: "
+							+ String.join(" ", response.scr.stderr()));
+				}
+			} catch (InterruptedException | ExecutionException e) {
+				log.error("Failed to delete NetworkManager connection: " + interfaceName, e);
+				errors.add("Failed to delete interface " + interfaceName + ": " + e.getMessage());
+			}
+		}
+
+		if (!errors.isEmpty()) {
+			throw new OpenemsException("Errors while deleting interfaces: " + String.join(", ", errors));
+		}
+
+		// reload connection files to apply the removal
+		this.handleExecuteSystemCommandRequest(
+				ExecuteSystemCommandRequest.withRootPrivileges("nmcli connection reload", true, 0));
 	}
 
 }
