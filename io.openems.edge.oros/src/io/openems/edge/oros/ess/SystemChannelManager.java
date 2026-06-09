@@ -1,5 +1,9 @@
 package io.openems.edge.oros.ess;
 
+import static io.openems.edge.common.channel.ChannelUtils.setValue;
+
+import java.util.function.Consumer;
+
 import io.openems.edge.battery.api.Battery;
 import io.openems.edge.battery.api.BatteryErrorAcknowledge;
 import io.openems.edge.batteryinverter.api.BatteryInverterErrorAcknowledge;
@@ -7,7 +11,6 @@ import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter
 import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.common.channel.AbstractChannelListenerManager;
-import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.channel.ChannelId;
 import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.ClockProvider;
@@ -23,8 +26,6 @@ import io.openems.edge.oros.ess.protection.OverChargeCurrentLimiter;
 import io.openems.edge.oros.ess.protection.PowerLimiter;
 import io.openems.edge.oros.ess.protection.StateOfChargeLimiter;
 import io.openems.edge.oros.pcs.PowerConversionSystem;
-
-import java.util.function.Consumer;
 
 public class SystemChannelManager extends AbstractChannelListenerManager {
 
@@ -243,8 +244,7 @@ public class SystemChannelManager extends AbstractChannelListenerManager {
 	protected <T> void addOnSetNextMirrorListener(OpenemsComponent sourceComponent,
 			ChannelId sourceChannelId, ChannelId targetChannelId) {
 		this.<T>addOnSetNextValueListener(sourceComponent, sourceChannelId, value -> {
-			Channel<T> targetChannel = this.parent.channel(targetChannelId);
-			targetChannel.setNextValue(value);
+			setValue(this.parent, targetChannelId, value);
 		});
 	}
 

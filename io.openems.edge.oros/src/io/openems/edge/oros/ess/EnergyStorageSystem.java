@@ -1,6 +1,6 @@
 package io.openems.edge.oros.ess;
 
-import static io.openems.common.channel.PersistencePriority.HIGH;
+import static io.openems.common.channel.PersistencePriority.MEDIUM;
 
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.Unit;
@@ -39,7 +39,7 @@ public interface EnergyStorageSystem extends
 		SET_ACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.WATT)
 				.accessMode(AccessMode.READ_WRITE)
-				.persistencePriority(HIGH)),
+				.persistencePriority(MEDIUM)),
 		/**
 		 * Sets the Reactive Power in [var].
 		 *
@@ -52,7 +52,7 @@ public interface EnergyStorageSystem extends
 		SET_REACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.VOLT_AMPERE_REACTIVE)
 				.accessMode(AccessMode.READ_WRITE)
-				.persistencePriority(HIGH)),
+				.persistencePriority(MEDIUM)),
 		;
 
 		private final Doc doc;

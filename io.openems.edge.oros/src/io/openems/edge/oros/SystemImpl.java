@@ -3,9 +3,6 @@ package io.openems.edge.oros;
 import java.util.List;
 import java.util.Map;
 
-import io.openems.common.exceptions.OpenemsException;
-import io.openems.common.oem.AppLink;
-import io.openems.common.session.Language;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -21,7 +18,10 @@ import org.osgi.service.metatype.annotations.Designate;
 import com.google.common.collect.ImmutableMap;
 
 import io.openems.common.channel.AccessMode;
+import io.openems.common.exceptions.OpenemsException;
+import io.openems.common.oem.AppLink;
 import io.openems.common.oem.OpenemsEdgeOem;
+import io.openems.common.session.Language;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
@@ -31,13 +31,13 @@ import io.openems.edge.common.sum.Sum;
 
 @Designate(ocd = Config.class, factory = false)
 @Component(
-		name = OrosEdgeSystem.SINGLETON_SERVICE_PID,
+		name = System.SINGLETON_SERVICE_PID,
 		immediate = true,
 		property = {
 				"enabled=true"
 		}
 )
-public class OrosEdgeSystemImpl extends AbstractOpenemsComponent implements OrosEdgeSystem,
+public class SystemImpl extends AbstractOpenemsComponent implements System,
 		OpenemsEdgeOem, OpenemsComponent, ModbusSlave {
 
 	public static final String OR_OS = "OR/OS";
@@ -400,6 +400,8 @@ public class OrosEdgeSystemImpl extends AbstractOpenemsComponent implements Oros
 			)
 			.build();
 
+	protected final SystemChannelManager systemChannelManager;
+
 	@Reference
 	private ConfigurationAdmin cm;
 
@@ -411,29 +413,31 @@ public class OrosEdgeSystemImpl extends AbstractOpenemsComponent implements Oros
 
 	private Config config;
 
-	public OrosEdgeSystemImpl() {
+	public SystemImpl() {
 		super(
 				OpenemsComponent.ChannelId.values(),
-				OrosEdgeSystem.ChannelId.values()
+				System.ChannelId.values()
 		);
+		this.systemChannelManager = new SystemChannelManager(this);
 	}
 
 	@Activate
 	private void activate(ComponentContext context, Config config) {
-		super.activate(context, SINGLETON_COMPONENT_ID, SINGLETON_SERVICE_PID, true);
+		super.activate(context, System.SINGLETON_COMPONENT_ID, System.SINGLETON_SERVICE_PID, true);
 		this.config = config;
 
-		if (OpenemsComponent.validateSingleton(this.cm, SINGLETON_SERVICE_PID, SINGLETON_COMPONENT_ID)) {
+		if (OpenemsComponent.validateSingleton(this.cm, System.SINGLETON_SERVICE_PID, System.SINGLETON_COMPONENT_ID)) {
 			return;
 		}
+		this.getChannelManager().activate(this.getComponentManager(), sum);
 	}
 
 	@Modified
 	private void modified(ComponentContext context, Config config) {
-		super.modified(context, SINGLETON_COMPONENT_ID, SINGLETON_SERVICE_PID, true);
+		super.modified(context, System.SINGLETON_COMPONENT_ID, System.SINGLETON_SERVICE_PID, true);
 		this.config = config;
 
-		if (OpenemsComponent.validateSingleton(this.cm, SINGLETON_SERVICE_PID, SINGLETON_COMPONENT_ID)) {
+		if (OpenemsComponent.validateSingleton(this.cm, System.SINGLETON_SERVICE_PID, System.SINGLETON_COMPONENT_ID)) {
 			return;
 		}
 	}
@@ -442,6 +446,19 @@ public class OrosEdgeSystemImpl extends AbstractOpenemsComponent implements Oros
 	@Deactivate
 	protected void deactivate() {
 		super.deactivate();
+	}
+
+	protected ComponentManager getComponentManager() {
+		return this.componentManager;
+	}
+
+	/**
+	 * Helper wrapping class to handle everything related to Channels.
+	 *
+	 * @return the {@link SystemChannelManager}
+	 */
+	protected SystemChannelManager getChannelManager() {
+		return this.systemChannelManager;
 	}
 
 	@Override
@@ -508,18 +525,18 @@ public class OrosEdgeSystemImpl extends AbstractOpenemsComponent implements Oros
 	public ModbusSlaveTable getModbusSlaveTable(AccessMode accessMode) {
 		return new ModbusSlaveTable(
 				OpenemsComponent.getModbusSlaveNatureTable(accessMode),
-				OrosEdgeSystem.getModbusSlaveNatureTable(accessMode));
+				System.getModbusSlaveNatureTable(accessMode));
 	}
 
 	/**
 	 * Helper method for JUnit tests. Tests if the given {@link OpenemsEdgeOem}
-	 * provides the same Website-URLs as {@link OrosEdgeSystemImpl} - (i.e. all are
+	 * provides the same Website-URLs as {@link SystemImpl} - (i.e. all are
 	 * not-null. See {@link #getAppWebsiteUrl(String)}
 	 *
 	 * @param oem the {@link OpenemsEdgeOem}
 	 */
 	public static void assertAllWebsiteUrlsSet(OpenemsEdgeOem oem) throws OpenemsException {
-		var edge = new OrosEdgeSystemImpl();
+		var edge = new SystemImpl();
 
 		for (var language : REQUIRED_LANGUAGES) {
 			var missing = edge.appLinks.keySet().stream()
