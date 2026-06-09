@@ -24,7 +24,7 @@ import io.openems.edge.oros.bms.BatteryManagementSystem;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(//
-		name = "OROS.Simulator.BMS", //
+		name = "Simulator.OROS.BMS", //
 		immediate = true, //
 		configurationPolicy = REQUIRE //
 )

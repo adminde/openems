@@ -4,8 +4,8 @@ import org.osgi.service.metatype.annotations.AttributeDefinition;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 @ObjectClassDefinition( //
-		name = "OROS Simulator PCS", //
-		description = "This simulates a Power Conversion System.")
+		name = "Simulator OROS PCS", //
+		description = "This simulates an OROS Power Conversion System.")
 @interface Config {
 
 	@AttributeDefinition(name = "Component-ID", description = "Unique ID of this Component")
@@ -26,6 +26,6 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "Max Discharge Power [W]")
 	int maxDischargePower() default 100000;
 
-	String webconsole_configurationFactory_nameHint() default "OROS Simulator PCS [{id}]";
+	String webconsole_configurationFactory_nameHint() default "Simulator OROS PCS [{id}]";
 
 }
