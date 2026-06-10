@@ -42,7 +42,7 @@ import io.openems.edge.oros.bms.BatteryManagementSystem;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(
-		name = "ESS.HyperStrong.HyperCube.II.BMS",
+		name = "Ess.HyperStrong.HyperCube.II.BMS",
 		immediate = true,
 		configurationPolicy = ConfigurationPolicy.REQUIRE
 )

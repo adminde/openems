@@ -49,7 +49,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(
-		name = "ESS.RCT.CESS.Meter",
+		name = "Ess.Rct.CESS.Meter",
 		immediate = true,
 		configurationPolicy = ConfigurationPolicy.REQUIRE
 )

@@ -39,7 +39,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(
-		name = "Simulator.OROS.PCS",
+		name = "Simulator.PCS.OROS",
 		immediate = true,
 		configurationPolicy = REQUIRE)
 public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent

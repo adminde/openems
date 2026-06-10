@@ -51,7 +51,7 @@ import io.openems.edge.oros.bms.BatteryManagementSystem;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(
-		name = "ESS.RCT.CESS.200.BMS",
+		name = "Ess.Rct.CESS.200.BMS",
 		immediate = true,
 		configurationPolicy = ConfigurationPolicy.REQUIRE
 )

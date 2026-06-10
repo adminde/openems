@@ -48,7 +48,7 @@ import io.openems.edge.timedata.api.TimedataProvider;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(
-		name = "Simulator.OROS.ESS.Symmetric.Reacting",
+		name = "Simulator.ESS.Symmetric.OROS",
 		immediate = true,
 		configurationPolicy = REQUIRE)
 public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsComponent

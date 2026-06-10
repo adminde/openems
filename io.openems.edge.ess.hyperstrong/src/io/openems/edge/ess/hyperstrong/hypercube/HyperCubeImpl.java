@@ -72,7 +72,7 @@ import io.openems.edge.timedata.api.TimedataProvider;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(
-		name = "ESS.HyperStrong.HyperCube.II",
+		name = "Ess.HyperStrong.HyperCube.II",
 		immediate = true,
 		configurationPolicy = ConfigurationPolicy.REQUIRE
 )

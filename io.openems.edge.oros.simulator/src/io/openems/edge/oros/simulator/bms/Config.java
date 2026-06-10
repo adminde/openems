@@ -4,7 +4,7 @@ import org.osgi.service.metatype.annotations.AttributeDefinition;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 @ObjectClassDefinition( //
-		name = "Simulator OROS BMS", //
+		name = "Simulator BatteryManagementSystem OROS", //
 		description = "This simulates an OROS Energy Battery Management System.")
 @interface Config {
 
@@ -29,6 +29,6 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "Minimum Discharge Voltage [V]", description = "Discharge cut-off voltage of the Battery Rack")
 	float minDischargeVoltage() default 665;
 
-	String webconsole_configurationFactory_nameHint() default "Simulator OROS BMS [{id}]";
+	String webconsole_configurationFactory_nameHint() default "Simulator BatteryManagementSystem OROS [{id}]";
 
 }

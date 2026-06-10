@@ -31,7 +31,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(
-		name = "ESS.RCT.CESS.200.PV",
+		name = "Ess.Rct.CESS.200.PV",
 		immediate = true,
 		configurationPolicy = ConfigurationPolicy.REQUIRE
 )

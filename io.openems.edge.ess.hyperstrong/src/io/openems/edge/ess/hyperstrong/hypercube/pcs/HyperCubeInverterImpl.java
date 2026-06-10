@@ -52,7 +52,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(
-		name = "ESS.HyperStrong.HyperCube.II.PCS",
+		name = "Ess.HyperStrong.HyperCube.II.PCS",
 		immediate = true,
 		configurationPolicy = ConfigurationPolicy.REQUIRE
 )
