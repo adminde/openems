@@ -15,7 +15,7 @@ import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.ess.rct.cess.batteryinverter.enums.RunState;
 import io.openems.edge.ess.rct.cess.batteryinverter.statemachine.StateMachine.State;
-import io.openems.edge.oros.pcs.PowerConversionSystem;
+import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 import io.openems.edge.timedata.api.TimedataProvider;
 
 public interface RctCessBatteryInverter extends

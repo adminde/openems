@@ -7,8 +7,6 @@ import io.openems.edge.common.channel.ChannelId;
 import io.openems.edge.common.component.ClockProvider;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.sum.Sum;
-import io.openems.edge.oros.bms.BatteryManagementSystem;
-import io.openems.edge.oros.pcs.PowerConversionSystem;
 
 public class SystemChannelManager extends AbstractChannelListenerManager {
 
@@ -22,8 +20,8 @@ public class SystemChannelManager extends AbstractChannelListenerManager {
 	/**
 	 * Called on Component activate().
 	 *
-	 * @param battery		the {@link BatteryManagementSystem}
-	 * @param inverter		the {@link PowerConversionSystem}
+	 * @param clock	the {@link ClockProvider}
+	 * @param sum	the {@link Sum}
 	 */
 	public void activate(ClockProvider clock, Sum sum) {
 		this.addOnSetNextMirrorListener(sum,

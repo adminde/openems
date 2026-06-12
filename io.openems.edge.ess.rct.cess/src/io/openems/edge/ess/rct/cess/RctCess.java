@@ -21,15 +21,18 @@ import io.openems.edge.ess.api.EssErrorAcknowledge;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.dccharger.api.EssDcCharger;
+import io.openems.edge.ess.rct.cess.battery.RctCessBattery;
+import io.openems.edge.ess.rct.cess.batteryinverter.RctCessBatteryInverter;
 import io.openems.edge.ess.rct.cess.charger.RctCessDcCharger;
 import io.openems.edge.ess.rct.cess.statemachine.StateMachine.State;
-import io.openems.edge.oros.ess.EnergyStorageSystem;
+import io.openems.edge.oros.bms.api.BatteryManagementProvider;
+import io.openems.edge.oros.ess.api.EnergyStorageSystem;
+import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 import io.openems.edge.timedata.api.TimedataProvider;
 
 public interface RctCess extends EnergyStorageSystem,
-		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge,
-		OpenemsComponent, ModbusComponent, ModbusSlave,
-		TimedataProvider, EventHandler, StartStoppable {
+		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave,
+		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler, StartStoppable {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 
@@ -144,6 +147,12 @@ public interface RctCess extends EnergyStorageSystem,
 	 * @return {@link StartStop}
 	 */
 	public StartStop getStartStopTarget();
+
+	@Override
+	public RctCessBattery getBatteryManagementSystem();
+
+	@Override
+	public RctCessBatteryInverter getPowerConversionSystem();
 
 	/**
 	 * Returns whether this {@link RctCess} has {@link EssDcCharger} available or

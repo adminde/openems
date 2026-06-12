@@ -5,7 +5,7 @@ import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStoppable;
-import io.openems.edge.oros.bms.BatteryManagementSystem;
+import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 
 public interface BatteryManagementSimulator extends
 		BatteryManagementSystem, Battery, OpenemsComponent, ModbusSlave, StartStoppable {

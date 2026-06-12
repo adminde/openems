@@ -57,11 +57,13 @@ import io.openems.edge.ess.rct.cess.jsonrpc.ClearTimeoutFailure;
 import io.openems.edge.ess.rct.cess.statemachine.Context;
 import io.openems.edge.ess.rct.cess.statemachine.StateMachine;
 import io.openems.edge.ess.rct.cess.statemachine.StateMachine.State;
-import io.openems.edge.oros.SymmetricComponent;
-import io.openems.edge.oros.ess.AbstractStorageSystem;
-import io.openems.edge.oros.ess.EnergyStorageProtection;
-import io.openems.edge.oros.ess.EnergyStorageSystem;
-import io.openems.edge.oros.ess.RuntimeChannels;
+import io.openems.edge.oros.bms.api.BatteryManagementProvider;
+import io.openems.edge.oros.common.SymmetricComponent;
+import io.openems.edge.oros.ess.core.AbstractModbusEss;
+import io.openems.edge.oros.ess.core.RuntimeChannels;
+import io.openems.edge.oros.pcs.api.PowerConversionProvider;
+import io.openems.edge.oros.ess.api.EnergyStorageProtection;
+import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
@@ -75,10 +77,10 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 @EventTopics({
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
 })
-public class RctCessImpl extends AbstractStorageSystem implements RctCess,
-		EnergyStorageSystem, HybridEss, ManagedSymmetricEss, SymmetricEss, SymmetricComponent,
-		EnergyStorageProtection, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave,
-		RuntimeChannels, TimedataProvider, EventHandler, StartStoppable {
+public class RctCessImpl extends AbstractModbusEss implements RctCess,
+		EnergyStorageSystem, HybridEss, ManagedSymmetricEss, SymmetricEss, SymmetricComponent, 
+		EnergyStorageProtection, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave, RuntimeChannels, 
+		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler, StartStoppable {
 
 	private final Logger log = LoggerFactory.getLogger(RctCessImpl.class);
 	private final StateMachine stateMachine = new StateMachine(UNDEFINED);
@@ -150,10 +152,8 @@ public class RctCessImpl extends AbstractStorageSystem implements RctCess,
 		this.chargers.forEach(charger -> charger.bindEss(this));
 		this.config = config;
 
-		this.getChannelManager().activate(this.getComponentManager(),
-				this.getBatteryManagementSystem(),
-				this.getPowerConversionSystem());
-		this.systemChannelManager.setStateOfChargeLimiter(new StateOfChargeClipper(this));
+		this.storageChannelManager.setStateOfChargeLimiter(
+				new StateOfChargeClipper(this, this.getBatteryManagementSystem()));
 	}
 
 	@Override
@@ -272,7 +272,7 @@ public class RctCessImpl extends AbstractStorageSystem implements RctCess,
 	}
 
 	@Override
-	public float getMaxPowerIncreasePercentage() {
+	protected float getMaxPowerIncreasePercentage() {
 		return this.config.maxPowerIncreasePercentage();
 	}
 

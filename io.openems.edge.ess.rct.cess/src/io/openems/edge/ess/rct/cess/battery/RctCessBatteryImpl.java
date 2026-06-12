@@ -47,7 +47,7 @@ import io.openems.edge.common.taskmanager.Priority;
 import io.openems.edge.ess.rct.cess.battery.statemachine.Context;
 import io.openems.edge.ess.rct.cess.battery.statemachine.StateMachine;
 import io.openems.edge.ess.rct.cess.battery.statemachine.StateMachine.State;
-import io.openems.edge.oros.bms.BatteryManagementSystem;
+import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(

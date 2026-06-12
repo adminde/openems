@@ -38,7 +38,7 @@ import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.common.taskmanager.Priority;
 import io.openems.edge.ess.api.SymmetricEss;
-import io.openems.edge.oros.bms.BatteryManagementSystem;
+import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(

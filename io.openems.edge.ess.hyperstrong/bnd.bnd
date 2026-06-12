@@ -12,7 +12,9 @@ Bundle-Version: 1.0.0.${tstamp}
 	io.openems.edge.bridge.modbus,\
 	io.openems.edge.timedata.api,\
 	io.openems.edge.common,\
-	io.openems.edge.oros,\
+	io.openems.edge.oros.common,\
+	io.openems.edge.oros.ess.api,\
+	io.openems.edge.oros.ess.core,\
 	io.openems.j2mod,\
 
 -testpath: \

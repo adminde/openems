@@ -35,12 +35,10 @@ import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.power.api.Constraint;
 import io.openems.edge.ess.power.api.Power;
-import io.openems.edge.oros.SymmetricComponent;
-import io.openems.edge.oros.bms.BatteryManagementSystem;
-import io.openems.edge.oros.ess.EnergyStorageProtection;
-import io.openems.edge.oros.ess.EnergyStorageSystem;
-import io.openems.edge.oros.ess.SystemChannelManager;
-import io.openems.edge.oros.pcs.PowerConversionSystem;
+import io.openems.edge.oros.common.SymmetricComponent;
+import io.openems.edge.oros.ess.core.StorageChannelManager;
+import io.openems.edge.oros.ess.api.EnergyStorageProtection;
+import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.simulator.bms.BatteryManagementSimulator;
 import io.openems.edge.oros.simulator.pcs.PowerConversionSimulator;
 import io.openems.edge.timedata.api.Timedata;
@@ -55,7 +53,7 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 		implements SymmetricStorageSimulatorReacting, EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss,
 		OpenemsComponent, ModbusSlave, TimedataProvider, StartStoppable {
 
-	private final SystemChannelManager channelManager = new SystemChannelManager(this);
+	private final StorageChannelManager channelManager = new StorageChannelManager(this);
 
 	private Config config;
 
@@ -105,9 +103,8 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 			return;
 		}
 
-		this.channelManager.activate(componentManager,
-				this.getBatteryManagementSystem(),
-				this.getPowerConversionSystem());
+		this.channelManager.activate(this.componentManager, this.bms, this.pcs,
+				() -> this.config.maxPowerIncreasePercentage());
 
 		this._setStartStop(StartStop.START);
 	}
@@ -132,11 +129,6 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 	}
 
 	@Override
-	public float getMaxPowerIncreasePercentage() {
-		return this.config.maxPowerIncreasePercentage();
-	}
-
-	@Override
 	public Power getPower() {
 		return this.power;
 	}
@@ -144,16 +136,6 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 	@Override
 	public Timedata getTimedata() {
 		return this.timedata;
-	}
-
-	@Override
-	public PowerConversionSystem getPowerConversionSystem() {
-		return this.pcs;
-	}
-
-	@Override
-	public BatteryManagementSystem getBatteryManagementSystem() {
-		return this.bms;
 	}
 
 	/**
@@ -180,7 +162,7 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 		}
 		else {
 			// Get PCS constraints
-			var pcsConstraints = this.getPowerConversionSystem().getStaticConstraints();
+			var pcsConstraints = this.pcs.getStaticConstraints();
 			for (var constraint : pcsConstraints) {
 				constraints.add(this.getPower().createSimpleConstraint(constraint.description(),
 						this, constraint.phase(), constraint.pwr(), constraint.relationship(), constraint.value()));

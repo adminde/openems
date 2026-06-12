@@ -14,7 +14,7 @@ import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStoppable;
-import io.openems.edge.oros.bms.BatteryManagementSystem;
+import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 
 public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 		OpenemsComponent, ModbusComponent, ModbusSlave, StartStoppable {

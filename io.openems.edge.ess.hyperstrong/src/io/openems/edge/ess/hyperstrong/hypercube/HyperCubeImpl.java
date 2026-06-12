@@ -59,13 +59,15 @@ import io.openems.edge.ess.hyperstrong.statemachine.StateMachine;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 import io.openems.edge.ess.hyperstrong.thermal.ThermalManagementSystem;
 import io.openems.edge.ess.power.api.Power;
-import io.openems.edge.oros.SymmetricComponent;
-import io.openems.edge.oros.bms.BatteryManagementSystem;
-import io.openems.edge.oros.ess.AbstractStorageSystem;
-import io.openems.edge.oros.ess.EnergyStorageProtection;
-import io.openems.edge.oros.ess.EnergyStorageSystem;
-import io.openems.edge.oros.ess.RuntimeChannels;
-import io.openems.edge.oros.pcs.PowerConversionSystem;
+import io.openems.edge.oros.common.SymmetricComponent;
+import io.openems.edge.oros.bms.api.BatteryManagementProvider;
+import io.openems.edge.oros.bms.api.BatteryManagementSystem;
+import io.openems.edge.oros.ess.core.AbstractModbusEss;
+import io.openems.edge.oros.ess.core.RuntimeChannels;
+import io.openems.edge.oros.ess.api.EnergyStorageProtection;
+import io.openems.edge.oros.ess.api.EnergyStorageSystem;
+import io.openems.edge.oros.pcs.api.PowerConversionProvider;
+import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 
@@ -79,10 +81,10 @@ import io.openems.edge.timedata.api.TimedataProvider;
 @EventTopics({
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
 })
-public class HyperCubeImpl extends AbstractStorageSystem implements HyperCube,
-		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, SymmetricComponent,
-		EnergyStorageProtection, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave,
-		ThermalManagementSystem, RuntimeChannels, TimedataProvider, EventHandler, StartStoppable {
+public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
+		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, SymmetricComponent, EnergyStorageProtection, EssErrorAcknowledge, 
+		OpenemsComponent, ModbusComponent, ModbusSlave, ThermalManagementSystem, RuntimeChannels, StartStoppable, 
+		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler {
 
 	private final Logger log = LoggerFactory.getLogger(HyperCubeImpl.class);
 	private final StateMachine stateMachine = new StateMachine(State.UNDEFINED);
@@ -144,9 +146,6 @@ public class HyperCubeImpl extends AbstractStorageSystem implements HyperCube,
 			return;
 		}
 		this.config = config;
-		this.getChannelManager().activate(this.getComponentManager(),
-				this.getBatteryManagementSystem(),
-				this.getPowerConversionSystem());
 	}
 
 	@Override
@@ -234,7 +233,7 @@ public class HyperCubeImpl extends AbstractStorageSystem implements HyperCube,
 	}
 
 	@Override
-	public float getMaxPowerIncreasePercentage() {
+	protected float getMaxPowerIncreasePercentage() {
 		return this.config.maxPowerIncreasePercentage();
 	}
 

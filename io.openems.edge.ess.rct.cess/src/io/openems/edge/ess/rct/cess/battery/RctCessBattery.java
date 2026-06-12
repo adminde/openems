@@ -17,7 +17,7 @@ import io.openems.edge.ess.rct.cess.battery.enums.PreChargeState;
 import io.openems.edge.ess.rct.cess.battery.enums.RackChargeState;
 import io.openems.edge.ess.rct.cess.battery.enums.RunState;
 import io.openems.edge.ess.rct.cess.battery.statemachine.StateMachine.State;
-import io.openems.edge.oros.bms.BatteryManagementSystem;
+import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 
 public interface RctCessBattery extends BatteryManagementSystem, BatteryErrorAcknowledge, ModbusComponent {
 

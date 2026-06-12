@@ -1,14 +1,15 @@
 package io.openems.edge.ess.rct.cess;
 
 import io.openems.edge.common.component.ClockProvider;
-import io.openems.edge.oros.ess.EnergyStorageSystem;
-import io.openems.edge.oros.ess.protection.StateOfChargeLimiter;
+import io.openems.edge.oros.bms.api.BatteryManagementSystem;
+import io.openems.edge.oros.ess.api.EnergyStorageSystem;
+import io.openems.edge.oros.ess.core.protection.StateOfChargeLimiter;
 
 public class StateOfChargeClipper extends StateOfChargeLimiter {
 	public static final int SOC_MARGIN = 3;
 
-	public StateOfChargeClipper(EnergyStorageSystem parent) {
-		super(parent);
+	public StateOfChargeClipper(EnergyStorageSystem parent, BatteryManagementSystem battery) {
+		super(parent, battery);
 	}
 
 	@Override
