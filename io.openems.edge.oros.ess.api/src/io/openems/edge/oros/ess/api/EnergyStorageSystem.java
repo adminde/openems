@@ -17,12 +17,11 @@ import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
-import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 
 public interface EnergyStorageSystem extends
 		ManagedSymmetricEss, SymmetricEss, EnergyStorageProtection,
-		SymmetricComponent, OpenemsComponent, ModbusSlave, StartStoppable {
+		OpenemsComponent, ModbusSlave, StartStoppable {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 		/**
