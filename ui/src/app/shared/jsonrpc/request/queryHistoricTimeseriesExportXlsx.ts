@@ -9,7 +9,7 @@ import { JsonrpcRequest } from "../base";
  * {
  *   "jsonrpc": "2.0",
  *   "id": "UUID",
- *   "method": "queryHistoricTimeseriesExportXlxs",
+ *   "method": "queryHistoricTimeseriesExportXlsx",
  *   "params": {
  *     "timezone": Number,
  *     "fromDate": YYYY-MM-DD,
@@ -18,15 +18,15 @@ import { JsonrpcRequest } from "../base";
  * }
  * </pre>
  */
-export class QueryHistoricTimeseriesExportXlxsRequest extends JsonrpcRequest {
+export class QueryHistoricTimeseriesExportXlsxRequest extends JsonrpcRequest {
 
-    private static METHOD: string = "queryHistoricTimeseriesExportXlxs";
+    private static METHOD: string = "queryHistoricTimeseriesExportXlsx";
 
     public constructor(
         private fromDate: Date,
         private toDate: Date,
     ) {
-        super(QueryHistoricTimeseriesExportXlxsRequest.METHOD, {
+        super(QueryHistoricTimeseriesExportXlsxRequest.METHOD, {
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             fromDate: format(fromDate, "yyyy-MM-dd"),
             toDate: format(toDate, "yyyy-MM-dd"),
