@@ -27,7 +27,7 @@ import io.openems.common.timedata.XlsxExportDetailData.XlsxExportDataEntry.Histo
 import io.openems.common.types.ChannelAddress;
 import io.openems.common.types.CurrencyConfig;
 
-public class CreateXlxsTest {
+public class CreateXlsxTest {
 
 	private static SortedMap<ChannelAddress, JsonElement> getMockedEnergyData() {
 		return ImmutableSortedMap.<ChannelAddress, JsonElement>naturalOrder() //
@@ -113,9 +113,9 @@ public class CreateXlxsTest {
 		var fromDate = ZonedDateTime.of(2020, 07, 01, 0, 0, 0, 0, ZoneId.systemDefault());
 		var toDate = ZonedDateTime.of(2020, 07, 02, 0, 0, 0, 0, ZoneId.systemDefault());
 
-		var powerData = CreateXlxsTest.getMockedPowerData();
-		var energyData = CreateXlxsTest.getMockedEnergyData();
-		var detailData = CreateXlxsTest.getMockedDetailData();
+		var powerData = CreateXlsxTest.getMockedPowerData();
+		var energyData = CreateXlsxTest.getMockedEnergyData();
+		var detailData = CreateXlsxTest.getMockedDetailData();
 
 		final var request = new QueryHistoricTimeseriesExportXlsxResponse(UUID.randomUUID(), "edge0", fromDate, toDate,
 				powerData, energyData, Language.EN, detailData);
@@ -167,8 +167,8 @@ public class CreateXlxsTest {
 		var fromDate = ZonedDateTime.of(2020, 07, 01, 0, 0, 0, 0, ZoneId.systemDefault());
 		var toDate = ZonedDateTime.of(2020, 07, 02, 0, 0, 0, 0, ZoneId.systemDefault());
 
-		var powerData = CreateXlxsTest.getMockedPowerData();
-		var energyData = CreateXlxsTest.getMockedEnergyData();
+		var powerData = CreateXlsxTest.getMockedPowerData();
+		var energyData = CreateXlsxTest.getMockedEnergyData();
 
 		final var request = new QueryHistoricTimeseriesExportXlsxResponse(UUID.randomUUID(), "edge0", fromDate, toDate,
 				powerData, energyData, Language.EN, detailData);

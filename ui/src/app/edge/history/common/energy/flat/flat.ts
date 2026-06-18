@@ -12,7 +12,7 @@ import { AbstractFlatWidget } from "src/app/shared/components/flat/abstract-flat
 import { NavigationService } from "src/app/shared/components/navigation/service/navigation.service";
 import { ViewUtils } from "src/app/shared/components/navigation/view/shared/shared";
 import { DataService } from "src/app/shared/components/shared/dataservice";
-import { QueryHistoricTimeseriesExportXlxsRequest } from "src/app/shared/jsonrpc/request/queryHistoricTimeseriesExportXlxs";
+import { QueryHistoricTimeseriesExportXlsxRequest } from "src/app/shared/jsonrpc/request/queryHistoricTimeseriesExportXlsx";
 import { Base64PayloadResponse } from "src/app/shared/jsonrpc/response/base64PayloadResponse";
 import { UserService } from "src/app/shared/service/user.service";
 import { DateUtils } from "src/app/shared/utils/date/dateutils";
@@ -69,7 +69,7 @@ export class FlatComponent extends AbstractFlatWidget {
     /**
    * Export historic data to Excel file.
     */
-    protected exportToXlxs() {
+    protected exportToXlsx() {
 
         if (this.isApp) {
             this.service.toast(this.translate.instant("APP.FUNCTIONALITY_TEMPORARILY_NOT_AVAILABLE"), "warning");
@@ -78,7 +78,7 @@ export class FlatComponent extends AbstractFlatWidget {
 
         this.service.getCurrentEdge().then(edge => {
             this.service.startSpinner(this.spinnerId);
-            edge.sendRequest(this.websocket, new QueryHistoricTimeseriesExportXlxsRequest(DateUtils.maxDate(this.service.historyPeriod.value.from, this.edge?.firstSetupProtocol), this.service.historyPeriod.value.to)).then(response => {
+            edge.sendRequest(this.websocket, new QueryHistoricTimeseriesExportXlsxRequest(DateUtils.maxDate(this.service.historyPeriod.value.from, this.edge?.firstSetupProtocol), this.service.historyPeriod.value.to)).then(response => {
                 const r = response as Base64PayloadResponse;
                 const binary = atob(r.result.payload.replace(/\s/g, ""));
                 const len = binary.length;
