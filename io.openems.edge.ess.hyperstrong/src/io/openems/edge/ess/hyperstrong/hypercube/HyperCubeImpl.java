@@ -59,13 +59,13 @@ import io.openems.edge.ess.hyperstrong.statemachine.StateMachine;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 import io.openems.edge.ess.hyperstrong.thermal.ThermalManagementSystem;
 import io.openems.edge.ess.power.api.Power;
-import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.bms.api.BatteryManagementProvider;
 import io.openems.edge.oros.bms.api.BatteryManagementSystem;
-import io.openems.edge.oros.ess.core.AbstractModbusEss;
-import io.openems.edge.oros.ess.core.RuntimeChannels;
+import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.ess.api.EnergyStorageProtection;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
+import io.openems.edge.oros.ess.core.AbstractModbusEss;
+import io.openems.edge.oros.ess.core.RuntimeChannels;
 import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 import io.openems.edge.timedata.api.Timedata;
@@ -218,6 +218,18 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 		}
 	}
 
+	@Override
+	public void applyPower(int activePower, int reactivePower) throws OpenemsNamedException {
+		super.applyPower(activePower, reactivePower);
+		if (this.isReadOnly()) {
+			return;
+		}
+		IntegerWriteChannel setActivePowerChannel = this.channel(HyperCube.ChannelId.SET_ACTIVE_POWER);
+		setActivePowerChannel.setNextWriteValue(activePower);
+		IntegerWriteChannel setReactivePowerChannel = this.channel(HyperCube.ChannelId.SET_REACTIVE_POWER);
+		setReactivePowerChannel.setNextWriteValue(reactivePower);
+	}
+
 	protected ComponentManager getComponentManager() {
 		return this.componentManager;
 	}
@@ -271,9 +283,9 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 								})),
 						m(HyperCube.ChannelId.RUN_MODE, new UnsignedWordElement(303)),
 						new DummyRegisterElement(304, 314),
-						m(EnergyStorageSystem.ChannelId.SET_ACTIVE_POWER,
+						m(HyperCube.ChannelId.SET_ACTIVE_POWER,
 								new SignedWordElement(315), SCALE_FACTOR_3),
-						m(EnergyStorageSystem.ChannelId.SET_REACTIVE_POWER,
+						m(HyperCube.ChannelId.SET_REACTIVE_POWER,
 								new SignedWordElement(316), SCALE_FACTOR_3)),
 
 				new FC4ReadInputRegistersTask(101, Priority.LOW,
@@ -366,9 +378,9 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 						m(HyperCube.ChannelId.RUN_MODE, new UnsignedWordElement(303))),
 
 				new FC16WriteRegistersTask(315,
-						m(EnergyStorageSystem.ChannelId.SET_ACTIVE_POWER,
+						m(HyperCube.ChannelId.SET_ACTIVE_POWER,
 								new SignedWordElement(315), SCALE_FACTOR_3),
-						m(EnergyStorageSystem.ChannelId.SET_REACTIVE_POWER,
+						m(HyperCube.ChannelId.SET_REACTIVE_POWER,
 								new SignedWordElement(316), SCALE_FACTOR_3)));
 	}
 

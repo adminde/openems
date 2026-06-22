@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.osgi.service.event.EventHandler;
 
+import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.Level;
 import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
@@ -40,6 +41,31 @@ public interface RctCess extends EnergyStorageSystem,
 				.text("Current State of State-Machine")),
 		RUN_FAILED(Doc.of(Level.FAULT)
 				.text("Running the Logic failed")),
+
+		/**
+		 * Sets the Active Power in [W].
+		 *
+		 * <ul>
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: negative values for Charge; positive for Discharge
+		 * </ul>
+		 */
+		SET_ACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
+				.unit(Unit.WATT)
+				.accessMode(AccessMode.READ_WRITE)),
+		/**
+		 * Sets the Reactive Power in [var].
+		 *
+		 * <ul>
+		 * <li>Type: Integer
+		 * <li>Unit: var
+		 * <li>Range: negative values for Charge; positive for Discharge
+		 * </ul>
+		 */
+		SET_REACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
+				.unit(Unit.VOLT_AMPERE_REACTIVE)
+				.accessMode(AccessMode.READ_WRITE)),
 
 		PV_POWER(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.WATT)

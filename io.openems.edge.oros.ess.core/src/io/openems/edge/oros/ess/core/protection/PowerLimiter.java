@@ -20,12 +20,12 @@ import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
-import io.openems.edge.oros.ess.core.StorageChannelManager;
+import io.openems.edge.oros.ess.core.ChannelManager;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 
 /**
  * Helper class to handle calculation of Allowed-Charge-Power and
- * Allowed-Discharge-Power. This class is used by {@link StorageChannelManager}
+ * Allowed-Discharge-Power. This class is used by {@link ChannelManager}
  * as a callback to updates of Battery Channels.
  */
 public class PowerLimiter implements Consumer<ClockProvider> {

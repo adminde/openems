@@ -1,10 +1,6 @@
 package io.openems.edge.oros.ess.api;
 
-import static io.openems.common.channel.PersistencePriority.MEDIUM;
-
 import io.openems.common.channel.AccessMode;
-import io.openems.common.channel.Unit;
-import io.openems.common.types.OpenemsType;
 import io.openems.common.utils.IntUtils;
 import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter;
 import io.openems.edge.common.channel.Doc;
@@ -24,32 +20,6 @@ public interface EnergyStorageSystem extends
 		OpenemsComponent, ModbusSlave, StartStoppable {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
-		/**
-		 * Sets the Active Power in [W].
-		 *
-		 * <ul>
-		 * <li>Type: Integer
-		 * <li>Unit: W
-		 * <li>Range: negative values for Charge; positive for Discharge
-		 * </ul>
-		 */
-		SET_ACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.WATT)
-				.accessMode(AccessMode.READ_WRITE)
-				.persistencePriority(MEDIUM)),
-		/**
-		 * Sets the Reactive Power in [var].
-		 *
-		 * <ul>
-		 * <li>Type: Integer
-		 * <li>Unit: var
-		 * <li>Range: negative values for Charge; positive for Discharge
-		 * </ul>
-		 */
-		SET_REACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.VOLT_AMPERE_REACTIVE)
-				.accessMode(AccessMode.READ_WRITE)
-				.persistencePriority(MEDIUM)),
 		;
 
 		private final Doc doc;

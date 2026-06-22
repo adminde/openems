@@ -6,12 +6,12 @@ import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.component.ClockProvider;
 import io.openems.edge.common.filter.PT1Filter;
 import io.openems.edge.oros.bms.api.BatteryManagementSystem;
-import io.openems.edge.oros.ess.core.StorageChannelManager;
+import io.openems.edge.oros.ess.core.ChannelManager;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 
 /**
  * Helper class to handle calculation of Max-Charge-Current and
- * Max-Discharge-Current. This class is used by {@link StorageChannelManager}
+ * Max-Discharge-Current. This class is used by {@link ChannelManager}
  * as a callback to updates of Battery Channels.
  */
 public abstract class CurrentLimiter implements Consumer<ClockProvider> {

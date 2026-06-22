@@ -29,7 +29,7 @@ import io.openems.edge.oros.ess.core.protection.PowerLimiter;
 import io.openems.edge.oros.ess.core.protection.StateOfChargeLimiter;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 
-public class StorageChannelManager extends AbstractChannelListenerManager {
+public class ChannelManager extends AbstractChannelListenerManager {
 
 	private final EnergyStorageSystem parent;
 
@@ -38,12 +38,12 @@ public class StorageChannelManager extends AbstractChannelListenerManager {
 	private DeepDischargeCurrentLimiter deepDischargeCurrentLimiter;
 	private StateOfChargeLimiter stateOfChargeLimiter;
 
-	public StorageChannelManager(EnergyStorageSystem parent) {
+	public ChannelManager(EnergyStorageSystem parent) {
 		super();
 		this.parent = parent;
 	}
 
-	public StorageChannelManager setStateOfChargeLimiter(StateOfChargeLimiter limiter) {
+	public ChannelManager setStateOfChargeLimiter(StateOfChargeLimiter limiter) {
 		this.stateOfChargeLimiter = limiter;
 		return this;
 	}
