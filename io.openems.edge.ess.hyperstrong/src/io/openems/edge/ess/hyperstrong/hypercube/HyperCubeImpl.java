@@ -299,7 +299,7 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 								.bit(4, HyperCube.AlarmChannelId.WATER_LEAKAGE_ALARM)
 								.bit(6, HyperCube.AlarmChannelId.SEVERE_HUMIDITY_ALARM)
 								.bit(7, HyperCube.AlarmChannelId.SUBSYSTEM_ISLANDING)
-								.bit(8, HyperCube.AlarmChannelId.INTERLOCK)
+								.bit(8, HyperCube.AlarmChannelId.CABINET_DOOR_INTERLOCK)
 								.bit(9, HyperCube.AlarmChannelId.PCS_EMERGENCY_STOP)
 								.bit(10, HyperCube.AlarmChannelId.QZ_CONTACTOR_RELEASE_FAULT)
 						),
@@ -308,17 +308,17 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 								.bit(0, HyperCube.AlarmChannelId.UPS_FAULT)
 								.bit(1, HyperCube.AlarmChannelId.BMS_FAULT)
 								.bit(2, HyperCube.AlarmChannelId.PCS_FAULT)
-								.bit(3, HyperCube.AlarmChannelId.METER_FAULT)
+								.bit(3, HyperCube.AlarmChannelId.METER_ALARM)
 								.bit(4, HyperCube.AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_WARNING)
 								.bit(5, HyperCube.AlarmChannelId.BMS_RS485_COMMUNICATION_ABNORMAL)
 								.bit(6, HyperCube.AlarmChannelId.PCS_RS485_COMMUNICATION_ABNORMAL)
-								.bit(7, HyperCube.AlarmChannelId.CABINET_EMERGENCY_STOP)
+								.bit(7, HyperCube.AlarmChannelId.CONTROL_CABINET_EMERGENCY_STOP)
 								.bit(13, HyperCube.AlarmChannelId.INSULATION_FAULT)
 						),
 						new DummyRegisterElement(123),
 						m(new BitsWordElement(124, this)
-								.bit(5, HyperCube.AlarmChannelId.GRID_POWER_CUTOFF_WARNING)
-								.bit(14, HyperCube.AlarmChannelId.SURGE_PROTECTION_WARNING)
+								.bit(5, HyperCube.AlarmChannelId.GRID_POWER_CUTOFF_FAULT)
+								.bit(14, HyperCube.AlarmChannelId.SURGE_PROTECTION_FAULT)
 						),
 						new DummyRegisterElement(125),
 						m(new BitsWordElement(126, this)
@@ -330,9 +330,9 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 						),
 						new DummyRegisterElement(127),
 						m(new BitsWordElement(128, this)
-								.bit(0, HyperCube.AlarmChannelId.SUBSYSTEM_HIGH_VOLTAGE_WARNING)
-								.bit(1, HyperCube.AlarmChannelId.SUBSYSTEM_LOW_VOLTAGE_WARNING)
-								.bit(14, HyperCube.AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_FAULT)
+								.bit(0, HyperCube.AlarmChannelId.SUBSYSTEM_HIGH_VOLTAGE_FAULT)
+								.bit(1, HyperCube.AlarmChannelId.SUBSYSTEM_LOW_VOLTAGE_FAULT)
+								.bit(14, HyperCube.AlarmChannelId.THERMAL_MANAGEMENT_COMMUNICATION_WARNING)
 						),
 						new DummyRegisterElement(129),
 						m(new BitsWordElement(130, this)
