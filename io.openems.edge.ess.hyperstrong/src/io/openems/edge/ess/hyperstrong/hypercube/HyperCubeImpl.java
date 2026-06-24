@@ -1,12 +1,17 @@
 package io.openems.edge.ess.hyperstrong.hypercube;
 
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.chain;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_1;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.INVERT;
 import static org.osgi.service.component.annotations.ReferenceCardinality.MANDATORY;
 import static org.osgi.service.component.annotations.ReferencePolicy.STATIC;
 import static org.osgi.service.component.annotations.ReferencePolicyOption.GREEDY;
 
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
@@ -26,7 +31,6 @@ import org.slf4j.LoggerFactory;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
-import io.openems.common.timedata.Timeout;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.bridge.modbus.api.BridgeModbus;
 import io.openems.edge.bridge.modbus.api.ElementToChannelConverter;
@@ -82,14 +86,15 @@ import io.openems.edge.timedata.api.TimedataProvider;
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
 })
 public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
-		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, SymmetricComponent, EnergyStorageProtection, EssErrorAcknowledge, 
-		OpenemsComponent, ModbusComponent, ModbusSlave, ThermalManagementSystem, RuntimeChannels, StartStoppable, 
-		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler {
+		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, SymmetricComponent, 
+		EnergyStorageProtection, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave, RuntimeChannels,
+		ThermalManagementSystem, PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler, StartStoppable {
 
 	private final Logger log = LoggerFactory.getLogger(HyperCubeImpl.class);
 	private final StateMachine stateMachine = new StateMachine(State.UNDEFINED);
 
-	private final Timeout heartbeatTimeout = Timeout.ofSeconds((int) Math.ceil(HyperCube.MIN_HEARTBEAT_CYCLE));
+	private final Duration heartbeatTimeout = Duration.ofMillis((long) (HyperCube.MIN_HEARTBEAT_CYCLE * 1000));
+	private volatile Instant heartbeatTimestamp = Instant.MIN;
 	private volatile int heartbeatValue = 0;
 
 	private Config config;
@@ -107,7 +112,7 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 	private ComponentManager componentManager;
 
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
-	private volatile Timedata timedata = null;
+	private volatile Timedata timedata;
 
 	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY)
 	private volatile PowerConversionSystem pcs;
@@ -191,24 +196,27 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 	}
 
 	protected void handleHeartbeat(Clock clock) {
-		if (this.getStartStopTarget() == StartStop.START) {
+		if (this.isReadOnly() || this.getStartStopTarget() != StartStop.START) {
+			return;
+		}
+		var heartbeatTimestamp = Instant.now(clock);
+		if (heartbeatTimestamp.isAfter(this.heartbeatTimestamp.plus(this.heartbeatTimeout))) {
 			int heartbeat = heartbeatValue == 0 ? 1 : 0;
-			setHeartbeat(clock, heartbeat);
+			this.setHeartbeat(heartbeat);
+
+			this.heartbeatValue = heartbeat;
+			this.heartbeatTimestamp = heartbeatTimestamp;
 		}
 	}
 
-	protected void setHeartbeat(Clock clock, int heartbeat) {
+	protected void setHeartbeat(int heartbeat) {
 		try {
 			IntegerWriteChannel heartbeatChannel = this.channel(HyperCube.ChannelId.HEARTBEAT);
-			heartbeatChannel.setNextWriteValue(this.heartbeatValue);
+			heartbeatChannel.setNextWriteValue(heartbeat);
 
 		} catch (IllegalArgumentException | OpenemsNamedException e) {
 			this.logError(this.log, "Setting Heartbeat failed: " + e.getMessage());
-			e.printStackTrace();
-			return;
 		}
-		this.heartbeatValue = heartbeat;
-		this.heartbeatTimeout.start(clock);
 	}
 
 	@Override
@@ -221,6 +229,7 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 	@Override
 	public void applyPower(int activePower, int reactivePower) throws OpenemsNamedException {
 		super.applyPower(activePower, reactivePower);
+
 		if (this.isReadOnly()) {
 			return;
 		}
@@ -281,17 +290,28 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 									}
 									return GridMode.UNDEFINED;
 								})),
-						m(HyperCube.ChannelId.RUN_MODE, new UnsignedWordElement(303)),
-						new DummyRegisterElement(304, 314),
-						m(HyperCube.ChannelId.SET_ACTIVE_POWER,
-								new SignedWordElement(315), SCALE_FACTOR_3),
-						m(HyperCube.ChannelId.SET_REACTIVE_POWER,
-								new SignedWordElement(316), SCALE_FACTOR_3)),
+						m(HyperCube.ChannelId.RUN_MODE, new UnsignedWordElement(303))),
+
+						// FIXME: Reading appears to not work correctly. Validate this with future firmware update.
+						// Channels were set to WRITE_ONLY to reflect this.
+						// new DummyRegisterElement(304, 314),
+						// m(HyperCube.ChannelId.SET_ACTIVE_POWER,
+						// 		new SignedWordElement(315), SCALE_FACTOR_3),
+						// m(HyperCube.ChannelId.SET_REACTIVE_POWER,
+						// 		new SignedWordElement(316), SCALE_FACTOR_3)),
 
 				new FC4ReadInputRegistersTask(101, Priority.LOW,
 						m(HyperCube.ChannelId.DEVICE_MODE, new UnsignedWordElement(101)),
 						m(HyperCube.ChannelId.OPERATING_STATUS, new UnsignedWordElement(102)),
-						new DummyRegisterElement(103, 119),
+						new DummyRegisterElement(103, 115),
+						m(ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER,
+								new UnsignedWordElement(116), chain(SCALE_FACTOR_2, INVERT)),
+						m(ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER,
+								new UnsignedWordElement(117), SCALE_FACTOR_2),
+						m(EnergyStorageSystem.ChannelId.AVAILABLE_DISCHARGE_ENERGY,
+								new UnsignedWordElement(118), SCALE_FACTOR_2),
+						m(EnergyStorageSystem.ChannelId.AVAILABLE_CHARGE_ENERGY,
+								new UnsignedWordElement(119), SCALE_FACTOR_2),
 						m(new BitsWordElement(120, this)
 								.bit(0, HyperCube.AlarmChannelId.INITIALIZATION_FAILURE)
 								.bit(2, HyperCube.AlarmChannelId.SMOKE_SENSOR_ALARM)

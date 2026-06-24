@@ -20,21 +20,21 @@ public class DeepDischargeCurrentLimiter extends CurrentLimiter {
 	protected VoltageLimitValues getLimitValues() {
 		return VoltageLimitValues.from(battery.isStarted(),
 				battery.getInnerResistance().get(),
-				battery.getCurrent().get(),
-				battery.getVoltage().get(),
+				battery.getRackCurrent().get(),
+				battery.getRackVoltage().get(),
 				battery.getDischargeMinVoltage().get(),
 				battery instanceof BatteryProtection b ? b.getDeepDischargeProtectionVoltage().get() : null,
 				inverter.getDcMinVoltage().get());
 	}
 
 	protected Integer calculateMaxCurrent(VoltageLimitValues values, PT1Filter filter) {
-		var resistance = values.innerResistance() / 1000.;
+		double resistance = values.innerResistance() / 1000.;
 
 		int voltageLimit = maxInteger(values.pcsVoltageLimit(),
 				values.voltageLimit(), values.voltageProtectionLimit());
-		var voltageDelta = subtract(values.voltage(), voltageLimit);
+		double voltageDelta = subtract(values.voltage() / 1000., (double) voltageLimit);
 		double currentDelta = voltageDelta / resistance;
-		double currentLimit = currentDelta + (double) values.current();
+		double currentLimit = currentDelta + values.current() / 1000.;
 		return filter.applyPT1Filter(max(currentLimit, -5.0));
 	}
 }

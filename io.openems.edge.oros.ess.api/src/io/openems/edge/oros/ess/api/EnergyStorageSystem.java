@@ -1,6 +1,9 @@
 package io.openems.edge.oros.ess.api;
 
 import io.openems.common.channel.AccessMode;
+import io.openems.common.channel.PersistencePriority;
+import io.openems.common.channel.Unit;
+import io.openems.common.types.OpenemsType;
 import io.openems.common.utils.IntUtils;
 import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter;
 import io.openems.edge.common.channel.Doc;
@@ -20,6 +23,30 @@ public interface EnergyStorageSystem extends
 		OpenemsComponent, ModbusSlave, StartStoppable {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
+		/**
+		 * Available Charge Energy.
+		 *
+		 * <ul>
+		 * <li>Interface: Energy Management System
+		 * <li>Type: Integer
+		 * <li>Unit: Wh
+		 * </ul>
+		 */
+		AVAILABLE_CHARGE_ENERGY(Doc.of(OpenemsType.INTEGER)
+				.unit(Unit.WATT_HOURS)
+				.persistencePriority(PersistencePriority.HIGH)),
+		/**
+		 * Available Discharge Energy.
+		 *
+		 * <ul>
+		 * <li>Interface: Energy Management System
+		 * <li>Type: Integer
+		 * <li>Unit: Wh
+		 * </ul>
+		 */
+		AVAILABLE_DISCHARGE_ENERGY(Doc.of(OpenemsType.INTEGER)
+				.unit(Unit.WATT_HOURS)
+				.persistencePriority(PersistencePriority.HIGH)),
 		;
 
 		private final Doc doc;

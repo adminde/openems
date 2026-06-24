@@ -1,7 +1,5 @@
 package io.openems.edge.ess.hyperstrong.hypercube;
 
-import org.osgi.service.event.EventHandler;
-
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.Level;
 import io.openems.common.channel.Unit;
@@ -28,7 +26,7 @@ import io.openems.edge.timedata.api.TimedataProvider;
 
 public interface HyperCube extends EnergyStorageSystem,
 		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave,
-		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler, StartStoppable {
+		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, StartStoppable {
 
 	/**
 	 * How often the OEM EMS controller will check for a changed heartbeat value
@@ -66,7 +64,7 @@ public interface HyperCube extends EnergyStorageSystem,
 		 */
 		SET_ACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.WATT)
-				.accessMode(AccessMode.READ_WRITE)),
+				.accessMode(AccessMode.WRITE_ONLY)),
 		/**
 		 * Sets the Reactive Power in [var].
 		 *
@@ -78,7 +76,7 @@ public interface HyperCube extends EnergyStorageSystem,
 		 */
 		SET_REACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.VOLT_AMPERE_REACTIVE)
-				.accessMode(AccessMode.READ_WRITE)),
+				.accessMode(AccessMode.WRITE_ONLY)),
 		;
 
 		private final Doc doc;

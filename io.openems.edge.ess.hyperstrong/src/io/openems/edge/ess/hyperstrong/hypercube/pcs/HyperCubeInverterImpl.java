@@ -21,6 +21,9 @@ import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.component.annotations.ReferencePolicyOption;
+import org.osgi.service.event.Event;
+import org.osgi.service.event.EventHandler;
+import org.osgi.service.event.propertytypes.EventTopics;
 import org.osgi.service.metatype.annotations.Designate;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
@@ -38,6 +41,7 @@ import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
 import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
 import io.openems.edge.bridge.modbus.api.task.FC4ReadInputRegistersTask;
 import io.openems.edge.common.component.OpenemsComponent;
+import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
@@ -56,9 +60,13 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 		immediate = true,
 		configurationPolicy = ConfigurationPolicy.REQUIRE
 )
+@EventTopics({
+	EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
+})
 public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implements
 		HyperCubeInverter, PowerConversionSystem, SymmetricBatteryInverter,
-		SymmetricComponent, OpenemsComponent, ModbusComponent, ModbusSlave, TimedataProvider {
+		SymmetricComponent, OpenemsComponent, ModbusComponent, ModbusSlave,
+		TimedataProvider, EventHandler {
 
 	private final CalculateEnergyFromPower calculateChargeEnergy = new CalculateEnergyFromPower(this,
 			SymmetricEss.ChannelId.ACTIVE_CHARGE_ENERGY);
@@ -116,11 +124,19 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 
 	@Override
 	public void run(Battery battery, int setActivePower, int setReactivePower) {
-		// Calculate the Energy values from ActivePower.
-		this.calculateEnergy();
+		// Unnecessary for this implementation
 	}
 
-	private void calculateEnergy() {
+	@Override
+	public void handleEvent(Event event) {
+		switch (event.getTopic()) {
+		case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
+			this.calculateAcEnergy();
+			break;
+		}
+	}
+
+	private void calculateAcEnergy() {
 		var activePower = this.getActivePowerChannel().getNextValue().get();
 		if (activePower == null) {
 			// Not available

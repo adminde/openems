@@ -13,6 +13,7 @@ import static org.osgi.service.component.annotations.ReferencePolicyOption.GREED
 import java.util.LinkedList;
 import java.util.List;
 
+import io.openems.edge.oros.ess.core.protection.PowerLimiter;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -150,11 +151,19 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 		if (OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "charger", config.charger_ids())) {
 			return;
 		}
-		this.chargers.forEach(charger -> charger.bindEss(this));
 		this.config = config;
+		this.chargers.forEach(charger -> charger.bindEss(this));
 
+		this.channelManager.setPowerLimiter(
+				new PowerLimiter(this,
+						this.getPowerConversionSystem(),
+						this.getBatteryManagementSystem(),
+						this::getMaxPowerIncreasePercentage));
 		this.channelManager.setStateOfChargeLimiter(
 				new StateOfChargeClipper(this, this.getBatteryManagementSystem()));
+		this.channelManager.activate(this.getComponentManager(),
+				this.getBatteryManagementSystem(),
+				this.getPowerConversionSystem());
 	}
 
 	@Override
@@ -260,6 +269,7 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 	@Override
 	public void applyPower(int activePower, int reactivePower) throws OpenemsNamedException {
 		super.applyPower(activePower, reactivePower);
+
 		if (this.isReadOnly()) {
 			return;
 		}

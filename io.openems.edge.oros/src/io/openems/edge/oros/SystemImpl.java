@@ -10,9 +10,6 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
-import org.osgi.service.component.annotations.ReferenceCardinality;
-import org.osgi.service.component.annotations.ReferencePolicy;
-import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.osgi.service.metatype.annotations.Designate;
 
 import com.google.common.collect.ImmutableMap;
@@ -400,13 +397,13 @@ public class SystemImpl extends AbstractOpenemsComponent implements System,
 			)
 			.build();
 
-	protected final SystemChannelManager systemChannelManager;
+	protected final ChannelManager channelManager;
+
+	@Reference
+	protected Sum sum;
 
 	@Reference
 	private ConfigurationAdmin cm;
-
-	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
-	protected volatile Sum sum = null;
 
 	@Reference
 	private ComponentManager componentManager;
@@ -418,7 +415,7 @@ public class SystemImpl extends AbstractOpenemsComponent implements System,
 				OpenemsComponent.ChannelId.values(),
 				System.ChannelId.values()
 		);
-		this.systemChannelManager = new SystemChannelManager(this);
+		this.channelManager = new ChannelManager(this);
 	}
 
 	@Activate
@@ -455,10 +452,10 @@ public class SystemImpl extends AbstractOpenemsComponent implements System,
 	/**
 	 * Helper wrapping class to handle everything related to Channels.
 	 *
-	 * @return the {@link SystemChannelManager}
+	 * @return the {@link ChannelManager}
 	 */
-	protected SystemChannelManager getChannelManager() {
-		return this.systemChannelManager;
+	protected ChannelManager getChannelManager() {
+		return this.channelManager;
 	}
 
 	@Override

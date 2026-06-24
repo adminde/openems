@@ -100,8 +100,7 @@ public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent i
 		if (activateChannelManager) {
 			this.getChannelManager().activate(this.getComponentManager(),
 					this.getBatteryManagementSystem(),
-					this.getPowerConversionSystem(),
-					this::getMaxPowerIncreasePercentage);
+					this.getPowerConversionSystem());
 		}
 		return false;
 	}
@@ -152,12 +151,12 @@ public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent i
 	 */
 	@Override
 	public void applyPower(int activePower, int reactivePower) throws OpenemsNamedException {
-		if (this.isReadOnly()) {
-			return;
-		}
 		setValue(this, ManagedSymmetricEss.ChannelId.DEBUG_SET_ACTIVE_POWER, activePower);
 		setValue(this, ManagedSymmetricEss.ChannelId.DEBUG_SET_REACTIVE_POWER, reactivePower);
 
+		if (this.isReadOnly()) {
+			return;
+		}
 		this.getPowerConversionSystem().run(this.getBatteryManagementSystem(), activePower, reactivePower);
 	}
 

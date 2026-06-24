@@ -103,9 +103,7 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 			return;
 		}
 
-		this.channelManager.activate(this.componentManager, this.bms, this.pcs,
-				() -> this.config.maxPowerIncreasePercentage());
-
+		this.channelManager.activate(this.componentManager, this.bms, this.pcs);
 		this._setStartStop(StartStop.START);
 	}
 
