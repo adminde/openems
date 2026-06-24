@@ -68,7 +68,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 		configurationPolicy = ConfigurationPolicy.REQUIRE
 )
 @EventTopics({
-	EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
+		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
 })
 public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent implements
 		RctCessBatteryInverter, PowerConversionSystem, ManagedSymmetricBatteryInverter, SymmetricBatteryInverter,
@@ -153,17 +153,33 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 
 	@Override
 	public void run(Battery battery, int setActivePower, int setReactivePower) throws OpenemsNamedException {
+		if (this.stateMachine.getCurrentState() != State.RUNNING) {
+			return;
+		}
+		// TODO Set battery limits and other business logic
+	}
+
+	@Override
+	public void handleEvent(Event event) {
+		switch (event.getTopic()) {
+		case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
+			this.handleStateMachine();
+			break;
+		}
+	}
+
+	private void handleStateMachine() {
 		// Store the current State
 		this._setStateMachine(this.stateMachine.getCurrentState());
 
 		// Initialize 'Start-Stop' Channel
 		this._setStartStop(StartStop.UNDEFINED);
 
-		// TODO Set battery limits and other business logic
+		// Calculate the Energy values from AC Power.
+		this.calculateAcEnergy();
 
 		// Prepare Context
-		var context = new Context(this, this.config, this.componentManager.getClock(),
-				battery, setActivePower, setReactivePower);
+		var context = new Context(this, this.config, this.componentManager.getClock());
 
 		// Call the StateMachine
 		try {
@@ -173,17 +189,6 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 		} catch (OpenemsNamedException e) {
 			this._setRunFailed(true);
 			this.logError(this.log, "StateMachine failed: " + e.getMessage());
-		}
-	}
-
-	@Override
-	public void handleEvent(Event event) {
-		switch (event.getTopic()) {
-		case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
-
-			// Calculate the Energy values from AC Power.
-			this.calculateAcEnergy();
-			break;
 		}
 	}
 
@@ -411,9 +416,7 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 
 	@Override
 	public String debugLog() {
-		return new StringBuilder()
-				.append(this.stateMachine.debugLog())
-				.toString();
+		return PowerConversionSystem.generateDebugLog(this, this.stateMachine);
 	}
 
 	@Override

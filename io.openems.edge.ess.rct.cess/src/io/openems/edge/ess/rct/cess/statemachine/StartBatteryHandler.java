@@ -10,10 +10,12 @@ public class StartBatteryHandler extends StateHandler<State, Context> {
 	public State runAndGetNextState(Context context) throws OpenemsNamedException {
 		final var battery = context.battery;
 
+		if (context.hasEssFaults()) {
+			return State.ERROR;
+		}
 		if (battery.isStarted()) {
 			return State.START_BATTERY_INVERTER;
 		}
-
 		battery.start();
 		return State.START_BATTERY;
 	}

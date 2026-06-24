@@ -7,13 +7,13 @@ public class UndefinedHandler extends StateHandler<State, Context> {
 
 	@Override
 	public State runAndGetNextState(Context context) {
-		var battery = context.getParent();
-		return switch (battery.getStartStopTarget()) {
+		var inverter = context.getParent();
+		return switch (inverter.getStartStopTarget()) {
 		case UNDEFINED // Stuck in UNDEFINED State
 			-> State.UNDEFINED;
 
 		case START // force START
-			-> battery.hasFaults() //
+			-> inverter.hasFaults() //
 					// Has Faults -> error handling
 					? State.ERROR
 					// No Faults -> start
