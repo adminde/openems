@@ -61,7 +61,7 @@ public interface RctCessDcCharger extends
 		final Consumer<Value<Integer>> calculateVoltageAndCurrent = ignore -> {
 			var voltage = batteryInverter.getDcVoltage().get();
 			var power = charger.getActualPower().get();
-			if (power == null || power == null) {
+			if (power == null || voltage == null) {
 				return;
 			}
 			charger._setVoltage(voltage);
