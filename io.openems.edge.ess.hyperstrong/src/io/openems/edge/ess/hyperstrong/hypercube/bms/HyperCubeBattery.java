@@ -91,6 +91,10 @@ public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 				.text("Minimum aviation connector temperature")),
 		MIN_CONNECTOR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)
 				.persistencePriority(PersistencePriority.MEDIUM)),
+		MAX_CONNECTOR_TEMPERATURE_MODULE_INDEX(Doc.of(OpenemsType.INTEGER)
+				.persistencePriority(PersistencePriority.MEDIUM)),
+		MIN_CONNECTOR_TEMPERATURE_MODULE_INDEX(Doc.of(OpenemsType.INTEGER)
+				.persistencePriority(PersistencePriority.MEDIUM)),
 
 		/**
 		 * Max Copper Bar Temperature.
@@ -137,6 +141,17 @@ public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 		COMMUNICATION_CONNECTED(Doc.of(OpenemsType.BOOLEAN)),
 		COMMUNICATION_ABNORMAL(Doc.of(Level.INFO)),
 		COMMUNICATION_FAULT(Doc.of(Level.WARNING)),
+
+		ALARM_VALUE_1(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_2(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_3(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_4(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_5(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_6(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_7(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_8(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_9(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_10(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
 		;
 
 		private final Doc doc;

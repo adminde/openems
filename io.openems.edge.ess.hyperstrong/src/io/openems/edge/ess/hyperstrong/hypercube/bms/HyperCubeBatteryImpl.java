@@ -19,7 +19,10 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.osgi.service.metatype.annotations.Designate;
 
+import io.openems.common.channel.PersistencePriority;
+import io.openems.common.channel.Unit;
 import io.openems.common.exceptions.OpenemsException;
+import io.openems.common.types.OpenemsType;
 import io.openems.edge.battery.api.Battery;
 import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
 import io.openems.edge.bridge.modbus.api.BridgeModbus;
@@ -29,9 +32,13 @@ import io.openems.edge.bridge.modbus.api.element.BitsWordElement;
 import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
 import io.openems.edge.bridge.modbus.api.element.ModbusElement;
 import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
+import io.openems.edge.bridge.modbus.api.element.UnsignedDoublewordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
+import io.openems.edge.bridge.modbus.api.element.WordOrder;
 import io.openems.edge.bridge.modbus.api.task.FC4ReadInputRegistersTask;
 import io.openems.edge.bridge.modbus.api.task.Task;
+import io.openems.edge.common.channel.ChannelId.ChannelIdImpl;
+import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
@@ -101,7 +108,7 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 
 	@Override
 	protected ModbusProtocol defineModbusProtocol() {
-		return new ModbusProtocol(this,
+		var protocol = new ModbusProtocol(this,
 
 				new FC4ReadInputRegistersTask(10001, Priority.HIGH,
 						m(BatteryManagementSystem.ChannelId.RACK_VOLTAGE,
@@ -282,6 +289,18 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 									this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_WARNING));
 						})),
 
+				new FC4ReadInputRegistersTask(10018, Priority.LOW,
+						this.rawAlarm(10018, HyperCubeBattery.ChannelId.ALARM_VALUE_1),
+						this.rawAlarm(10020, HyperCubeBattery.ChannelId.ALARM_VALUE_2),
+						this.rawAlarm(10022, HyperCubeBattery.ChannelId.ALARM_VALUE_3),
+						this.rawAlarm(10024, HyperCubeBattery.ChannelId.ALARM_VALUE_4),
+						this.rawAlarm(10026, HyperCubeBattery.ChannelId.ALARM_VALUE_5),
+						this.rawAlarm(10028, HyperCubeBattery.ChannelId.ALARM_VALUE_6),
+						this.rawAlarm(10030, HyperCubeBattery.ChannelId.ALARM_VALUE_7),
+						this.rawAlarm(10032, HyperCubeBattery.ChannelId.ALARM_VALUE_8),
+						this.rawAlarm(10034, HyperCubeBattery.ChannelId.ALARM_VALUE_9),
+						this.rawAlarm(10036, HyperCubeBattery.ChannelId.ALARM_VALUE_10)),
+
 				//defineModbusCellAnalyticsTask(10057),
 				defineModbusConnectorAnalyticsTask(10772),
 
@@ -299,11 +318,54 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 
 				defineModbusBusBarAnalyticsTask(10781)
 		);
+
+		protocol.addTasks(this.buildArrayTasks(10058, CELL_VOLTAGE_COUNT,
+				"CELL_VOLTAGE", false, Unit.MILLIVOLT, PersistencePriority.LOW));
+		protocol.addTasks(this.buildArrayTasks(10490, CELL_TEMPERATURE_COUNT,
+				"CELL_TEMPERATURE", true, Unit.DEZIDEGREE_CELSIUS, PersistencePriority.LOW));
+		protocol.addTasks(this.buildArrayTasks(10700, CONNECTOR_TEMPERATURE_COUNT,
+				"CONNECTOR_TEMPERATURE", true, Unit.DEZIDEGREE_CELSIUS, PersistencePriority.LOW));
+		protocol.addTasks(this.buildArrayTasks(10781, BUSBAR_TEMPERATURE_COUNT,
+				"BUSBAR_TEMPERATURE", true, Unit.DEZIDEGREE_CELSIUS, PersistencePriority.LOW));
+
+		return protocol;
 	}
 
-//	private Task defineModbusCellAnalyticsTask(int startAddress, HyperCubeModel model) {
-//		// TODO: Implement 260 cell voltages for HyperCube II, dynamically
-//	}
+
+	private static final int MAX_REGISTERS_PER_TASK = 100;
+	private static final int CELL_VOLTAGE_COUNT = 260;
+	private static final int CELL_TEMPERATURE_COUNT = 210;
+	private static final int CONNECTOR_TEMPERATURE_COUNT = 72;
+	private static final int BUSBAR_TEMPERATURE_COUNT = 100;
+
+	private Task[] buildArrayTasks(int startAddress, int count, String namePrefix, boolean signed,
+			Unit unit, PersistencePriority pp) {
+		List<Task> tasks = new ArrayList<>();
+		var index = 0;
+		while (index < count) {
+			var chunk = Math.min(MAX_REGISTERS_PER_TASK, count - index);
+			var elements = new ModbusElement[chunk];
+			for (var i = 0; i < chunk; i++) {
+				var oneBased = index + i + 1;
+				var address = startAddress + index + i;
+				var channelId = new ChannelIdImpl(String.format("%s_%03d", namePrefix, oneBased),
+						Doc.of(OpenemsType.INTEGER).unit(unit).persistencePriority(pp));
+				this.addChannel(channelId);
+				elements[i] = signed
+						? m(channelId, new SignedWordElement(address))
+						: m(channelId, new UnsignedWordElement(address));
+			}
+			tasks.add(new FC4ReadInputRegistersTask(startAddress + index, Priority.LOW, elements));
+			index += chunk;
+		}
+		return tasks.toArray(Task[]::new);
+	}
+
+
+	private UnsignedDoublewordElement rawAlarm(int address,
+			io.openems.edge.common.channel.ChannelId channelId) {
+		return m(channelId, new UnsignedDoublewordElement(address).wordOrder(WordOrder.LSWMSW));
+	}
 
 	private Task defineModbusConnectorAnalyticsTask(int startAddress) { //, HyperCubeModel model) {
 		List<ModbusElement> elements = new ArrayList<ModbusElement>(Arrays.asList(
@@ -314,7 +376,11 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 				m(HyperCubeBattery.ChannelId.MAX_CONNECTOR_TEMPERATURE_INDEX,
 						new UnsignedWordElement(10774)),
 				m(HyperCubeBattery.ChannelId.MIN_CONNECTOR_TEMPERATURE_INDEX,
-						new UnsignedWordElement(10775))
+						new UnsignedWordElement(10775)),
+				m(HyperCubeBattery.ChannelId.MAX_CONNECTOR_TEMPERATURE_MODULE_INDEX,
+						new UnsignedWordElement(10776)),
+				m(HyperCubeBattery.ChannelId.MIN_CONNECTOR_TEMPERATURE_MODULE_INDEX,
+						new UnsignedWordElement(10777))
 		));
 		return new FC4ReadInputRegistersTask(10772, Priority.LOW,
 				elements.toArray(ModbusElement[]::new));

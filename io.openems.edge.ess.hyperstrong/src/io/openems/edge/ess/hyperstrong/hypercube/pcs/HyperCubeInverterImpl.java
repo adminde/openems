@@ -36,6 +36,9 @@ import io.openems.edge.bridge.modbus.api.ModbusProtocol;
 import io.openems.edge.bridge.modbus.api.element.BitsWordElement;
 import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
 import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
+import io.openems.edge.bridge.modbus.api.element.UnsignedDoublewordElement;
+import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
+import io.openems.edge.bridge.modbus.api.element.WordOrder;
 import io.openems.edge.bridge.modbus.api.task.FC4ReadInputRegistersTask;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.modbusslave.ModbusSlave;
@@ -333,15 +336,19 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 								.bit(15, HyperCubeInverter.AlarmChannelId.HIGH_SOFT_START_RESISTOR_TEMPERATURE_FAULT)
 						),
 						new DummyRegisterElement(3037, 3038),
-						m(new BitsWordElement(3039, this)
+						m(HyperCubeInverter.ChannelId.PCS_POWER_ON_STATUS, new UnsignedWordElement(3039)),
+						m(new BitsWordElement(3040, this)
 								.bit(0, HyperCubeInverter.ChannelId.COMMUNICATION_ABNORMAL)
 								.bit(1, HyperCubeInverter.ChannelId.COMMUNICATION_CONNECTED)
 								.bit(2, HyperCubeInverter.ChannelId.COMMUNICATION_ENABLED)
 								.bit(3, HyperCubeInverter.ChannelId.COMMUNICATION_FAULT)
-						)),
+						),
+						new DummyRegisterElement(3041, 3043),
+						m(HyperCubeInverter.ChannelId.AND_OFF_GRID_STATUS, new UnsignedWordElement(3044))),
 
-				new FC4ReadInputRegistersTask(3076, Priority.LOW,
-						new DummyRegisterElement(3076),
+				new FC4ReadInputRegistersTask(3074, Priority.LOW,
+						m(HyperCubeInverter.ChannelId.PCS_RUNNING_STATUS, new UnsignedWordElement(3074)),
+						new DummyRegisterElement(3075, 3076),
 						m(new BitsWordElement(3077, this)
 								.bit(0, HyperCubeInverter.AlarmChannelId.DSP_ARM_COMMUNICATION_FAULT)
 								.bit(2, HyperCubeInverter.AlarmChannelId.CARRIER_SYNC_FAULT)
@@ -401,8 +408,31 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 								.bit(13, HyperCubeInverter.AlarmChannelId.INTERNAL_PARAMETER_MISMATCH_FAULT)
 								.bit(14, HyperCubeInverter.AlarmChannelId.FLASH_STORAGE_FAULT)
 								.bit(15, HyperCubeInverter.AlarmChannelId.RTC_INIT_WARNING)
-						))
+						)),
+
+				new FC4ReadInputRegistersTask(3019, Priority.LOW,
+						this.rawAlarm(3019, HyperCubeInverter.ChannelId.ALARM_VALUE_1),
+						this.rawAlarm(3021, HyperCubeInverter.ChannelId.ALARM_VALUE_2),
+						this.rawAlarm(3023, HyperCubeInverter.ChannelId.ALARM_VALUE_3),
+						this.rawAlarm(3025, HyperCubeInverter.ChannelId.ALARM_VALUE_4),
+						this.rawAlarm(3027, HyperCubeInverter.ChannelId.ALARM_VALUE_5),
+						this.rawAlarm(3029, HyperCubeInverter.ChannelId.ALARM_VALUE_6),
+						this.rawAlarm(3031, HyperCubeInverter.ChannelId.ALARM_VALUE_7),
+						this.rawAlarm(3033, HyperCubeInverter.ChannelId.ALARM_VALUE_8),
+						this.rawAlarm(3035, HyperCubeInverter.ChannelId.ALARM_VALUE_9),
+						this.rawAlarm(3037, HyperCubeInverter.ChannelId.ALARM_VALUE_10)),
+
+				new FC4ReadInputRegistersTask(3076, Priority.LOW,
+						this.rawAlarm(3076, HyperCubeInverter.ChannelId.ALARM_VALUE_11),
+						this.rawAlarm(3078, HyperCubeInverter.ChannelId.ALARM_VALUE_12),
+						this.rawAlarm(3080, HyperCubeInverter.ChannelId.ALARM_VALUE_13),
+						this.rawAlarm(3082, HyperCubeInverter.ChannelId.ALARM_VALUE_14))
 		);
+	}
+
+	private UnsignedDoublewordElement rawAlarm(int address,
+			io.openems.edge.common.channel.ChannelId channelId) {
+		return m(channelId, new UnsignedDoublewordElement(address).wordOrder(WordOrder.LSWMSW));
 	}
 
 	@Override

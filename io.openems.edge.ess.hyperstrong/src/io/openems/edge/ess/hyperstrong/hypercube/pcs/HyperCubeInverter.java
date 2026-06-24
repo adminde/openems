@@ -97,6 +97,26 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		COMMUNICATION_CONNECTED(Doc.of(OpenemsType.BOOLEAN)),
 		COMMUNICATION_ABNORMAL(Doc.of(Level.INFO)),
 		COMMUNICATION_FAULT(Doc.of(Level.WARNING)),
+
+
+		PCS_POWER_ON_STATUS(Doc.of(OpenemsType.INTEGER)),
+		AND_OFF_GRID_STATUS(Doc.of(OpenemsType.INTEGER)),
+		PCS_RUNNING_STATUS(Doc.of(OpenemsType.INTEGER)),
+
+		ALARM_VALUE_1(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_2(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_3(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_4(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_5(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_6(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_7(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_8(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_9(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_10(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_11(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_12(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_13(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_14(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
 		;
 
 		private final Doc doc;

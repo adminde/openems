@@ -9,6 +9,7 @@ import org.osgi.service.event.EventHandler;
 
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.Level;
+import io.openems.common.channel.PersistencePriority;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.common.channel.Channel;
@@ -53,6 +54,38 @@ public interface HyperCube extends EnergyStorageSystem,
 		RUN_MODE(Doc.of(RunMode.values())),
 		DEVICE_MODE(Doc.of(ChargingMode.values())),
 		OPERATING_STATUS(Doc.of(OperatingStatus.values())),
+
+		ALARM(Doc.of(OpenemsType.INTEGER)),
+		CONNECT_COMM_STATUS(Doc.of(OpenemsType.INTEGER)),
+		ENABLE(Doc.of(OpenemsType.INTEGER)),
+		ERROR(Doc.of(OpenemsType.INTEGER)),
+		NEED(Doc.of(OpenemsType.INTEGER)),
+		REQUIREMENT_STATUS(Doc.of(OpenemsType.INTEGER)),
+		SOC(Doc.of(OpenemsType.INTEGER)),
+		SOE(Doc.of(OpenemsType.INTEGER)),
+		SOH(Doc.of(OpenemsType.INTEGER)),
+		SOP_CHARGE(Doc.of(OpenemsType.INTEGER)),
+		SOP_DISCHARGE(Doc.of(OpenemsType.INTEGER)),
+		LEFT_CHARGE_QUANTITY(Doc.of(OpenemsType.INTEGER)),
+		LEFT_DISCHARGE_QUANTITY(Doc.of(OpenemsType.INTEGER)),
+		CELL_VOLTAGE_MAX(Doc.of(OpenemsType.INTEGER)),
+		CELL_VOLTAGE_MIN(Doc.of(OpenemsType.INTEGER)),
+		CELL_TEMPERATURE_MAX(Doc.of(OpenemsType.INTEGER)),
+		CELL_TEMPERATURE_MIN(Doc.of(OpenemsType.INTEGER)),
+		CHARGE_CURRENT_MAX(Doc.of(OpenemsType.INTEGER)),
+		DISCHARGE_CURRENT_MAX(Doc.of(OpenemsType.INTEGER)),
+		DEVICE_REQUIREMENT(Doc.of(OpenemsType.INTEGER)),
+
+		ALARM_VALUE_1(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_2(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_3(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_4(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_5(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_6(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_7(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_8(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_9(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
+		ALARM_VALUE_10(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
 		;
 
 		private final Doc doc;

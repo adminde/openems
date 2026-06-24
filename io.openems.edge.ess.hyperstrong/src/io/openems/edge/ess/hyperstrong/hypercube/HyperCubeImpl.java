@@ -35,7 +35,9 @@ import io.openems.edge.bridge.modbus.api.ModbusProtocol;
 import io.openems.edge.bridge.modbus.api.element.BitsWordElement;
 import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
 import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
+import io.openems.edge.bridge.modbus.api.element.UnsignedDoublewordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
+import io.openems.edge.bridge.modbus.api.element.WordOrder;
 import io.openems.edge.bridge.modbus.api.task.FC16WriteRegistersTask;
 import io.openems.edge.bridge.modbus.api.task.FC3ReadRegistersTask;
 import io.openems.edge.bridge.modbus.api.task.FC4ReadInputRegistersTask;
@@ -329,6 +331,46 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 								.bit(4, HyperCube.AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_ALARM)
 						)),
 
+				new FC4ReadInputRegistersTask(131, Priority.LOW,
+						new DummyRegisterElement(131, 140),
+						m(HyperCube.ChannelId.NEED, new UnsignedWordElement(141)),
+						m(new BitsWordElement(142, this)
+								.bit(0, HyperCube.ChannelId.ALARM)
+								.bit(1, HyperCube.ChannelId.CONNECT_COMM_STATUS)
+								.bit(2, HyperCube.ChannelId.ENABLE)
+								.bit(3, HyperCube.ChannelId.ERROR)
+						),
+						m(HyperCube.ChannelId.REQUIREMENT_STATUS, new UnsignedWordElement(143)),
+						new DummyRegisterElement(144, 149),
+						m(HyperCube.ChannelId.CELL_VOLTAGE_MAX, new UnsignedWordElement(150)),
+						m(HyperCube.ChannelId.CELL_VOLTAGE_MIN, new UnsignedWordElement(151)),
+						m(HyperCube.ChannelId.CELL_TEMPERATURE_MAX, new SignedWordElement(152)),
+						m(HyperCube.ChannelId.CELL_TEMPERATURE_MIN, new SignedWordElement(153)),
+						m(HyperCube.ChannelId.CHARGE_CURRENT_MAX, new SignedWordElement(154)),
+						m(HyperCube.ChannelId.DISCHARGE_CURRENT_MAX, new SignedWordElement(155))),
+
+				new FC4ReadInputRegistersTask(113, Priority.LOW,
+						m(HyperCube.ChannelId.SOC, new UnsignedWordElement(113)),
+						m(HyperCube.ChannelId.SOE, new UnsignedWordElement(114)),
+						m(HyperCube.ChannelId.SOH, new UnsignedWordElement(115)),
+						m(HyperCube.ChannelId.SOP_CHARGE, new UnsignedWordElement(116)),
+						m(HyperCube.ChannelId.SOP_DISCHARGE, new UnsignedWordElement(117)),
+						m(HyperCube.ChannelId.LEFT_DISCHARGE_QUANTITY, new UnsignedWordElement(118)),
+						m(HyperCube.ChannelId.LEFT_CHARGE_QUANTITY, new UnsignedWordElement(119))),
+
+
+				new FC4ReadInputRegistersTask(120, Priority.LOW,
+						this.rawAlarm(120, HyperCube.ChannelId.ALARM_VALUE_1),
+						this.rawAlarm(122, HyperCube.ChannelId.ALARM_VALUE_2),
+						this.rawAlarm(124, HyperCube.ChannelId.ALARM_VALUE_3),
+						this.rawAlarm(126, HyperCube.ChannelId.ALARM_VALUE_4),
+						this.rawAlarm(128, HyperCube.ChannelId.ALARM_VALUE_5),
+						this.rawAlarm(130, HyperCube.ChannelId.ALARM_VALUE_6),
+						this.rawAlarm(132, HyperCube.ChannelId.ALARM_VALUE_7),
+						this.rawAlarm(134, HyperCube.ChannelId.ALARM_VALUE_8),
+						this.rawAlarm(136, HyperCube.ChannelId.ALARM_VALUE_9),
+						this.rawAlarm(138, HyperCube.ChannelId.ALARM_VALUE_10)),
+
 				new FC4ReadInputRegistersTask(50001, Priority.LOW,
 						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_SYSTEM_MODE,
 								new UnsignedWordElement(50001)),
@@ -348,7 +390,9 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 								.bit(2, ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_HEATING_STATE)
 						)),
 
-				new FC4ReadInputRegistersTask(50077, Priority.LOW,
+				new FC4ReadInputRegistersTask(50074, Priority.LOW,
+						m(HyperCube.ChannelId.DEVICE_REQUIREMENT, new UnsignedWordElement(50074)),
+						new DummyRegisterElement(50075, 50076),
 						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_SYSTEM_FAULT_CODE,
 								new UnsignedWordElement(50077)),
 						new DummyRegisterElement(50078, 50098),
@@ -370,6 +414,12 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 								new SignedWordElement(315), SCALE_FACTOR_3),
 						m(EnergyStorageSystem.ChannelId.SET_REACTIVE_POWER,
 								new SignedWordElement(316), SCALE_FACTOR_3)));
+	}
+
+	
+	private UnsignedDoublewordElement rawAlarm(int address,
+			io.openems.edge.common.channel.ChannelId channelId) {
+		return m(channelId, new UnsignedDoublewordElement(address).wordOrder(WordOrder.LSWMSW));
 	}
 
 	@Override
