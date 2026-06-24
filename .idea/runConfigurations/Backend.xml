@@ -4,7 +4,7 @@
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
     <option name="ALTERNATIVE_JRE_PATH" />
     <method v="2">
-      <option name="Gradle.BeforeRunTask" enabled="true" tasks="buildBackend" externalProjectPath="$PROJECT_DIR$" vmOptions="" scriptParameters="" />
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="Build Backend" run_configuration_type="GradleRunConfiguration" />
     </method>
   </configuration>
 </component>
