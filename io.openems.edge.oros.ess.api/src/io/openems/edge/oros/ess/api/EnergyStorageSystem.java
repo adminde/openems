@@ -1,8 +1,7 @@
 package io.openems.edge.oros.ess.api;
 
-import static io.openems.common.channel.PersistencePriority.MEDIUM;
-
 import io.openems.common.channel.AccessMode;
+import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.common.utils.IntUtils;
@@ -25,31 +24,29 @@ public interface EnergyStorageSystem extends
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 		/**
-		 * Sets the Active Power in [W].
+		 * Available Charge Energy.
 		 *
 		 * <ul>
+		 * <li>Interface: Energy Management System
 		 * <li>Type: Integer
-		 * <li>Unit: W
-		 * <li>Range: negative values for Charge; positive for Discharge
+		 * <li>Unit: Wh
 		 * </ul>
 		 */
-		SET_ACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.WATT)
-				.accessMode(AccessMode.READ_WRITE)
-				.persistencePriority(MEDIUM)),
+		AVAILABLE_CHARGE_ENERGY(Doc.of(OpenemsType.INTEGER)
+				.unit(Unit.WATT_HOURS)
+				.persistencePriority(PersistencePriority.HIGH)),
 		/**
-		 * Sets the Reactive Power in [var].
+		 * Available Discharge Energy.
 		 *
 		 * <ul>
+		 * <li>Interface: Energy Management System
 		 * <li>Type: Integer
-		 * <li>Unit: var
-		 * <li>Range: negative values for Charge; positive for Discharge
+		 * <li>Unit: Wh
 		 * </ul>
 		 */
-		SET_REACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.VOLT_AMPERE_REACTIVE)
-				.accessMode(AccessMode.READ_WRITE)
-				.persistencePriority(MEDIUM)),
+		AVAILABLE_DISCHARGE_ENERGY(Doc.of(OpenemsType.INTEGER)
+				.unit(Unit.WATT_HOURS)
+				.persistencePriority(PersistencePriority.HIGH)),
 		;
 
 		private final Doc doc;

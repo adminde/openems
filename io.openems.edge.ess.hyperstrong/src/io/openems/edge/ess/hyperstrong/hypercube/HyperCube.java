@@ -1,15 +1,9 @@
 package io.openems.edge.ess.hyperstrong.hypercube;
 
-import io.openems.edge.ess.hyperstrong.OperatingStatus;
-import io.openems.edge.ess.hyperstrong.RunMode;
-import io.openems.edge.oros.bms.api.BatteryManagementProvider;
-import io.openems.edge.oros.ess.api.EnergyStorageSystem;
-import io.openems.edge.oros.pcs.api.PowerConversionProvider;
-import org.osgi.service.event.EventHandler;
-
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.Level;
 import io.openems.common.channel.PersistencePriority;
+import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.common.channel.Channel;
@@ -23,12 +17,17 @@ import io.openems.edge.ess.api.EssErrorAcknowledge;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.hyperstrong.ChargingMode;
+import io.openems.edge.ess.hyperstrong.OperatingStatus;
+import io.openems.edge.ess.hyperstrong.RunMode;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
+import io.openems.edge.oros.bms.api.BatteryManagementProvider;
+import io.openems.edge.oros.ess.api.EnergyStorageSystem;
+import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 import io.openems.edge.timedata.api.TimedataProvider;
 
 public interface HyperCube extends EnergyStorageSystem,
 		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave,
-		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler, StartStoppable {
+		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, StartStoppable {
 
 	/**
 	 * How often the OEM EMS controller will check for a changed heartbeat value
@@ -54,6 +53,31 @@ public interface HyperCube extends EnergyStorageSystem,
 		RUN_MODE(Doc.of(RunMode.values())),
 		DEVICE_MODE(Doc.of(ChargingMode.values())),
 		OPERATING_STATUS(Doc.of(OperatingStatus.values())),
+
+		/**
+		 * Sets the Active Power in [W].
+		 *
+		 * <ul>
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: negative values for Charge; positive for Discharge
+		 * </ul>
+		 */
+		SET_ACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
+				.unit(Unit.WATT)
+				.accessMode(AccessMode.WRITE_ONLY)),
+		/**
+		 * Sets the Reactive Power in [var].
+		 *
+		 * <ul>
+		 * <li>Type: Integer
+		 * <li>Unit: var
+		 * <li>Range: negative values for Charge; positive for Discharge
+		 * </ul>
+		 */
+		SET_REACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
+				.unit(Unit.VOLT_AMPERE_REACTIVE)
+				.accessMode(AccessMode.WRITE_ONLY)),
 
 		ALARM(Doc.of(OpenemsType.INTEGER)),
 		CONNECT_COMM_STATUS(Doc.of(OpenemsType.INTEGER)),

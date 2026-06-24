@@ -4,8 +4,8 @@ import { theme } from "./theme";
 export const environment: Environment = {
     ...theme, ...{
 
-        backend: "OpenEMS Backend",
-        url: `${getWebsocketScheme()}://${location.hostname}/backend/`,
+        backend: "OpenEMS Edge",
+        url: `${getWebsocketScheme()}://${location.hostname}:8075`,
 
         production: true,
         debugMode: false,

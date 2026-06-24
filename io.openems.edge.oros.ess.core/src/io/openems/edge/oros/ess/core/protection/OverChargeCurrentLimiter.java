@@ -21,22 +21,21 @@ public class OverChargeCurrentLimiter extends CurrentLimiter {
 	protected VoltageLimitValues getLimitValues() {
 		return VoltageLimitValues.from(battery.isStarted(),
 				battery.getInnerResistance().get(),
-				battery.getCurrent().get(),
-				battery.getVoltage().get(),
+				battery.getRackCurrent().get(),
+				battery.getRackVoltage().get(),
 				battery.getChargeMaxVoltage().get(),
 				battery instanceof BatteryProtection b ? b.getOverChargeProtectionVoltage().get() : null,
 				inverter.getDcMaxVoltage().get());
 	}
 
 	protected Integer calculateMaxCurrent(VoltageLimitValues values, PT1Filter filter) {
-		var resistance = values.innerResistance() / 1000.;
+		double resistance = values.innerResistance() / 1000.;
 
 		int voltageLimit = minInteger(values.pcsVoltageLimit(),
 				values.voltageLimit(), values.voltageProtectionLimit());
-		var voltageDelta = multiply(subtract(values.voltage(), voltageLimit), -1);
+		double voltageDelta = multiply(subtract(values.voltage() / 1000., (double) voltageLimit), -1.);
 		double currentDelta = voltageDelta / resistance;
-		double currentLimit = currentDelta - (double) values.current();
+		double currentLimit = currentDelta - values.current() / 1000.;
 		return filter.applyPT1Filter(max(currentLimit, -5.0));
 	}
-
 }

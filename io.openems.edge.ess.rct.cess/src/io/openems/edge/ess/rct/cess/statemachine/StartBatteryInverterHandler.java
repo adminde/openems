@@ -13,11 +13,9 @@ public class StartBatteryInverterHandler extends StateHandler<State, Context> {
 		if (context.hasEssFaults()) {
 			return State.ERROR;
 		}
-
 		if (inverter.isStarted()) {
 			return State.RUNNING;
 		}
-
 		inverter.start();
 		return State.START_BATTERY_INVERTER;
 	}

@@ -36,7 +36,7 @@ import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.power.api.Constraint;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.oros.common.SymmetricComponent;
-import io.openems.edge.oros.ess.core.StorageChannelManager;
+import io.openems.edge.oros.ess.core.ChannelManager;
 import io.openems.edge.oros.ess.api.EnergyStorageProtection;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.simulator.bms.BatteryManagementSimulator;
@@ -53,7 +53,7 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 		implements SymmetricStorageSimulatorReacting, EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss,
 		OpenemsComponent, ModbusSlave, TimedataProvider, StartStoppable {
 
-	private final StorageChannelManager channelManager = new StorageChannelManager(this);
+	private final ChannelManager channelManager = new ChannelManager(this);
 
 	private Config config;
 
@@ -103,9 +103,7 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 			return;
 		}
 
-		this.channelManager.activate(this.componentManager, this.bms, this.pcs,
-				() -> this.config.maxPowerIncreasePercentage());
-
+		this.channelManager.activate(this.componentManager, this.bms, this.pcs);
 		this._setStartStop(StartStop.START);
 	}
 

@@ -95,123 +95,11 @@
               "fileReplacements": [
                 {
                   "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
-                },
-                {
-                  "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/backend-dev.ts"
-                },
-                {
-                  "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
-                }
-              ]
-            },
-            "openems-backend-prod": {
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
-                },
-                {
-                  "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/backend-prod.ts"
-                },
-                {
-                  "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
-                }
-              ]
-            },
-            "openems-edge-dev": {
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
-                },
-                {
-                  "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/edge-dev.ts"
-                },
-                {
-                  "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
-                }
-              ]
-            },
-            "openems-edge-prod": {
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
-                },
-                {
-                  "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/edge-prod.ts"
-                },
-                {
-                  "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
-                }
-              ]
-            },
-            "openems-edge-docker": {
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
-                },
-                {
-                  "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/edge-docker.ts"
-                },
-                {
-                  "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
-                }
-              ]
-            },
-            "openems-backend-docker": {
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
-                },
-                {
-                  "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/backend-docker.ts"
-                },
-                {
-                  "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
-                }
-              ]
-            },
-            "openems-gitpod": {
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/theme.ts",
-                  "with": "src/themes/openems/environments/theme.ts"
-                },
-                {
-                  "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/openems/environments/gitpod.ts"
-                },
-                {
-                  "replace": "src/environments/oem-meta.ts",
-                  "with": "src/themes/openems/environments/oem-meta.ts"
-                }
-              ]
-            },
-            "openems-backend-oros": {
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/theme.ts",
                   "with": "src/themes/oros/environments/theme.ts"
                 },
                 {
                   "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/oros/environments/backend-oros.ts"
+                  "with": "src/themes/oros/environments/backend-dev.ts"
                 },
                 {
                   "replace": "src/environments/oem-meta.ts",
@@ -219,7 +107,7 @@
                 }
               ]
             },
-            "openems-edge-oros": {
+            "openems-backend-prod": {
               "fileReplacements": [
                 {
                   "replace": "src/environments/theme.ts",
@@ -227,7 +115,87 @@
                 },
                 {
                   "replace": "src/environments/dummy.ts",
-                  "with": "src/themes/oros/environments/edge-oros.ts"
+                  "with": "src/themes/oros/environments/backend-prod.ts"
+                },
+                {
+                  "replace": "src/environments/oem-meta.ts",
+                  "with": "src/themes/oros/environments/oem-meta.ts"
+                }
+              ]
+            },
+            "openems-edge-dev": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/theme.ts",
+                  "with": "src/themes/oros/environments/theme.ts"
+                },
+                {
+                  "replace": "src/environments/dummy.ts",
+                  "with": "src/themes/oros/environments/edge-dev.ts"
+                },
+                {
+                  "replace": "src/environments/oem-meta.ts",
+                  "with": "src/themes/oros/environments/oem-meta.ts"
+                }
+              ]
+            },
+            "openems-edge-prod": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/theme.ts",
+                  "with": "src/themes/oros/environments/theme.ts"
+                },
+                {
+                  "replace": "src/environments/dummy.ts",
+                  "with": "src/themes/oros/environments/edge-prod.ts"
+                },
+                {
+                  "replace": "src/environments/oem-meta.ts",
+                  "with": "src/themes/oros/environments/oem-meta.ts"
+                }
+              ]
+            },
+            "openems-edge-docker": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/theme.ts",
+                  "with": "src/themes/oros/environments/theme.ts"
+                },
+                {
+                  "replace": "src/environments/dummy.ts",
+                  "with": "src/themes/oros/environments/edge-docker.ts"
+                },
+                {
+                  "replace": "src/environments/oem-meta.ts",
+                  "with": "src/themes/oros/environments/oem-meta.ts"
+                }
+              ]
+            },
+            "openems-backend-docker": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/theme.ts",
+                  "with": "src/themes/oros/environments/theme.ts"
+                },
+                {
+                  "replace": "src/environments/dummy.ts",
+                  "with": "src/themes/oros/environments/backend-docker.ts"
+                },
+                {
+                  "replace": "src/environments/oem-meta.ts",
+                  "with": "src/themes/oros/environments/oem-meta.ts"
+                }
+              ]
+            },
+            "openems-gitpod": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/theme.ts",
+                  "with": "src/themes/oros/environments/theme.ts"
+                },
+                {
+                  "replace": "src/environments/dummy.ts",
+                  "with": "src/themes/oros/environments/gitpod.ts"
                 },
                 {
                   "replace": "src/environments/oem-meta.ts",
@@ -280,8 +248,8 @@
             "fileReplacements": [
               {
                 "replace": "src/environments/dummy.ts",
-                "with": "src/themes/openems/environments/karma.ts"
-              },
+                "with": "src/themes/oros/environments/karma.ts"
+              }
             ]
           },
           "configurations": {

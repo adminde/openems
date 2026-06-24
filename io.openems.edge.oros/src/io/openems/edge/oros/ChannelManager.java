@@ -8,11 +8,11 @@ import io.openems.edge.common.component.ClockProvider;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.sum.Sum;
 
-public class SystemChannelManager extends AbstractChannelListenerManager {
+public class ChannelManager extends AbstractChannelListenerManager {
 
 	private final System parent;
 
-	public SystemChannelManager(System parent) {
+	public ChannelManager(System parent) {
 		super();
 		this.parent = parent;
 	}

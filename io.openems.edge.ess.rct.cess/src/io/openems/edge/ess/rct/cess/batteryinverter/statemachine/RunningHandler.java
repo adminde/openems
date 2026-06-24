@@ -15,7 +15,6 @@ public class RunningHandler extends StateHandler<State, Context> {
 		if (inverter.hasFaults()) {
 			return State.UNDEFINED;
 		}
-
 		switch (inverter.getRunState().asEnum()) {
 		case RunState.STOPPED:
 		case RunState.STANDBY:

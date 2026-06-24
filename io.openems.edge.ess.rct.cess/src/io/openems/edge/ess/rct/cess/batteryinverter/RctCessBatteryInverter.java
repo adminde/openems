@@ -1,26 +1,32 @@
 package io.openems.edge.ess.rct.cess.batteryinverter;
 
-import org.osgi.service.event.EventHandler;
-
 import io.openems.common.channel.Level;
 import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.batteryinverter.api.BatteryInverterErrorAcknowledge;
+import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
+import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.channel.IntegerReadChannel;
 import io.openems.edge.common.channel.value.Value;
+import io.openems.edge.common.component.OpenemsComponent;
+import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
+import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.ess.rct.cess.batteryinverter.enums.RunState;
 import io.openems.edge.ess.rct.cess.batteryinverter.statemachine.StateMachine.State;
+import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 import io.openems.edge.timedata.api.TimedataProvider;
 
-public interface RctCessBatteryInverter extends
-		PowerConversionSystem, BatteryInverterErrorAcknowledge, ModbusComponent,
-		TimedataProvider, EventHandler {
+public interface RctCessBatteryInverter extends PowerConversionSystem, 
+		ManagedSymmetricBatteryInverter, SymmetricBatteryInverter,
+		BatteryInverterErrorAcknowledge, SymmetricComponent, 
+		OpenemsComponent, ModbusComponent, ModbusSlave,
+		TimedataProvider, StartStoppable {
 
 	/** Efficiency factor (%) used for AC/DC conversion. */
 	public static final float EFFICIENCY_FACTOR = 97F;

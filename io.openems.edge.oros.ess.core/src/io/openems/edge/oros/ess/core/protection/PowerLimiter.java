@@ -1,10 +1,10 @@
 package io.openems.edge.oros.ess.core.protection;
 
+import static io.openems.edge.common.channel.ChannelUtils.setValue;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
-import static io.openems.edge.common.channel.ChannelUtils.setValue;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -20,12 +20,12 @@ import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
-import io.openems.edge.oros.ess.core.StorageChannelManager;
+import io.openems.edge.oros.ess.core.ChannelManager;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 
 /**
  * Helper class to handle calculation of Allowed-Charge-Power and
- * Allowed-Discharge-Power. This class is used by {@link StorageChannelManager}
+ * Allowed-Discharge-Power. This class is used by {@link ChannelManager}
  * as a callback to updates of Battery Channels.
  */
 public class PowerLimiter implements Consumer<ClockProvider> {
@@ -47,15 +47,21 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 	public PowerLimiter(EnergyStorageSystem parent,
 				PowerConversionSystem inverter,
 				BatteryManagementSystem battery,
-				Supplier<Float> maxPowerIncreasePercentage,
-				OverChargeCurrentLimiter overChargeCurrentLimiter,
-				DeepDischargeCurrentLimiter deepDischargeCurrentLimiter) {
+				Supplier<Float> maxPowerIncreasePercentage) {
 		this.parent = parent;
-		this.battery = battery;
 		this.inverter = inverter;
+		this.battery = battery;
 		this.maxPowerIncreasePercentage = maxPowerIncreasePercentage;
-		this.overChargeCurrentLimiter = overChargeCurrentLimiter;
-		this.deepDischargeCurrentLimiter = deepDischargeCurrentLimiter;
+		this.overChargeCurrentLimiter = new OverChargeCurrentLimiter(parent, inverter, battery);
+		this.deepDischargeCurrentLimiter = new DeepDischargeCurrentLimiter(parent, inverter, battery);
+	}
+
+	public OverChargeCurrentLimiter getOverChargeCurrentLimiter() {
+		return this.overChargeCurrentLimiter;
+	}
+
+	public DeepDischargeCurrentLimiter getDeepDischargeCurrentLimiter() {
+		return this.deepDischargeCurrentLimiter;
 	}
 
 	@Override
@@ -65,15 +71,15 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 		chargeMaxCurrent = IntUtils.minInteger(chargeMaxCurrent, this.overChargeCurrentLimiter.getMaxCurrent());
 		dischargeMaxCurrent = IntUtils.minInteger(dischargeMaxCurrent, this.deepDischargeCurrentLimiter.getMaxCurrent());
 
-		final var voltage = this.battery.getVoltageChannel().getNextValue().get();
+		final var voltage = this.battery.getRackVoltageChannel().getNextValue().get();
 		if (voltage == null || chargeMaxCurrent == null || dischargeMaxCurrent == null) {
 			return;
 		}
-		final var current = this.battery.getCurrentChannel().value();
+		final var current = this.battery.getRackCurrentChannel().value();
 		this.checkProtectionExtremes(clockProvider, chargeMaxCurrent, dischargeMaxCurrent, current);
 
 		this.calculateAllowedChargeDischargePower(clockProvider, this.parent.isStarted(),
-				chargeMaxCurrent, dischargeMaxCurrent, voltage);
+				chargeMaxCurrent, dischargeMaxCurrent, voltage / 1000.F);
 
 		var allowedChargePower = Math.round(this.lastAllowedChargePower) * -1;  // invert charge power
 		var allowedDischargePower = Math.round(this.lastAllowedDischargePower);
@@ -97,12 +103,12 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 	 *
 	 * @param clockProvider       the {@link ClockProvider}
 	 * @param isStarted           is the ESS started?
-	 * @param chargeMaxCurrent    the processed {@link Battery.ChannelId#CHARGE_MAX_CURRENT}
-	 * @param dischargeMaxCurrent the processed {@link Battery.ChannelId#DISCHARGE_MAX_CURRENT}
-	 * @param voltage             the {@link Battery.ChannelId#VOLTAGE}
+	 * @param chargeMaxCurrent    the processed {@link Battery.ChannelId#CHARGE_MAX_CURRENT} in A
+	 * @param dischargeMaxCurrent the processed {@link Battery.ChannelId#DISCHARGE_MAX_CURRENT} in A
+	 * @param voltage             the scaled {@link BatteryManagementSystem.ChannelId#RACK_VOLTAGE} in V
 	 */
 	private void calculateAllowedChargeDischargePower(ClockProvider clockProvider, boolean isStarted,
-				int chargeMaxCurrent, int dischargeMaxCurrent, int voltage) {
+				int chargeMaxCurrent, int dischargeMaxCurrent, float voltage) {
 		final var now = Instant.now(clockProvider.getClock());
 		float charge;
 		float discharge;

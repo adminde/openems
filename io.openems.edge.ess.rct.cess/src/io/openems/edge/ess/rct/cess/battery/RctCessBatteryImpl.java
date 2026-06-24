@@ -41,6 +41,7 @@ import io.openems.edge.bridge.modbus.api.task.FC3ReadRegistersTask;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
+import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.common.taskmanager.Priority;
@@ -59,7 +60,9 @@ import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE
 })
 public class RctCessBatteryImpl extends AbstractOpenemsModbusComponent implements
-		RctCessBattery, BatteryManagementSystem, EventHandler {
+		RctCessBattery, BatteryManagementSystem, Battery,
+		OpenemsComponent, ModbusComponent, ModbusSlave, 
+		EventHandler, StartStoppable {
 
 	private static final int NUMBER_OF_RACK_UNITS = 5;
 	private static final int CAPACITY_PER_RACK_UNIT = 46592;
@@ -126,18 +129,6 @@ public class RctCessBatteryImpl extends AbstractOpenemsModbusComponent implement
 	}
 
 	@Override
-	public void handleEvent(Event event) {
-		if (!this.isEnabled()) {
-			return;
-		}
-		switch (event.getTopic()) {
-			case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
-				this.handleStateMachine();
-				break;
-		}
-	}
-
-	@Override
 	public void executeBatteryErrorAcknowledge() {
 		try {
 			this._setTimeoutStartBattery(false);
@@ -146,6 +137,18 @@ public class RctCessBatteryImpl extends AbstractOpenemsModbusComponent implement
 			this.stateMachine.forceNextState(UNDEFINED);
 		} catch (Exception e) {
 			this.logError(this.log, e.getClass().getSimpleName() + ": " + e.getMessage());
+		}
+	}
+
+	@Override
+	public void handleEvent(Event event) {
+		if (!this.isEnabled()) {
+			return;
+		}
+		switch (event.getTopic()) {
+			case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
+				this.handleStateMachine();
+				break;
 		}
 	}
 
@@ -314,7 +317,7 @@ public class RctCessBatteryImpl extends AbstractOpenemsModbusComponent implement
 
 	@Override
 	public String debugLog() {
-		return Battery.generateDebugLog(this, this.stateMachine);
+		return BatteryManagementSystem.generateDebugLog(this, this.stateMachine);
 	}
 
 	@Override

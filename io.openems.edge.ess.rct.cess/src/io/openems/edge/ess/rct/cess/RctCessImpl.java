@@ -13,6 +13,7 @@ import static org.osgi.service.component.annotations.ReferencePolicyOption.GREED
 import java.util.LinkedList;
 import java.util.List;
 
+import io.openems.edge.oros.ess.core.protection.PowerLimiter;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -35,6 +36,7 @@ import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.bridge.modbus.api.ModbusProtocol;
 import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
 import io.openems.edge.bridge.modbus.api.task.FC6WriteRegisterTask;
+import io.openems.edge.common.channel.IntegerWriteChannel;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.cycle.Cycle;
@@ -59,11 +61,11 @@ import io.openems.edge.ess.rct.cess.statemachine.StateMachine;
 import io.openems.edge.ess.rct.cess.statemachine.StateMachine.State;
 import io.openems.edge.oros.bms.api.BatteryManagementProvider;
 import io.openems.edge.oros.common.SymmetricComponent;
+import io.openems.edge.oros.ess.api.EnergyStorageProtection;
+import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.ess.core.AbstractModbusEss;
 import io.openems.edge.oros.ess.core.RuntimeChannels;
 import io.openems.edge.oros.pcs.api.PowerConversionProvider;
-import io.openems.edge.oros.ess.api.EnergyStorageProtection;
-import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
@@ -149,11 +151,19 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 		if (OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "charger", config.charger_ids())) {
 			return;
 		}
-		this.chargers.forEach(charger -> charger.bindEss(this));
 		this.config = config;
+		this.chargers.forEach(charger -> charger.bindEss(this));
 
-		this.storageChannelManager.setStateOfChargeLimiter(
+		this.channelManager.setPowerLimiter(
+				new PowerLimiter(this,
+						this.getPowerConversionSystem(),
+						this.getBatteryManagementSystem(),
+						this::getMaxPowerIncreasePercentage));
+		this.channelManager.setStateOfChargeLimiter(
 				new StateOfChargeClipper(this, this.getBatteryManagementSystem()));
+		this.channelManager.activate(this.getComponentManager(),
+				this.getBatteryManagementSystem(),
+				this.getPowerConversionSystem());
 	}
 
 	@Override
@@ -257,6 +267,19 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 	}
 
 	@Override
+	public void applyPower(int activePower, int reactivePower) throws OpenemsNamedException {
+		super.applyPower(activePower, reactivePower);
+
+		if (this.isReadOnly()) {
+			return;
+		}
+		IntegerWriteChannel setActivePowerChannel = this.channel(RctCess.ChannelId.SET_ACTIVE_POWER);
+		setActivePowerChannel.setNextWriteValue(activePower);
+		IntegerWriteChannel setReactivePowerChannel = this.channel(RctCess.ChannelId.SET_REACTIVE_POWER);
+		setReactivePowerChannel.setNextWriteValue(reactivePower);
+	}
+
+	@Override
 	protected ComponentManager getComponentManager() {
 		return this.componentManager;
 	}
@@ -323,10 +346,10 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 	protected ModbusProtocol defineModbusProtocol() {
 		return new ModbusProtocol(this,
 				new FC6WriteRegisterTask(0x0100,
-						m(EnergyStorageSystem.ChannelId.SET_ACTIVE_POWER,
+						m(RctCess.ChannelId.SET_ACTIVE_POWER,
 								new SignedWordElement(0x0100), SCALE_FACTOR_2)),
 				new FC6WriteRegisterTask(0x0101,
-						m(EnergyStorageSystem.ChannelId.SET_REACTIVE_POWER,
+						m(RctCess.ChannelId.SET_REACTIVE_POWER,
 								new SignedWordElement(0x0101), SCALE_FACTOR_2)));
 	}
 

@@ -1,5 +1,6 @@
 package io.openems.edge.oros.ess.core;
 
+import static io.openems.edge.common.channel.ChannelUtils.setValue;
 import static io.openems.edge.common.type.Phase.SingleOrAllPhase.ALL;
 import static io.openems.edge.ess.power.api.Pwr.ACTIVE;
 import static io.openems.edge.ess.power.api.Pwr.REACTIVE;
@@ -20,7 +21,6 @@ import io.openems.common.session.Role;
 import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
-import io.openems.edge.common.channel.IntegerWriteChannel;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
@@ -54,8 +54,8 @@ public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent i
 		OpenemsComponent, ModbusComponent, ModbusSlave, ComponentJsonApi, RuntimeChannels, StartStoppable,
 		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler {
 
-	protected final StorageChannelManager storageChannelManager;
-	protected final RuntimeChannelProvider runtimeChannelProvider;
+	protected final ChannelManager channelManager;
+    protected final RuntimeChannelProvider runtimeChannelProvider;
 
 	protected final AtomicReference<StartStop> startStopTarget = new AtomicReference<>(StartStop.UNDEFINED);
 
@@ -64,8 +64,8 @@ public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent i
 	protected AbstractModbusEss(io.openems.edge.common.channel.ChannelId[] firstInitialChannelIds,
 									io.openems.edge.common.channel.ChannelId[]... furtherInitialChannelIds) {
 		super(firstInitialChannelIds, furtherInitialChannelIds);
-		this.storageChannelManager = new StorageChannelManager(this);
-		this.runtimeChannelProvider = new RuntimeChannelProvider(this);
+        this.runtimeChannelProvider = new RuntimeChannelProvider(this);
+        this.channelManager = new ChannelManager(this);
 	}
 
 	@Override
@@ -100,8 +100,7 @@ public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent i
 		if (activateChannelManager) {
 			this.getChannelManager().activate(this.getComponentManager(),
 					this.getBatteryManagementSystem(),
-					this.getPowerConversionSystem(),
-					this::getMaxPowerIncreasePercentage);
+					this.getPowerConversionSystem());
 		}
 		return false;
 	}
@@ -152,14 +151,13 @@ public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent i
 	 */
 	@Override
 	public void applyPower(int activePower, int reactivePower) throws OpenemsNamedException {
+		setValue(this, ManagedSymmetricEss.ChannelId.DEBUG_SET_ACTIVE_POWER, activePower);
+		setValue(this, ManagedSymmetricEss.ChannelId.DEBUG_SET_REACTIVE_POWER, reactivePower);
+
 		if (this.isReadOnly()) {
 			return;
 		}
 		this.getPowerConversionSystem().run(this.getBatteryManagementSystem(), activePower, reactivePower);
-		IntegerWriteChannel setActivePowerChannel = this.channel(EnergyStorageSystem.ChannelId.SET_ACTIVE_POWER);
-		setActivePowerChannel.setNextWriteValue(activePower);
-		IntegerWriteChannel setReactivePowerChannel = this.channel(EnergyStorageSystem.ChannelId.SET_REACTIVE_POWER);
-		setReactivePowerChannel.setNextWriteValue(reactivePower);
 	}
 
 	/**
@@ -177,10 +175,10 @@ public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent i
 	/**
 	 * Helper wrapping class to handle everything related to Channels.
 	 *
-	 * @return the {@link StorageChannelManager}
+	 * @return the {@link ChannelManager}
 	 */
-	protected StorageChannelManager getChannelManager() {
-		return this.storageChannelManager;
+	protected ChannelManager getChannelManager() {
+		return this.channelManager;
 	}
 
 	/**
