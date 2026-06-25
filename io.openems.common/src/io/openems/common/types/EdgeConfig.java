@@ -1418,7 +1418,7 @@ public class EdgeConfig {
 	public synchronized JsonObject toJson() {
 		if (this._json == null) {
 			this._json = JsonUtils.buildJsonObject() //
-					.add("components", this.componentsToJson(JsonFormat.WITHOUT_CHANNELS)) //
+					.add("components", this.componentsToJson(JsonFormat.COMPLETE)) //
 					.add("factories", this.factoriesToJson()) //
 					.build();
 		}

@@ -1,0 +1,39 @@
+package io.openems.backend.timedata.timescaledb;
+
+import org.osgi.service.metatype.annotations.AttributeDefinition;
+import org.osgi.service.metatype.annotations.ObjectClassDefinition;
+
+@ObjectClassDefinition(
+		name = "Timedata TimescaleDB",
+		description = "Stores channel data in TimescaleDB using normalized hypertables.")
+@interface Config {
+
+	@AttributeDefinition(name = "Component-ID")
+	String id() default "Timedata.TimescaleDB";
+
+	@AttributeDefinition(name = "Host", description = "TimescaleDB host")
+	String host() default "localhost";
+
+	@AttributeDefinition(name = "Port", description = "TimescaleDB port")
+	int port() default 5432;
+
+	@AttributeDefinition(name = "Raw Retention Days", description = "Days to keep raw high-res data before deletion")
+	int rawRetentionDays() default 90;
+
+	@AttributeDefinition(name = "Raw Compression Days", description = "Days to wait before compressing raw high-res data")
+	int rawCompressionDays() default 7;
+
+	@AttributeDefinition(name = "Database", description = "Database name")
+	String database() default "openems";
+
+	@AttributeDefinition(name = "Username")
+	String username() default "postgres";
+
+	@AttributeDefinition(name = "Password")
+	String password() default "123";
+
+	@AttributeDefinition(name = "Pool Size", description = "HikariCP connection pool size")
+	int poolSize() default 10;
+
+	String webconsole_configurationFactory_nameHint() default "Timedata TimescaleDB [{id}]";
+}

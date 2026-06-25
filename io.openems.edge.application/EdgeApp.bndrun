@@ -209,6 +209,8 @@
 	bnd.identity;id='io.openems.edge.tesla.powerwall2',\
 	bnd.identity;id='io.openems.edge.timedata.influxdb',\
 	bnd.identity;id='io.openems.edge.timedata.rrd4j',\
+	bnd.identity;id='io.openems.edge.timedata.timescaledb',\
+	bnd.identity;id='io.openems.shared.timescaledb',\
 	bnd.identity;id='io.openems.edge.timeofusetariff.ancillarycosts',\
 	bnd.identity;id='io.openems.edge.timeofusetariff.awattar',\
 	bnd.identity;id='io.openems.edge.timeofusetariff.corrently',\
@@ -425,6 +427,8 @@
 	io.openems.edge.timedata.api;version=snapshot,\
 	io.openems.edge.timedata.influxdb;version=snapshot,\
 	io.openems.edge.timedata.rrd4j;version=snapshot,\
+	io.openems.edge.timedata.timescaledb;version=snapshot,\
+	io.openems.shared.timescaledb;version=snapshot,\
 	io.openems.edge.timeofusetariff.ancillarycosts;version=snapshot,\
 	io.openems.edge.timeofusetariff.api;version=snapshot,\
 	io.openems.edge.timeofusetariff.awattar;version=snapshot,\
@@ -503,4 +507,7 @@
 	org.owasp.encoder;version='[1.4.0,1.4.1)',\
 	reactive-streams;version='[1.0.4,1.0.5)',\
 	rrd4j;version='[3.10.0,3.10.1)',\
-	stax2-api;version='[4.3.0,4.3.1)'
+	stax2-api;version='[4.3.0,4.3.1)',\
+	com.zaxxer.HikariCP;version='[7.0.2,7.0.3)',\
+	org.postgresql.jdbc;version='[42.7.10,42.7.11)'
+-resolve: auto
