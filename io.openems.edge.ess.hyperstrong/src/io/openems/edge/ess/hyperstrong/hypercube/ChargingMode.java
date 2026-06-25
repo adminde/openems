@@ -1,18 +1,18 @@
-package io.openems.edge.ess.hyperstrong.thermal;
+package io.openems.edge.ess.hyperstrong.hypercube;
 
 import io.openems.common.types.OptionsEnum;
 
-public enum ThermalManagementMode implements OptionsEnum {
+public enum ChargingMode implements OptionsEnum {
 	UNDEFINED(-1, "Undefined"),
-	CIRCULATING(0, "Circulating"),
-	COOLING(1, "Cooling"),
-	HEATING(2, "Heating"),
-	STANDBY(10, "Standby");
+	IDLE(0, "Idle"),
+	CHARGE(1, "Charge"),
+	DISCHARGE(2, "Discharge"),
+	OFF_GRID(3, "Off-Grid");
 
 	private final int value;
 	private final String name;
 
-	private ThermalManagementMode(int value, String name) {
+	private ChargingMode(int value, String name) {
 		this.value = value;
 		this.name = name;
 	}

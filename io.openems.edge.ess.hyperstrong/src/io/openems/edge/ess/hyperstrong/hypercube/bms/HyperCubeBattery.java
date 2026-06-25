@@ -38,10 +38,8 @@ public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 		 */
 		MAX_CONNECTOR_VOLTAGE(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.MILLIVOLT)
-				.persistencePriority(PersistencePriority.MEDIUM)
 				.text("Maximum aviation connector voltage")),
-		MAX_CONNECTOR_VOLTAGE_INDEX(Doc.of(OpenemsType.INTEGER)
-				.persistencePriority(PersistencePriority.MEDIUM)),
+		MAX_CONNECTOR_VOLTAGE_INDEX(Doc.of(OpenemsType.INTEGER)),
 		/**
 		 * Min Aviation Connector Voltage.
 		 *
@@ -54,10 +52,8 @@ public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 		 */
 		MIN_CONNECTOR_VOLTAGE(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.MILLIVOLT)
-				.persistencePriority(PersistencePriority.MEDIUM)
 				.text("Minimum aviation connector voltage")),
-		MIN_CONNECTOR_VOLTAGE_INDEX(Doc.of(OpenemsType.INTEGER)
-				.persistencePriority(PersistencePriority.MEDIUM)),
+		MIN_CONNECTOR_VOLTAGE_INDEX(Doc.of(OpenemsType.INTEGER)),
 
 		/**
 		 * Max Aviation Connector Temperature.
@@ -71,10 +67,9 @@ public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 		 */
 		MAX_CONNECTOR_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.DEZIDEGREE_CELSIUS)
-				.persistencePriority(PersistencePriority.MEDIUM)
 				.text("Maximum aviation connector temperature")),
-		MAX_CONNECTOR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)
-				.persistencePriority(PersistencePriority.MEDIUM)),
+		MAX_CONNECTOR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)),
+		MAX_CONNECTOR_MODULE_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)),
 		/**
 		 * Min Aviation Connector Temperature.
 		 *
@@ -87,14 +82,9 @@ public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 		 */
 		MIN_CONNECTOR_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.DEZIDEGREE_CELSIUS)
-				.persistencePriority(PersistencePriority.MEDIUM)
 				.text("Minimum aviation connector temperature")),
-		MIN_CONNECTOR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)
-				.persistencePriority(PersistencePriority.MEDIUM)),
-		MAX_CONNECTOR_TEMPERATURE_MODULE_INDEX(Doc.of(OpenemsType.INTEGER)
-				.persistencePriority(PersistencePriority.MEDIUM)),
-		MIN_CONNECTOR_TEMPERATURE_MODULE_INDEX(Doc.of(OpenemsType.INTEGER)
-				.persistencePriority(PersistencePriority.MEDIUM)),
+		MIN_CONNECTOR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)),
+		MIN_CONNECTOR_MODULE_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)),
 
 		/**
 		 * Max Copper Bar Temperature.
@@ -108,10 +98,8 @@ public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 		 */
 		MAX_BUSBAR_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.DEZIDEGREE_CELSIUS)
-				.persistencePriority(PersistencePriority.MEDIUM)
 				.text("Maximum busbar temperature")),
-		MAX_BUSBAR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)
-				.persistencePriority(PersistencePriority.MEDIUM)),
+		MAX_BUSBAR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)),
 		/**
 		 * Min Copper Bar Temperature.
 		 *
@@ -124,34 +112,21 @@ public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 		 */
 		MIN_BUSBAR_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.DEZIDEGREE_CELSIUS)
-				.persistencePriority(PersistencePriority.MEDIUM)
 				.text("Minimum busbar temperature")),
-		MIN_BUSBAR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)
-				.persistencePriority(PersistencePriority.MEDIUM)),
+		MIN_BUSBAR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)),
 
 		INSULATION_RESISTANCE(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.KILOOHM)
-				.persistencePriority(PersistencePriority.HIGH)),
+				.persistencePriority(PersistencePriority.MEDIUM)),
 
 		PRECHARGE_VOLTAGE(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.MILLIVOLT)
-				.persistencePriority(PersistencePriority.HIGH)),
+				.persistencePriority(PersistencePriority.MEDIUM)),
 
 		COMMUNICATION_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
 		COMMUNICATION_CONNECTED(Doc.of(OpenemsType.BOOLEAN)),
 		COMMUNICATION_ABNORMAL(Doc.of(Level.INFO)),
 		COMMUNICATION_FAULT(Doc.of(Level.WARNING)),
-
-		ALARM_VALUE_1(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
-		ALARM_VALUE_2(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
-		ALARM_VALUE_3(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
-		ALARM_VALUE_4(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
-		ALARM_VALUE_5(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
-		ALARM_VALUE_6(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
-		ALARM_VALUE_7(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
-		ALARM_VALUE_8(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
-		ALARM_VALUE_9(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
-		ALARM_VALUE_10(Doc.of(OpenemsType.LONG).persistencePriority(PersistencePriority.HIGH)),
 		;
 
 		private final Doc doc;
@@ -242,19 +217,19 @@ public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 		HIGH_CONNECTOR_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
 
 		// Alarm Value 6
-		MSD_DISCONNECT_FAULT(Doc.of(Level.FAULT)),
-		MAIN_POSITIVE_CONTACTOR_FAULT(Doc.of(Level.FAULT)),
 		INSULATION_MODULE_COMMUNICATION_WARNING(Doc.of(Level.WARNING)),
 		PARAMETER_CONFIGURATION_WARNING(Doc.of(Level.WARNING)),
 		HALL_SENSOR_OPEN_CIRCUIT_WARNING(Doc.of(Level.WARNING)),
 		TEMPERATURE_SENSOR_OPEN_CIRCUIT_WARNING(Doc.of(Level.WARNING)),
 		TEMPERATURE_SENSOR_SHORT_CIRCUIT_WARNING(Doc.of(Level.WARNING)),
+		MAIN_POSITIVE_CONTACTOR_FAULT(Doc.of(Level.FAULT)),
 		THERMAL_MANAGEMENT_COMMUNICATION_TIMEOUT(Doc.of(Level.WARNING)),
 		AEROSOL_SIGNAL_DISCONNECT_WARNING(Doc.of(Level.WARNING)),
 		HIGH_VOLTAGE_CALIBRATION_WARNING(Doc.of(Level.WARNING)),
 		CURRENT_CALIBRATION_WARNING(Doc.of(Level.WARNING)),
 		FIRE_DETECTOR_COMMUNICATION_TIMEOUT(Doc.of(Level.WARNING)),
 		FIRE_DETECTOR_DISCONNECT_FAULT(Doc.of(Level.WARNING)),
+		MSD_DISCONNECT_FAULT(Doc.of(Level.FAULT)),
 
 		// Alarm Value 7
 		FIRE_DETECTOR_1_FAULT(Doc.of(Level.FAULT)),

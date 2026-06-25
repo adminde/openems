@@ -4,6 +4,8 @@ import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_3;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.chain;
 import static io.openems.edge.common.type.Phase.SingleOrAllPhase.ALL;
+import static io.openems.edge.ess.hyperstrong.AlarmAnalysis.decodeAlarm;
+import static io.openems.edge.ess.hyperstrong.ModbusUtils.defineModbusAlarmRegister;
 import static io.openems.edge.ess.power.api.Pwr.ACTIVE;
 import static io.openems.edge.ess.power.api.Pwr.REACTIVE;
 import static io.openems.edge.ess.power.api.Relationship.GREATER_OR_EQUALS;
@@ -28,6 +30,7 @@ import org.osgi.service.metatype.annotations.Designate;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
+import io.openems.common.types.OpenemsType;
 import io.openems.edge.battery.api.Battery;
 import io.openems.edge.batteryinverter.api.BatteryInverterConstraint;
 import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
@@ -39,10 +42,9 @@ import io.openems.edge.bridge.modbus.api.ModbusProtocol;
 import io.openems.edge.bridge.modbus.api.element.BitsWordElement;
 import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
 import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
-import io.openems.edge.bridge.modbus.api.element.UnsignedDoublewordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
-import io.openems.edge.bridge.modbus.api.element.WordOrder;
 import io.openems.edge.bridge.modbus.api.task.FC4ReadInputRegistersTask;
+import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.modbusslave.ModbusSlave;
@@ -50,7 +52,7 @@ import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.common.taskmanager.Priority;
 import io.openems.edge.ess.api.SymmetricEss;
-import io.openems.edge.ess.hyperstrong.ConverterUtils;
+import io.openems.edge.ess.hyperstrong.ModbusUtils;
 import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 import io.openems.edge.timedata.api.Timedata;
@@ -80,7 +82,7 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 	private ConfigurationAdmin cm;
 
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
-	private volatile Timedata timedata = null;
+	private volatile Timedata timedata;
 
 	@Override
 	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
@@ -211,7 +213,7 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 								new SignedWordElement(3009), SCALE_FACTOR_2),
 						m(SymmetricComponent.ChannelId.POWER_FACTOR,
 								new SignedWordElement(3010),
-								chain(ConverterUtils.CONVERT_FLOAT, SCALE_FACTOR_MINUS_3)),
+								chain(ModbusUtils.CONVERT_FLOAT, SCALE_FACTOR_MINUS_3)),
 						m(PowerConversionSystem.ChannelId.DC_VOLTAGE,
 								new SignedWordElement(3011), SCALE_FACTOR_2),
 						m(PowerConversionSystem.ChannelId.DC_CURRENT,
@@ -225,133 +227,126 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 						m(HyperCubeInverter.ChannelId.IGBT_L1_TEMPERATURE, new SignedWordElement(3016)),
 						m(HyperCubeInverter.ChannelId.IGBT_L2_TEMPERATURE, new SignedWordElement(3017)),
 						m(HyperCubeInverter.ChannelId.IGBT_L3_TEMPERATURE, new SignedWordElement(3018)),
-						m(new BitsWordElement(3019, this)
-								.bit(0, HyperCubeInverter.AlarmChannelId.LOW_AC_VOLTAGE_FAULT)
-								.bit(1, HyperCubeInverter.AlarmChannelId.HIGH_AC_VOLTAGE_FAULT)
-								.bit(2, HyperCubeInverter.AlarmChannelId.LOW_FREQUENCY_FAULT)
-								.bit(3, HyperCubeInverter.AlarmChannelId.HIGH_FREQUENCY_FAULT)
-								.bit(4, HyperCubeInverter.AlarmChannelId.FAST_LOW_AC_VOLTAGE_FAULT)
-								.bit(5, HyperCubeInverter.AlarmChannelId.FAST_HIGH_AC_VOLTAGE_FAULT)
-								.bit(8, HyperCubeInverter.AlarmChannelId.PHASE_REVERSAL_FAULT)
-								.bit(9, HyperCubeInverter.AlarmChannelId.PHASE_LOSS_FAULT)
-								.bit(10, HyperCubeInverter.AlarmChannelId.OUTPUT_VOLTAGE_FAULT)
-								.bit(11, HyperCubeInverter.AlarmChannelId.OFF_GRID_STARTUP_BLOCKED_FAULT)
-								.bit(12, HyperCubeInverter.AlarmChannelId.ISLAND_PROTECTION_FAULT)
-								.bit(13, HyperCubeInverter.AlarmChannelId.AC_SHORT_CIRCUIT_FAULT)
-								.bit(14, HyperCubeInverter.AlarmChannelId.HIGH_AC_CURRENT_FAULT)
-						),
-						m(new BitsWordElement(3020, this)
-								.bit(4, HyperCubeInverter.AlarmChannelId.PARALLEL_OVERLOAD_TIMEOUT_FAULT)
-								.bit(5, HyperCubeInverter.AlarmChannelId.OUTPUT_OVERLOAD_TIMEOUT_FAULT)
-								.bit(6, HyperCubeInverter.AlarmChannelId.AC_POWER_ANOMALY_FAULT)
-								.bit(8, HyperCubeInverter.AlarmChannelId.VOLTAGE_L1_L2_FAULT)
-								.bit(9, HyperCubeInverter.AlarmChannelId.VOLTAGE_L2_L3_FAULT)
-								.bit(10, HyperCubeInverter.AlarmChannelId.VOLTAGE_L3_L1_FAULT)
-								.bit(11, HyperCubeInverter.AlarmChannelId.DC_SOFT_START_FAULT)
-								.bit(12, HyperCubeInverter.AlarmChannelId.DC_RELAY_CLOSE_FAULT)
-								.bit(13, HyperCubeInverter.AlarmChannelId.INDUCTOR_CURRENT_BALANCE_L1_FAULT)
-								.bit(14, HyperCubeInverter.AlarmChannelId.INDUCTOR_CURRENT_BALANCE_L2_FAULT)
-								.bit(15, HyperCubeInverter.AlarmChannelId.INDUCTOR_CURRENT_BALANCE_L3_FAULT)
-						),
-						m(new BitsWordElement(3021, this)
-								.bit(6, HyperCubeInverter.AlarmChannelId.BAMS_CURRENT_LIMIT_SHUTDOWN_FAULT)
-								.bit(7, HyperCubeInverter.AlarmChannelId.BAMS_POWER_LIMIT_SHUTDOWN_FAULT)
-								.bit(8, HyperCubeInverter.AlarmChannelId.BCMS_NO_CHARGE_SHUTDOWN_FAULT)
-								.bit(9, HyperCubeInverter.AlarmChannelId.BCMS_DISABLE_SHUTDOWN_FAULT)
-								.bit(10, HyperCubeInverter.AlarmChannelId.BAMS_CHARGE_DISABLED_SHUTDOWN_FAULT)
-								.bit(11, HyperCubeInverter.AlarmChannelId.BAMS_SHUTDOWN_FAULT)
-								.bit(12, HyperCubeInverter.AlarmChannelId.BCMS_CURRENT_LIMIT_SHUTDOWN_FAULT)
-								.bit(13, HyperCubeInverter.AlarmChannelId.BCMS_POWER_LIMIT_SHUTDOWN_FAULT)
-								.bit(14, HyperCubeInverter.AlarmChannelId.BATTERY_VOLTAGE_LIMIT_SHUTDOWN_FAULT)
-								.bit(15, HyperCubeInverter.AlarmChannelId.BATTERY_CURRENT_LIMIT_SHUTDOWN_FAULT)
-						),
-						m(new BitsWordElement(3022, this)
-								.bit(0, HyperCubeInverter.AlarmChannelId.LOW_BATTERY_VOLTAGE_FAULT)
-								.bit(1, HyperCubeInverter.AlarmChannelId.HIGH_BATTERY_VOLTAGE_FAULT)
-								.bit(2, HyperCubeInverter.AlarmChannelId.REVERSE_BATTERY_POLARITY_FAULT)
-								.bit(3, HyperCubeInverter.AlarmChannelId.HIGH_BATTERY_CURRENT_FAULT)
-								.bit(4, HyperCubeInverter.AlarmChannelId.INSULATION_FAULT)
-								.bit(5, HyperCubeInverter.AlarmChannelId.INSULATION_BATTERY_VOLTAGE_FAULT)
-								.bit(7, HyperCubeInverter.AlarmChannelId.LOW_POSITIVE_BUS_VOLTAGE_FAULT)
-								.bit(8, HyperCubeInverter.AlarmChannelId.LOW_NEGATIVE_BUS_VOLTAGE_FAULT)
-								.bit(9, HyperCubeInverter.AlarmChannelId.HIGH_DC_BUS1_VOLTAGE_FAULT)
-								.bit(10, HyperCubeInverter.AlarmChannelId.HIGH_DC_BUS2_VOLTAGE_FAULT)
-								.bit(11, HyperCubeInverter.AlarmChannelId.HIGH_DC_BUS3_VOLTAGE_FAULT)
-								.bit(12, HyperCubeInverter.AlarmChannelId.HIGH_DC_BUS4_VOLTAGE_FAULT)
-								.bit(13, HyperCubeInverter.AlarmChannelId.DC_BUS1_2_VOLTAGE_IMBALANCE_FAULT)
-								.bit(14, HyperCubeInverter.AlarmChannelId.DC_BUS3_4_VOLTAGE_IMBALANCE_FAULT)
-						),
-						new DummyRegisterElement(3023),
-						m(new BitsWordElement(3024, this)
-								.bit(0, HyperCubeInverter.AlarmChannelId.DC_SURGE_ARRESTER_WARNING)
-								.bit(1, HyperCubeInverter.AlarmChannelId.AC_SURGE_ARRESTER_WARNING)
-								.bit(10, HyperCubeInverter.AlarmChannelId.DC_RELAY_OPEN_CIRCUIT_FAULT)
-								.bit(11, HyperCubeInverter.AlarmChannelId.DC_RELAY_SHORT_CIRCUIT_FAULT)
-								.bit(13, HyperCubeInverter.AlarmChannelId.POWER_SUPPLY_15V_FAULT)
-								.bit(14, HyperCubeInverter.AlarmChannelId.POWER_SUPPLY_24V_FAULT)
-						),
-						new DummyRegisterElement(3025),
-						m(new BitsWordElement(3026, this)
-								.bit(4, HyperCubeInverter.AlarmChannelId.DC_BUS1_SHORT_CIRCUIT_FAULT)
-								.bit(5, HyperCubeInverter.AlarmChannelId.DC_BUS2_SHORT_CIRCUIT_FAULT)
-								.bit(6, HyperCubeInverter.AlarmChannelId.DC_BUS3_SHORT_CIRCUIT_FAULT)
-								.bit(7, HyperCubeInverter.AlarmChannelId.DC_BUS4_SHORT_CIRCUIT_FAULT)
-								.bit(8, HyperCubeInverter.AlarmChannelId.GRID_RELAY_L1_L2_SHORT_CIRCUIT_FAULT)
-								.bit(9, HyperCubeInverter.AlarmChannelId.GRID_RELAY_L2_L3_SHORT_CIRCUIT_FAULT)
-								.bit(10, HyperCubeInverter.AlarmChannelId.GRID_RELAY_L3_L1_SHORT_CIRCUIT_FAULT)
-								.bit(11, HyperCubeInverter.AlarmChannelId.GRID_RELAY_L1_L2_OPEN_CIRCUIT_FAULT)
-								.bit(12, HyperCubeInverter.AlarmChannelId.GRID_RELAY_L2_L3_OPEN_CIRCUIT_FAULT)
-								.bit(13, HyperCubeInverter.AlarmChannelId.GRID_RELAY_L3_L1_OPEN_CIRCUIT_FAULT)
-						),
-						new DummyRegisterElement(3027),
-						m(new BitsWordElement(3028, this)
-								.bit(0, HyperCubeInverter.AlarmChannelId.BUS_VOLTAGE_IMBALANCE_FAULT)
-								.bit(1, HyperCubeInverter.AlarmChannelId.HIGH_POSITIVE_BUS_VOLTAGE_FAULT)
-								.bit(2, HyperCubeInverter.AlarmChannelId.HIGH_NEGATIVE_BUS_VOLTAGE_FAULT)
-								.bit(10, HyperCubeInverter.AlarmChannelId.LOW_EFFICIENCY_FAULT)
-								.bit(11, HyperCubeInverter.AlarmChannelId.HIGH_DC_BUS1_HARDWARE_VOLTAGE_FAULT)
-								.bit(12, HyperCubeInverter.AlarmChannelId.HIGH_DC_BUS2_HARDWARE_VOLTAGE_FAULT)
-								.bit(13, HyperCubeInverter.AlarmChannelId.HIGH_DC_BUS3_HARDWARE_VOLTAGE_FAULT)
-								.bit(14, HyperCubeInverter.AlarmChannelId.HIGH_DC_BUS4_HARDWARE_VOLTAGE_FAULT)
-						),
-						new DummyRegisterElement(3029),
-						m(new BitsWordElement(3030, this)
-								.bit(0, HyperCubeInverter.AlarmChannelId.INVERTER_FAILURE)
-								.bit(1, HyperCubeInverter.AlarmChannelId.INVERTER_SOFT_START_COMMUNICATION_FAULT)
-								.bit(8, HyperCubeInverter.AlarmChannelId.INVERTER_COOLING_FAN_WARNING)
-								.bit(9, HyperCubeInverter.AlarmChannelId.INVERTER_IGBT_FAN_WARNING)
-								.bit(12, HyperCubeInverter.AlarmChannelId.INVERTER_VOLTAGE_L1_L2_FAULT)
-								.bit(13, HyperCubeInverter.AlarmChannelId.INVERTER_VOLTAGE_L2_L3_FAULT)
-								.bit(14, HyperCubeInverter.AlarmChannelId.INVERTER_VOLTAGE_L3_L1_FAULT)
-								.bit(15, HyperCubeInverter.AlarmChannelId.MISSING_N_LINE_FAULT)
-						),
-						m(new BitsWordElement(3031, this)
-								.bit(0, HyperCubeInverter.AlarmChannelId.LIMITING_N_LINE_CURRENT_WARNING)
-								.bit(1, HyperCubeInverter.AlarmChannelId.HIGH_N_LINE_CURRENT_FAULT)
-								.bit(4, HyperCubeInverter.AlarmChannelId.INDUCTOR_CURRENT_BRANCH1_L1_FAULT)
-								.bit(5, HyperCubeInverter.AlarmChannelId.INDUCTOR_CURRENT_BRANCH1_L2_FAULT)
-								.bit(6, HyperCubeInverter.AlarmChannelId.INDUCTOR_CURRENT_BRANCH1_L3_FAULT)
-								.bit(7, HyperCubeInverter.AlarmChannelId.INDUCTOR_CURRENT_BRANCH2_L1_FAULT)
-								.bit(8, HyperCubeInverter.AlarmChannelId.INDUCTOR_CURRENT_BRANCH2_L2_FAULT)
-								.bit(9, HyperCubeInverter.AlarmChannelId.INDUCTOR_CURRENT_BRANCH2_L3_FAULT)
-						),
-						new DummyRegisterElement(3032, 3035),
-						m(new BitsWordElement(3036, this)
-								.bit(0, HyperCubeInverter.AlarmChannelId.HIGH_CABIN_TEMPERATURE_FAULT)
-								.bit(1, HyperCubeInverter.AlarmChannelId.HIGH_DISCHARGE_RESISTOR_TEMPERATURE_FAULT)
-								.bit(2, HyperCubeInverter.AlarmChannelId.HIGH_IGBT_TEMPERATURE_FAULT)
-								.bit(6, HyperCubeInverter.AlarmChannelId.CABIN_TEMPERATURE_SENSOR_WARNING)
-								.bit(7, HyperCubeInverter.AlarmChannelId.LOCAL_EPO_FAULT)
-								.bit(8, HyperCubeInverter.AlarmChannelId.HIGH_IGBT_BRANCH1_L1_TEMPERATURE_WARNING)
-								.bit(9, HyperCubeInverter.AlarmChannelId.HIGH_IGBT_BRANCH2_L1_TEMPERATURE_WARNING)
-								.bit(10, HyperCubeInverter.AlarmChannelId.HIGH_IGBT_BRANCH1_L2_TEMPERATURE_WARNING)
-								.bit(11, HyperCubeInverter.AlarmChannelId.HIGH_IGBT_BRANCH2_L2_TEMPERATURE_WARNING)
-								.bit(12, HyperCubeInverter.AlarmChannelId.HIGH_IGBT_BRANCH1_L3_TEMPERATURE_WARNING)
-								.bit(13, HyperCubeInverter.AlarmChannelId.HIGH_IGBT_BRANCH2_L3_TEMPERATURE_WARNING)
-								.bit(14, HyperCubeInverter.AlarmChannelId.REMOTE_EPO_FAULT)
-								.bit(15, HyperCubeInverter.AlarmChannelId.HIGH_SOFT_START_RESISTOR_TEMPERATURE_FAULT)
-						),
-						new DummyRegisterElement(3037, 3038),
+						defineModbusAlarmRegister(this, 1, 3019, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(0, value, this.channel(AlarmChannelId.LOW_AC_VOLTAGE_FAULT));
+							decodeAlarm(1, value, this.channel(AlarmChannelId.HIGH_AC_VOLTAGE_FAULT));
+							decodeAlarm(2, value, this.channel(AlarmChannelId.LOW_FREQUENCY_FAULT));
+							decodeAlarm(3, value, this.channel(AlarmChannelId.HIGH_FREQUENCY_FAULT));
+							decodeAlarm(4, value, this.channel(AlarmChannelId.FAST_LOW_AC_VOLTAGE_FAULT));
+							decodeAlarm(5, value, this.channel(AlarmChannelId.FAST_HIGH_AC_VOLTAGE_FAULT));
+							decodeAlarm(8, value, this.channel(AlarmChannelId.PHASE_REVERSAL_FAULT));
+							decodeAlarm(9, value, this.channel(AlarmChannelId.PHASE_LOSS_FAULT));
+							decodeAlarm(10, value, this.channel(AlarmChannelId.OUTPUT_VOLTAGE_ANOMALY));
+							decodeAlarm(11, value, this.channel(AlarmChannelId.OFF_GRID_STARTUP_BLOCKED));
+							decodeAlarm(12, value, this.channel(AlarmChannelId.ISLAND_PROTECTION_FAULT));
+							decodeAlarm(13, value, this.channel(AlarmChannelId.AC_SHORT_CIRCUIT_FAULT));
+							decodeAlarm(14, value, this.channel(AlarmChannelId.AC_CURRENT_ABNORMAL_FAULT));
+							decodeAlarm(20, value, this.channel(AlarmChannelId.PARALLEL_OVERLOAD_TIMEOUT));
+							decodeAlarm(21, value, this.channel(AlarmChannelId.OUTPUT_OVERLOAD_TIMEOUT));
+							decodeAlarm(22, value, this.channel(AlarmChannelId.AC_POWER_ABNORMAL));
+							decodeAlarm(23, value, this.channel(AlarmChannelId.MODULE_IDENTIFICATION_FAULT));
+							decodeAlarm(24, value, this.channel(AlarmChannelId.VOLTAGE_L1_L2_FAULT));
+							decodeAlarm(25, value, this.channel(AlarmChannelId.VOLTAGE_L2_L3_FAULT));
+							decodeAlarm(26, value, this.channel(AlarmChannelId.VOLTAGE_L3_L1_FAULT));
+							decodeAlarm(27, value, this.channel(AlarmChannelId.DC_SOFT_START_FAULT));
+							decodeAlarm(28, value, this.channel(AlarmChannelId.DC_RELAY_CLOSE_FAULT));
+							decodeAlarm(29, value, this.channel(AlarmChannelId.INDUCTOR_CURRENT_BALANCE_L1_FAULT));
+							decodeAlarm(30, value, this.channel(AlarmChannelId.INDUCTOR_CURRENT_BALANCE_L2_FAULT));
+							decodeAlarm(31, value, this.channel(AlarmChannelId.INDUCTOR_CURRENT_BALANCE_L3_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 2, 3021, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(6, value, this.channel(AlarmChannelId.BAMS_CURRENT_LIMIT_SHUTDOWN));
+							decodeAlarm(7, value, this.channel(AlarmChannelId.BAMS_POWER_LIMIT_SHUTDOWN));
+							decodeAlarm(8, value, this.channel(AlarmChannelId.BCMS_NO_CHARGE_SHUTDOWN));
+							decodeAlarm(9, value, this.channel(AlarmChannelId.BCMS_DISABLE_SHUTDOWN));
+							decodeAlarm(10, value, this.channel(AlarmChannelId.BAMS_CHARGE_DISABLED_SHUTDOWN));
+							decodeAlarm(11, value, this.channel(AlarmChannelId.BAMS_SHUTDOWN));
+							decodeAlarm(12, value, this.channel(AlarmChannelId.BCMS_CURRENT_LIMIT_SHUTDOWN));
+							decodeAlarm(13, value, this.channel(AlarmChannelId.BCMS_POWER_LIMIT_SHUTDOWN));
+							decodeAlarm(14, value, this.channel(AlarmChannelId.BATTERY_VOLTAGE_LIMIT_SHUTDOWN));
+							decodeAlarm(15, value, this.channel(AlarmChannelId.BATTERY_CURRENT_LIMIT_SHUTDOWN));
+							decodeAlarm(16, value, this.channel(AlarmChannelId.LOW_BATTERY_VOLTAGE_FAULT));
+							decodeAlarm(17, value, this.channel(AlarmChannelId.HIGH_BATTERY_VOLTAGE_FAULT));
+							decodeAlarm(18, value, this.channel(AlarmChannelId.REVERSE_BATTERY_POLARITY_FAULT));
+							decodeAlarm(19, value, this.channel(AlarmChannelId.HIGH_BATTERY_CURRENT_FAULT));
+							decodeAlarm(20, value, this.channel(AlarmChannelId.INSULATION_FAULT));
+							decodeAlarm(21, value, this.channel(AlarmChannelId.INSULATION_BATTERY_VOLTAGE_FAULT));
+							decodeAlarm(23, value, this.channel(AlarmChannelId.LOW_POSITIVE_BUS_VOLTAGE_FAULT));
+							decodeAlarm(24, value, this.channel(AlarmChannelId.LOW_NEGATIVE_BUS_VOLTAGE_FAULT));
+							decodeAlarm(25, value, this.channel(AlarmChannelId.HIGH_DC_BUS1_VOLTAGE_FAULT));
+							decodeAlarm(26, value, this.channel(AlarmChannelId.HIGH_DC_BUS2_VOLTAGE_FAULT));
+							decodeAlarm(27, value, this.channel(AlarmChannelId.HIGH_DC_BUS3_VOLTAGE_FAULT));
+							decodeAlarm(28, value, this.channel(AlarmChannelId.HIGH_DC_BUS4_VOLTAGE_FAULT));
+							decodeAlarm(29, value, this.channel(AlarmChannelId.DC_BUS1_2_VOLTAGE_IMBALANCE_FAULT));
+							decodeAlarm(30, value, this.channel(AlarmChannelId.DC_BUS3_4_VOLTAGE_IMBALANCE_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 3, 3023, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(16, value, this.channel(AlarmChannelId.DC_SURGE_ARRESTER_WARNING));
+							decodeAlarm(17, value, this.channel(AlarmChannelId.AC_SURGE_ARRESTER_WARNING));
+							decodeAlarm(26, value, this.channel(AlarmChannelId.DC_RELAY_OPEN_CIRCUIT_FAULT));
+							decodeAlarm(27, value, this.channel(AlarmChannelId.DC_RELAY_SHORT_CIRCUIT_FAULT));
+							decodeAlarm(29, value, this.channel(AlarmChannelId.POWER_SUPPLY_15V_FAULT));
+							decodeAlarm(30, value, this.channel(AlarmChannelId.POWER_SUPPLY_24V_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 4, 3025, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(20, value, this.channel(AlarmChannelId.DC_BUS1_SHORT_CIRCUIT_FAULT));
+							decodeAlarm(21, value, this.channel(AlarmChannelId.DC_BUS2_SHORT_CIRCUIT_FAULT));
+							decodeAlarm(22, value, this.channel(AlarmChannelId.DC_BUS3_SHORT_CIRCUIT_FAULT));
+							decodeAlarm(23, value, this.channel(AlarmChannelId.DC_BUS4_SHORT_CIRCUIT_FAULT));
+							decodeAlarm(24, value, this.channel(AlarmChannelId.GRID_RELAY_L1_L2_SHORT_CIRCUIT_FAULT));
+							decodeAlarm(25, value, this.channel(AlarmChannelId.GRID_RELAY_L2_L3_SHORT_CIRCUIT_FAULT));
+							decodeAlarm(26, value, this.channel(AlarmChannelId.GRID_RELAY_L3_L1_SHORT_CIRCUIT_FAULT));
+							decodeAlarm(27, value, this.channel(AlarmChannelId.GRID_RELAY_L1_L2_OPEN_CIRCUIT_FAULT));
+							decodeAlarm(28, value, this.channel(AlarmChannelId.GRID_RELAY_L2_L3_OPEN_CIRCUIT_FAULT));
+							decodeAlarm(29, value, this.channel(AlarmChannelId.GRID_RELAY_L3_L1_OPEN_CIRCUIT_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 5, 3027, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(16, value, this.channel(AlarmChannelId.BUS_VOLTAGE_IMBALANCE_FAULT));
+							decodeAlarm(17, value, this.channel(AlarmChannelId.HIGH_POSITIVE_BUS_VOLTAGE_FAULT));
+							decodeAlarm(18, value, this.channel(AlarmChannelId.HIGH_NEGATIVE_BUS_VOLTAGE_FAULT));
+							decodeAlarm(26, value, this.channel(AlarmChannelId.CONVERSION_EFFICIENCY_ABNORMAL));
+							decodeAlarm(27, value, this.channel(AlarmChannelId.HIGH_DC_BUS1_HARDWARE_VOLTAGE_FAULT));
+							decodeAlarm(28, value, this.channel(AlarmChannelId.HIGH_DC_BUS2_HARDWARE_VOLTAGE_FAULT));
+							decodeAlarm(29, value, this.channel(AlarmChannelId.HIGH_DC_BUS3_HARDWARE_VOLTAGE_FAULT));
+							decodeAlarm(30, value, this.channel(AlarmChannelId.HIGH_DC_BUS4_HARDWARE_VOLTAGE_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 6, 3029, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(16, value, this.channel(AlarmChannelId.INVERTER_FAILURE));
+							decodeAlarm(17, value, this.channel(AlarmChannelId.INVERTER_SOFT_START_COMMUNICATION_FAULT));
+							decodeAlarm(24, value, this.channel(AlarmChannelId.INVERTER_COOLING_FAN_WARNING));
+							decodeAlarm(25, value, this.channel(AlarmChannelId.INVERTER_IGBT_FAN_WARNING));
+							decodeAlarm(28, value, this.channel(AlarmChannelId.INVERTER_VOLTAGE_L1_L2_FAULT));
+							decodeAlarm(29, value, this.channel(AlarmChannelId.INVERTER_VOLTAGE_L2_L3_FAULT));
+							decodeAlarm(30, value, this.channel(AlarmChannelId.INVERTER_VOLTAGE_L3_L1_FAULT));
+							decodeAlarm(31, value, this.channel(AlarmChannelId.MISSING_N_LINE_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 7, 3031, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(0, value, this.channel(AlarmChannelId.LIMITING_N_LINE_CURRENT_WARNING));
+							decodeAlarm(1, value, this.channel(AlarmChannelId.HIGH_N_LINE_CURRENT_FAULT));
+							decodeAlarm(4, value, this.channel(AlarmChannelId.INDUCTOR_CURRENT_BRANCH1_L1_FAULT));
+							decodeAlarm(5, value, this.channel(AlarmChannelId.INDUCTOR_CURRENT_BRANCH1_L2_FAULT));
+							decodeAlarm(6, value, this.channel(AlarmChannelId.INDUCTOR_CURRENT_BRANCH1_L3_FAULT));
+							decodeAlarm(7, value, this.channel(AlarmChannelId.INDUCTOR_CURRENT_BRANCH2_L1_FAULT));
+							decodeAlarm(8, value, this.channel(AlarmChannelId.INDUCTOR_CURRENT_BRANCH2_L2_FAULT));
+							decodeAlarm(9, value, this.channel(AlarmChannelId.INDUCTOR_CURRENT_BRANCH2_L3_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 8, 3033, this::addModbusAlarmChannel),
+						defineModbusAlarmRegister(this, 9, 3035, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(16, value, this.channel(AlarmChannelId.HIGH_CABINET_TEMPERATURE_FAULT));
+							decodeAlarm(17, value, this.channel(AlarmChannelId.HIGH_DISCHARGE_RESISTOR_TEMPERATURE_FAULT));
+							decodeAlarm(18, value, this.channel(AlarmChannelId.HIGH_IGBT_TEMPERATURE_FAULT));
+							decodeAlarm(22, value, this.channel(AlarmChannelId.CABINET_TEMPERATURE_SENSOR_ANOMALY_WARNING));
+							decodeAlarm(23, value, this.channel(AlarmChannelId.LOCAL_EPO_FAULT));
+							decodeAlarm(24, value, this.channel(AlarmChannelId.HIGH_IGBT_BRANCH1_L1_TEMPERATURE_WARNING));
+							decodeAlarm(25, value, this.channel(AlarmChannelId.HIGH_IGBT_BRANCH2_L1_TEMPERATURE_WARNING));
+							decodeAlarm(26, value, this.channel(AlarmChannelId.HIGH_IGBT_BRANCH1_L2_TEMPERATURE_WARNING));
+							decodeAlarm(27, value, this.channel(AlarmChannelId.HIGH_IGBT_BRANCH2_L2_TEMPERATURE_WARNING));
+							decodeAlarm(28, value, this.channel(AlarmChannelId.HIGH_IGBT_BRANCH1_L3_TEMPERATURE_WARNING));
+							decodeAlarm(29, value, this.channel(AlarmChannelId.HIGH_IGBT_BRANCH2_L3_TEMPERATURE_WARNING));
+							decodeAlarm(30, value, this.channel(AlarmChannelId.REMOTE_EPO_FAULT));
+							decodeAlarm(31, value, this.channel(AlarmChannelId.HIGH_SOFT_START_RESISTOR_TEMPERATURE_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 10, 3037, this::addModbusAlarmChannel),
 						m(HyperCubeInverter.ChannelId.PCS_POWER_ON_STATUS, new UnsignedWordElement(3039)),
 						m(new BitsWordElement(3040, this)
 								.bit(0, HyperCubeInverter.ChannelId.COMMUNICATION_ABNORMAL)
@@ -360,95 +355,77 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 								.bit(3, HyperCubeInverter.ChannelId.COMMUNICATION_FAULT)
 						),
 						new DummyRegisterElement(3041, 3043),
-						m(HyperCubeInverter.ChannelId.AND_OFF_GRID_STATUS, new UnsignedWordElement(3044))),
-
-				new FC4ReadInputRegistersTask(3074, Priority.LOW,
+						m(HyperCubeInverter.ChannelId.GRID_MODE, new UnsignedWordElement(3044)),
+						new DummyRegisterElement(3044, 3073),
 						m(HyperCubeInverter.ChannelId.PCS_RUNNING_STATUS, new UnsignedWordElement(3074)),
-						new DummyRegisterElement(3075, 3076),
-						m(new BitsWordElement(3077, this)
-								.bit(0, HyperCubeInverter.AlarmChannelId.DSP_ARM_COMMUNICATION_FAULT)
-								.bit(2, HyperCubeInverter.AlarmChannelId.CARRIER_SYNC_FAULT)
-								.bit(3, HyperCubeInverter.AlarmChannelId.POWER_FREQUENCY_SYNC_FAULT)
-								.bit(4, HyperCubeInverter.AlarmChannelId.MODULE_ID_CONFLICT_FAULT)
-								.bit(7, HyperCubeInverter.AlarmChannelId.DSP_FPGA_VERSION_MISMATCH_WARNING)
-						),
-						m(new BitsWordElement(3078, this)
-								.bit(3, HyperCubeInverter.AlarmChannelId.WAVE_LIMIT_BRANCH1_L1_WARNING)
-								.bit(5, HyperCubeInverter.AlarmChannelId.WAVE_LIMIT_BRANCH1_L2_WARNING)
-								.bit(7, HyperCubeInverter.AlarmChannelId.WAVE_LIMIT_BRANCH1_L3_WARNING)
-								.bit(9, HyperCubeInverter.AlarmChannelId.WAVE_LIMIT_BRANCH2_L1_WARNING)
-								.bit(11, HyperCubeInverter.AlarmChannelId.WAVE_LIMIT_BRANCH2_L2_WARNING)
-								.bit(13, HyperCubeInverter.AlarmChannelId.WAVE_LIMIT_BRANCH2_L3_WARNING)
-						),
-						m(new BitsWordElement(3079, this)
-								.bit(0, HyperCubeInverter.AlarmChannelId.HIGH_GRID_VOLTAGE_LEVEL1_FAULT)
-								.bit(1, HyperCubeInverter.AlarmChannelId.HIGH_GRID_VOLTAGE_LEVEL2_FAULT)
-								.bit(2, HyperCubeInverter.AlarmChannelId.HIGH_GRID_VOLTAGE_LEVEL3_FAULT)
-								.bit(3, HyperCubeInverter.AlarmChannelId.HIGH_GRID_VOLTAGE_LEVEL4_FAULT)
-								.bit(4, HyperCubeInverter.AlarmChannelId.HIGH_GRID_VOLTAGE_LEVEL5_FAULT)
-								.bit(5, HyperCubeInverter.AlarmChannelId.LOW_GRID_VOLTAGE_LEVEL1_FAULT)
-								.bit(6, HyperCubeInverter.AlarmChannelId.LOW_GRID_VOLTAGE_LEVEL2_FAULT)
-								.bit(7, HyperCubeInverter.AlarmChannelId.LOW_GRID_VOLTAGE_LEVEL3_FAULT)
-								.bit(8, HyperCubeInverter.AlarmChannelId.LOW_GRID_VOLTAGE_LEVEL4_FAULT)
-								.bit(9, HyperCubeInverter.AlarmChannelId.LOW_GRID_VOLTAGE_LEVEL5_FAULT)
-								.bit(10, HyperCubeInverter.AlarmChannelId.HIGH_GRID_FREQUENCY_LEVEL1_FAULT)
-								.bit(11, HyperCubeInverter.AlarmChannelId.HIGH_GRID_FREQUENCY_LEVEL2_FAULT)
-								.bit(12, HyperCubeInverter.AlarmChannelId.HIGH_GRID_FREQUENCY_LEVEL3_FAULT)
-								.bit(13, HyperCubeInverter.AlarmChannelId.HIGH_GRID_FREQUENCY_LEVEL4_FAULT)
-								.bit(14, HyperCubeInverter.AlarmChannelId.HIGH_GRID_FREQUENCY_LEVEL5_FAULT)
-								.bit(15, HyperCubeInverter.AlarmChannelId.LOW_GRID_FREQUENCY_LEVEL1_FAULT)
-						),
-						m(new BitsWordElement(3080, this)
-								.bit(0, HyperCubeInverter.AlarmChannelId.LOW_GRID_FREQUENCY_LEVEL2_FAULT)
-								.bit(1, HyperCubeInverter.AlarmChannelId.LOW_GRID_FREQUENCY_LEVEL3_FAULT)
-								.bit(2, HyperCubeInverter.AlarmChannelId.LOW_GRID_FREQUENCY_LEVEL4_FAULT)
-								.bit(3, HyperCubeInverter.AlarmChannelId.LOW_GRID_FREQUENCY_LEVEL5_FAULT)
-						),
-						m(new BitsWordElement(3081, this)
-								.bit(0, HyperCubeInverter.AlarmChannelId.HIGH_MEAN_VOLTAGE_FAULT)
-								.bit(1, HyperCubeInverter.AlarmChannelId.CT_PHASE_REVERSAL_WARNING)
-								.bit(2, HyperCubeInverter.AlarmChannelId.CT_DETECTION_WARNING)
-								.bit(3, HyperCubeInverter.AlarmChannelId.DETECTION_BOX_WARNING)
-								.bit(13, HyperCubeInverter.AlarmChannelId.ANTI_BACKFLOW_OVERLIMIT_FAULT)
-								.bit(14, HyperCubeInverter.AlarmChannelId.ANTI_BACKFLOW_METER_COMMUNICATION_WARNING)
-								.bit(15, HyperCubeInverter.AlarmChannelId.ANTI_BACKFLOW_METER_COMMUNICATION_FAULT)
-						),
-						m(new BitsWordElement(3082, this)
-								.bit(0, HyperCubeInverter.AlarmChannelId.HOST_COMMUNICATION_WARNING)
-								.bit(1, HyperCubeInverter.AlarmChannelId.BCMS_COMMUNICATION_FAULT)
-								.bit(2, HyperCubeInverter.AlarmChannelId.DSP_COMMUNICATION_FAULT)
-								.bit(3, HyperCubeInverter.AlarmChannelId.BAMS_COMMUNICATION_FAULT)
-								.bit(4, HyperCubeInverter.AlarmChannelId.ETHERNET_COMMUNICATION_FAULT)
-								.bit(6, HyperCubeInverter.AlarmChannelId.BCMS_ETH_COMMUNICATION_FAULT)
-								.bit(12, HyperCubeInverter.AlarmChannelId.MODULE_MODEL_MISMATCH_FAULT)
-								.bit(13, HyperCubeInverter.AlarmChannelId.INTERNAL_PARAMETER_MISMATCH_FAULT)
-								.bit(14, HyperCubeInverter.AlarmChannelId.FLASH_STORAGE_FAULT)
-								.bit(15, HyperCubeInverter.AlarmChannelId.RTC_INIT_WARNING)
-						)),
-
-				new FC4ReadInputRegistersTask(3019, Priority.LOW,
-						this.rawAlarm(3019, HyperCubeInverter.ChannelId.ALARM_VALUE_1),
-						this.rawAlarm(3021, HyperCubeInverter.ChannelId.ALARM_VALUE_2),
-						this.rawAlarm(3023, HyperCubeInverter.ChannelId.ALARM_VALUE_3),
-						this.rawAlarm(3025, HyperCubeInverter.ChannelId.ALARM_VALUE_4),
-						this.rawAlarm(3027, HyperCubeInverter.ChannelId.ALARM_VALUE_5),
-						this.rawAlarm(3029, HyperCubeInverter.ChannelId.ALARM_VALUE_6),
-						this.rawAlarm(3031, HyperCubeInverter.ChannelId.ALARM_VALUE_7),
-						this.rawAlarm(3033, HyperCubeInverter.ChannelId.ALARM_VALUE_8),
-						this.rawAlarm(3035, HyperCubeInverter.ChannelId.ALARM_VALUE_9),
-						this.rawAlarm(3037, HyperCubeInverter.ChannelId.ALARM_VALUE_10)),
-
-				new FC4ReadInputRegistersTask(3076, Priority.LOW,
-						this.rawAlarm(3076, HyperCubeInverter.ChannelId.ALARM_VALUE_11),
-						this.rawAlarm(3078, HyperCubeInverter.ChannelId.ALARM_VALUE_12),
-						this.rawAlarm(3080, HyperCubeInverter.ChannelId.ALARM_VALUE_13),
-						this.rawAlarm(3082, HyperCubeInverter.ChannelId.ALARM_VALUE_14))
+						new DummyRegisterElement(3075, 3075),
+						defineModbusAlarmRegister(this, 11, 3076, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(16, value, this.channel(AlarmChannelId.DSP_ARM_COMMUNICATION_FAULT));
+							decodeAlarm(17, value, this.channel(AlarmChannelId.SCHEDULING_CAN_COMMUNICATION_FAULT));
+							decodeAlarm(18, value, this.channel(AlarmChannelId.CARRIER_SYNC_FAULT));
+							decodeAlarm(19, value, this.channel(AlarmChannelId.POWER_FREQUENCY_SYNC_FAULT));
+							decodeAlarm(20, value, this.channel(AlarmChannelId.MODULE_IDENTIFICATION_CONFLICT));
+							decodeAlarm(21, value, this.channel(AlarmChannelId.POWER_CAN1_COMMUNICATION_ANOMALY));
+							decodeAlarm(22, value, this.channel(AlarmChannelId.POWER_CAN2_COMMUNICATION_ANOMALY));
+							decodeAlarm(23, value, this.channel(AlarmChannelId.DSP_FPGA_VERSION_MISMATCH_WARNING));
+						}),
+						defineModbusAlarmRegister(this, 12, 3078, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(3, value, this.channel(AlarmChannelId.WAVE_LIMIT_BRANCH1_L1_WARNING));
+							decodeAlarm(5, value, this.channel(AlarmChannelId.WAVE_LIMIT_BRANCH1_L2_WARNING));
+							decodeAlarm(7, value, this.channel(AlarmChannelId.WAVE_LIMIT_BRANCH1_L3_WARNING));
+							decodeAlarm(9, value, this.channel(AlarmChannelId.WAVE_LIMIT_BRANCH2_L1_WARNING));
+							decodeAlarm(11, value, this.channel(AlarmChannelId.WAVE_LIMIT_BRANCH2_L2_WARNING));
+							decodeAlarm(13, value, this.channel(AlarmChannelId.WAVE_LIMIT_BRANCH2_L3_WARNING));
+							decodeAlarm(16, value, this.channel(AlarmChannelId.HIGH_GRID_VOLTAGE_LEVEL1_FAULT));
+							decodeAlarm(17, value, this.channel(AlarmChannelId.HIGH_GRID_VOLTAGE_LEVEL2_FAULT));
+							decodeAlarm(18, value, this.channel(AlarmChannelId.HIGH_GRID_VOLTAGE_LEVEL3_FAULT));
+							decodeAlarm(19, value, this.channel(AlarmChannelId.HIGH_GRID_VOLTAGE_LEVEL4_FAULT));
+							decodeAlarm(20, value, this.channel(AlarmChannelId.HIGH_GRID_VOLTAGE_LEVEL5_FAULT));
+							decodeAlarm(21, value, this.channel(AlarmChannelId.LOW_GRID_VOLTAGE_LEVEL1_FAULT));
+							decodeAlarm(22, value, this.channel(AlarmChannelId.LOW_GRID_VOLTAGE_LEVEL2_FAULT));
+							decodeAlarm(23, value, this.channel(AlarmChannelId.LOW_GRID_VOLTAGE_LEVEL3_FAULT));
+							decodeAlarm(24, value, this.channel(AlarmChannelId.LOW_GRID_VOLTAGE_LEVEL4_FAULT));
+							decodeAlarm(25, value, this.channel(AlarmChannelId.LOW_GRID_VOLTAGE_LEVEL5_FAULT));
+							decodeAlarm(26, value, this.channel(AlarmChannelId.HIGH_GRID_FREQUENCY_LEVEL1_FAULT));
+							decodeAlarm(27, value, this.channel(AlarmChannelId.HIGH_GRID_FREQUENCY_LEVEL2_FAULT));
+							decodeAlarm(28, value, this.channel(AlarmChannelId.HIGH_GRID_FREQUENCY_LEVEL3_FAULT));
+							decodeAlarm(29, value, this.channel(AlarmChannelId.HIGH_GRID_FREQUENCY_LEVEL4_FAULT));
+							decodeAlarm(30, value, this.channel(AlarmChannelId.HIGH_GRID_FREQUENCY_LEVEL5_FAULT));
+							decodeAlarm(31, value, this.channel(AlarmChannelId.LOW_GRID_FREQUENCY_LEVEL1_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 13, 3080, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(0, value, this.channel(AlarmChannelId.LOW_GRID_FREQUENCY_LEVEL2_FAULT));
+							decodeAlarm(1, value, this.channel(AlarmChannelId.LOW_GRID_FREQUENCY_LEVEL3_FAULT));
+							decodeAlarm(2, value, this.channel(AlarmChannelId.LOW_GRID_FREQUENCY_LEVEL4_FAULT));
+							decodeAlarm(3, value, this.channel(AlarmChannelId.LOW_GRID_FREQUENCY_LEVEL5_FAULT));
+							decodeAlarm(16, value, this.channel(AlarmChannelId.HIGH_MEAN_VOLTAGE_FAULT));
+							decodeAlarm(17, value, this.channel(AlarmChannelId.CT_PHASE_REVERSAL_WARNING));
+							decodeAlarm(18, value, this.channel(AlarmChannelId.CT_DETECTION_ANOMALY_WARNING));
+							decodeAlarm(19, value, this.channel(AlarmChannelId.DETECTION_BOX_WARNING));
+							decodeAlarm(29, value, this.channel(AlarmChannelId.ANTI_BACKFLOW_OVERLIMIT_FAULT));
+							decodeAlarm(30, value, this.channel(AlarmChannelId.ANTI_BACKFLOW_METER_COMMUNICATION_WARNING));
+							decodeAlarm(31, value, this.channel(AlarmChannelId.ANTI_BACKFLOW_METER_COMMUNICATION_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 14, 3082, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(0, value, this.channel(AlarmChannelId.HOST_COMMUNICATION_WARNING));
+							decodeAlarm(1, value, this.channel(AlarmChannelId.BCMS_COMMUNICATION_FAULT));
+							decodeAlarm(2, value, this.channel(AlarmChannelId.DSP_COMMUNICATION_FAULT));
+							decodeAlarm(3, value, this.channel(AlarmChannelId.BAMS_COMMUNICATION_FAULT));
+							decodeAlarm(4, value, this.channel(AlarmChannelId.ETHERNET_COMMUNICATION_FAULT));
+							decodeAlarm(6, value, this.channel(AlarmChannelId.BCMS_ETH_COMMUNICATION_FAULT));
+							decodeAlarm(12, value, this.channel(AlarmChannelId.MODULE_MODEL_MISMATCH_FAULT));
+							decodeAlarm(13, value, this.channel(AlarmChannelId.INTERNAL_PARAMETER_MISMATCH_FAULT));
+							decodeAlarm(14, value, this.channel(AlarmChannelId.FLASH_STORAGE_FAULT));
+							decodeAlarm(15, value, this.channel(AlarmChannelId.RTC_INIT_WARNING));
+						}),
+						defineModbusAlarmRegister(this, 15, 3084, this::addModbusAlarmChannel))
 		);
 	}
 
-	private UnsignedDoublewordElement rawAlarm(int address,
-			io.openems.edge.common.channel.ChannelId channelId) {
-		return m(channelId, new UnsignedDoublewordElement(address).wordOrder(WordOrder.LSWMSW));
+	private io.openems.edge.common.channel.ChannelId addModbusAlarmChannel(int number) {
+		var channelId = new io.openems.edge.common.channel.ChannelId.ChannelIdImpl(String.format("%s_%02d", "ALARM", number), Doc.of(OpenemsType.LONG));
+		this.addChannel(channelId);
+		return channelId;
 	}
 
 	@Override

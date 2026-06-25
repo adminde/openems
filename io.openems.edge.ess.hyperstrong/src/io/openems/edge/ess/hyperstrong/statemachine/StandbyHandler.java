@@ -2,7 +2,7 @@ package io.openems.edge.ess.hyperstrong.statemachine;
 
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.statemachine.StateHandler;
-import io.openems.edge.ess.hyperstrong.OperatingStatus;
+import io.openems.edge.ess.hyperstrong.hypercube.OperatingStatus;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 
 public class StandbyHandler extends StateHandler<State, Context> {

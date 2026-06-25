@@ -1,11 +1,14 @@
 package io.openems.edge.ess.hyperstrong.hypercube.bms;
 
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
-import static io.openems.edge.ess.hyperstrong.AlarmAnalysis.convertAlarm;
+import static io.openems.edge.ess.hyperstrong.AlarmAnalysis.decodeAlarm;
+import static io.openems.edge.ess.hyperstrong.ModbusUtils.defineModbusAlarmRegister;
+import static io.openems.edge.ess.hyperstrong.ModbusUtils.defineModbusSignedWordInputRegistersTasks;
+import static io.openems.edge.ess.hyperstrong.ModbusUtils.defineModbusUnsignedWordInputRegistersTasks;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
@@ -19,7 +22,6 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.osgi.service.metatype.annotations.Designate;
 
-import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
 import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.types.OpenemsType;
@@ -30,11 +32,8 @@ import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.bridge.modbus.api.ModbusProtocol;
 import io.openems.edge.bridge.modbus.api.element.BitsWordElement;
 import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
-import io.openems.edge.bridge.modbus.api.element.ModbusElement;
 import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
-import io.openems.edge.bridge.modbus.api.element.UnsignedDoublewordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
-import io.openems.edge.bridge.modbus.api.element.WordOrder;
 import io.openems.edge.bridge.modbus.api.task.FC4ReadInputRegistersTask;
 import io.openems.edge.bridge.modbus.api.task.Task;
 import io.openems.edge.common.channel.ChannelId.ChannelIdImpl;
@@ -109,7 +108,6 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 	@Override
 	protected ModbusProtocol defineModbusProtocol() {
 		var protocol = new ModbusProtocol(this,
-
 				new FC4ReadInputRegistersTask(10001, Priority.HIGH,
 						m(BatteryManagementSystem.ChannelId.RACK_VOLTAGE,
 								new SignedWordElement(10001), SCALE_FACTOR_2),
@@ -147,164 +145,14 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 						m(BatteryManagementSystem.ChannelId.MAX_CELL_TEMPERATURE_INDEX,
 								new UnsignedWordElement(10016)),
 						m(BatteryManagementSystem.ChannelId.MIN_CELL_TEMPERATURE_INDEX,
-								new UnsignedWordElement(10017)),
-						m(new UnsignedWordElement(10018)).build().onUpdateCallback(value -> {
-							convertAlarm(0, value,
-									this.channel(AlarmChannelId.HIGH_CELL_VOLTAGE_FAULT),
-									this.channel(AlarmChannelId.HIGH_CELL_VOLTAGE_INFO),
-									this.channel(AlarmChannelId.HIGH_CELL_VOLTAGE_WARNING));
-							convertAlarm(2, value,
-									this.channel(AlarmChannelId.LOW_CELL_VOLTAGE_FAULT),
-									this.channel(AlarmChannelId.LOW_CELL_VOLTAGE_INFO),
-									this.channel(AlarmChannelId.LOW_CELL_VOLTAGE_WARNING));
-							convertAlarm(4, value,
-									this.channel(AlarmChannelId.IMBALANCE_CELL_VOLTAGE_FAULT),
-									this.channel(AlarmChannelId.IMBALANCE_CELL_VOLTAGE_WARNING),
-									this.channel(AlarmChannelId.IMBALANCE_CELL_VOLTAGE_SEVERE_WARNING));
-							convertAlarm(12, value,
-									this.channel(AlarmChannelId.HIGH_VOLTAGE_FAULT),
-									this.channel(AlarmChannelId.HIGH_VOLTAGE_INFO),
-									this.channel(AlarmChannelId.HIGH_VOLTAGE_WARNING));
-							convertAlarm(14, value,
-									this.channel(AlarmChannelId.LOW_VOLTAGE_FAULT),
-									this.channel(AlarmChannelId.LOW_VOLTAGE_INFO),
-									this.channel(AlarmChannelId.LOW_VOLTAGE_WARNING));
-						}),
-						new DummyRegisterElement(10019),
-						m(new UnsignedWordElement(10020)).build().onUpdateCallback(value -> {
-							convertAlarm(0, value,
-									this.channel(AlarmChannelId.HIGH_DISCHARGE_CURRENT_FAULT),
-									this.channel(AlarmChannelId.HIGH_DISCHARGE_CURRENT_SEVERE_FAULT),
-									this.channel(AlarmChannelId.HIGH_DISCHARGE_CURRENT_CRITICAL_FAULT));
-							convertAlarm(2, value,
-									this.channel(AlarmChannelId.HIGH_CHARGE_CURRENT_FAULT),
-									this.channel(AlarmChannelId.HIGH_CHARGE_CURRENT_SEVERE_FAULT),
-									this.channel(AlarmChannelId.HIGH_CHARGE_CURRENT_CRITICAL_FAULT));
-							convertAlarm(4, value,
-									this.channel(AlarmChannelId.HIGH_TEMPERATURE_FAULT),
-									this.channel(AlarmChannelId.HIGH_TEMPERATURE_INFO),
-									this.channel(AlarmChannelId.HIGH_TEMPERATURE_WARNING));
-							convertAlarm(6, value,
-									this.channel(AlarmChannelId.LOW_TEMPERATURE_FAULT),
-									this.channel(AlarmChannelId.LOW_TEMPERATURE_INFO),
-									this.channel(AlarmChannelId.LOW_TEMPERATURE_WARNING));
-							convertAlarm(8, value,
-									this.channel(AlarmChannelId.HIGH_TEMPERATURE_DIFFERENTIAL_FAULT),
-									this.channel(AlarmChannelId.HIGH_TEMPERATURE_DIFFERENTIAL_INFO),
-									this.channel(AlarmChannelId.HIGH_TEMPERATURE_DIFFERENTIAL_WARNING));
-							convertAlarm(10, value,
-									this.channel(AlarmChannelId.RAPID_TEMPERATURE_RISE_FAULT),
-									this.channel(AlarmChannelId.RAPID_TEMPERATURE_RISE_WARNING),
-									this.channel(AlarmChannelId.RAPID_TEMPERATURE_RISE_SEVERE_WARNING));
-						}),
-						new DummyRegisterElement(10021),
-						m(new UnsignedWordElement(10022)).build().onUpdateCallback(value -> {
-							convertAlarm(4, value,
-									this.channel(AlarmChannelId.HIGH_SOC_FAULT),
-									this.channel(AlarmChannelId.HIGH_SOC_INFO),
-									this.channel(AlarmChannelId.HIGH_SOC_WARNING));
-							convertAlarm(6, value,
-									this.channel(AlarmChannelId.LOW_SOC_FAULT),
-									this.channel(AlarmChannelId.LOW_SOC_INFO),
-									this.channel(AlarmChannelId.LOW_SOC_WARNING));
-							convertAlarm(12, value,
-									this.channel(AlarmChannelId.HIGH_BUSBAR_TEMPERATURE_FAULT),
-									this.channel(AlarmChannelId.HIGH_BUSBAR_TEMPERATURE_INFO),
-									this.channel(AlarmChannelId.HIGH_BUSBAR_TEMPERATURE_WARNING));
-							convertAlarm(14, value,
-									this.channel(AlarmChannelId.EXCESSIVE_BATTERY_VOLTAGE_DIFFERENTIAL_FAULT),
-									this.channel(AlarmChannelId.EXCESSIVE_BATTERY_VOLTAGE_DIFFERENTIAL_WARNING),
-									this.channel(AlarmChannelId.EXCESSIVE_BATTERY_VOLTAGE_DIFFERENTIAL_SEVERE_WARNING));
-						}),
-						new DummyRegisterElement(10023),
-						m(new BitsWordElement(10024, this)
-								.bit(7, AlarmChannelId.BCMS_COMMUNICATION_FAULT)
-								.bit(8, AlarmChannelId.BAMS_COMMUNICATION_FAULT)
-								.bit(12, AlarmChannelId.EXTREME_HIGH_VOLTAGE_FAULT)
-								.bit(13, AlarmChannelId.EXTREME_LOW_VOLTAGE_FAULT)
-								.bit(14, AlarmChannelId.EXTREME_HIGH_TEMPERATURE_FAULT)
-								.bit(15, AlarmChannelId.EXTREME_LOW_TEMPERATURE_FAULT)
-						),
-						new DummyRegisterElement(10025),
-						m(new UnsignedWordElement(10026)).build().onUpdateCallback(value -> {
-							convertAlarm(2, value,
-									this.channel(AlarmChannelId.HIGH_CONTACTOR_TEMPERATURE_FAULT),
-									this.channel(AlarmChannelId.HIGH_CONTACTOR_TEMPERATURE_WARNING),
-									this.channel(AlarmChannelId.HIGH_CONTACTOR_TEMPERATURE_SEVERE_WARNING));
-							convertAlarm(4, value,
-									this.channel(AlarmChannelId.HIGH_POWER_MODULE_TEMPERATURE_FAULT),
-									this.channel(AlarmChannelId.HIGH_POWER_MODULE_TEMPERATURE_WARNING),
-									this.channel(AlarmChannelId.HIGH_POWER_MODULE_TEMPERATURE_SEVERE_WARNING));
-							convertAlarm(8, value,
-									this.channel(AlarmChannelId.HIGH_CONNECTOR_TEMPERATURE_FAULT),
-									this.channel(AlarmChannelId.HIGH_CONNECTOR_TEMPERATURE_WARNING),
-									this.channel(AlarmChannelId.HIGH_CONNECTOR_TEMPERATURE_SEVERE_WARNING));
-						}),
-						new DummyRegisterElement(10027),
-						m(new BitsWordElement(10028, this)
-								.bit(0, AlarmChannelId.INSULATION_MODULE_COMMUNICATION_WARNING)
-								.bit(1, AlarmChannelId.PARAMETER_CONFIGURATION_WARNING)
-								.bit(2, AlarmChannelId.HALL_SENSOR_OPEN_CIRCUIT_WARNING)
-								.bit(3, AlarmChannelId.TEMPERATURE_SENSOR_OPEN_CIRCUIT_WARNING)
-								.bit(4, AlarmChannelId.TEMPERATURE_SENSOR_SHORT_CIRCUIT_WARNING)
-								.bit(5, AlarmChannelId.MAIN_POSITIVE_CONTACTOR_FAULT)
-								.bit(9, AlarmChannelId.FIRE_DETECTOR_COMMUNICATION_TIMEOUT)
-								.bit(10, AlarmChannelId.THERMAL_MANAGEMENT_COMMUNICATION_TIMEOUT)
-								.bit(11, AlarmChannelId.AEROSOL_SIGNAL_DISCONNECT_WARNING)
-								.bit(12, AlarmChannelId.HIGH_VOLTAGE_CALIBRATION_WARNING)
-								.bit(13, AlarmChannelId.CURRENT_CALIBRATION_WARNING)
-								.bit(14, AlarmChannelId.FIRE_DETECTOR_DISCONNECT_FAULT)
-								.bit(15, AlarmChannelId.MSD_DISCONNECT_FAULT)
-						),
-						new DummyRegisterElement(10029),
-						m(new BitsWordElement(10030, this)
-								.bit(0, AlarmChannelId.FIRE_DETECTOR_1_FAULT)
-								.bit(2, AlarmChannelId.FIRE_DETECTOR_2_FAULT)
-								.bit(4, AlarmChannelId.FIRE_DETECTOR_3_FAULT)
-								.bit(6, AlarmChannelId.FIRE_DETECTOR_4_FAULT)
-								.bit(8, AlarmChannelId.FIRE_DETECTOR_5_FAULT)
-								.bit(10, AlarmChannelId.FIRE_DETECTOR_6_FAULT)
-						),
-						new DummyRegisterElement(10031, 10033),
-						m(new UnsignedWordElement(10034)).build().onUpdateCallback(value -> {
-							convertAlarm(0, value,
-									this.channel(AlarmChannelId.IMBALANCE_CELL_CHARGE_VOLTAGE_FAULT),
-									this.channel(AlarmChannelId.IMBALANCE_CELL_CHARGE_VOLTAGE_WARNING),
-									this.channel(AlarmChannelId.IMBALANCE_CELL_CHARGE_VOLTAGE_SEVERE_WARNING));
-							convertAlarm(2, value,
-									this.channel(AlarmChannelId.IMBALANCE_CELL_DISCHARGE_VOLTAGE_FAULT),
-									this.channel(AlarmChannelId.IMBALANCE_CELL_DISCHARGE_VOLTAGE_WARNING),
-									this.channel(AlarmChannelId.IMBALANCE_CELL_DISCHARGE_VOLTAGE_SEVERE_WARNING));
-							convertAlarm(4, value,
-									this.channel(AlarmChannelId.HIGH_PACK_VOLTAGE_FAULT),
-									this.channel(AlarmChannelId.HIGH_PACK_VOLTAGE_INFO),
-									this.channel(AlarmChannelId.HIGH_PACK_VOLTAGE_WARNING));
-							convertAlarm(6, value,
-									this.channel(AlarmChannelId.LOW_PACK_VOLTAGE_FAULT),
-									this.channel(AlarmChannelId.LOW_PACK_VOLTAGE_INFO),
-									this.channel(AlarmChannelId.LOW_PACK_VOLTAGE_WARNING));
-							convertAlarm(8, value,
-									this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_FAULT),
-									this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_SEVERE_FAULT),
-									this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_WARNING));
-						})),
+								new UnsignedWordElement(10017))),
 
-				new FC4ReadInputRegistersTask(10018, Priority.LOW,
-						this.rawAlarm(10018, HyperCubeBattery.ChannelId.ALARM_VALUE_1),
-						this.rawAlarm(10020, HyperCubeBattery.ChannelId.ALARM_VALUE_2),
-						this.rawAlarm(10022, HyperCubeBattery.ChannelId.ALARM_VALUE_3),
-						this.rawAlarm(10024, HyperCubeBattery.ChannelId.ALARM_VALUE_4),
-						this.rawAlarm(10026, HyperCubeBattery.ChannelId.ALARM_VALUE_5),
-						this.rawAlarm(10028, HyperCubeBattery.ChannelId.ALARM_VALUE_6),
-						this.rawAlarm(10030, HyperCubeBattery.ChannelId.ALARM_VALUE_7),
-						this.rawAlarm(10032, HyperCubeBattery.ChannelId.ALARM_VALUE_8),
-						this.rawAlarm(10034, HyperCubeBattery.ChannelId.ALARM_VALUE_9),
-						this.rawAlarm(10036, HyperCubeBattery.ChannelId.ALARM_VALUE_10)),
+				defineModbusAlarmsTask()
+		);
+		protocol.addTasks(defineModbusCellAnalyticsTasks());
+		protocol.addTasks(defineModbusConnectorAnalyticsTasks());
 
-				//defineModbusCellAnalyticsTask(10057),
-				defineModbusConnectorAnalyticsTask(10772),
-
-				new FC4ReadInputRegistersTask(10778, Priority.LOW,
+		protocol.addTask(new FC4ReadInputRegistersTask(10778, Priority.LOW,
 						m(HyperCubeBattery.ChannelId.INSULATION_RESISTANCE,
 								new UnsignedWordElement(10778)),
 						m(HyperCubeBattery.ChannelId.PRECHARGE_VOLTAGE,
@@ -314,61 +162,173 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 								.bit(1, HyperCubeBattery.ChannelId.COMMUNICATION_CONNECTED)
 								.bit(2, HyperCubeBattery.ChannelId.COMMUNICATION_ENABLED)
 								.bit(3, HyperCubeBattery.ChannelId.COMMUNICATION_FAULT)
-						)),
+						)));
 
-				defineModbusBusBarAnalyticsTask(10781)
-		);
-
-		protocol.addTasks(this.buildArrayTasks(10058, CELL_VOLTAGE_COUNT,
-				"CELL_VOLTAGE", false, Unit.MILLIVOLT, PersistencePriority.LOW));
-		protocol.addTasks(this.buildArrayTasks(10490, CELL_TEMPERATURE_COUNT,
-				"CELL_TEMPERATURE", true, Unit.DEZIDEGREE_CELSIUS, PersistencePriority.LOW));
-		protocol.addTasks(this.buildArrayTasks(10700, CONNECTOR_TEMPERATURE_COUNT,
-				"CONNECTOR_TEMPERATURE", true, Unit.DEZIDEGREE_CELSIUS, PersistencePriority.LOW));
-		protocol.addTasks(this.buildArrayTasks(10781, BUSBAR_TEMPERATURE_COUNT,
-				"BUSBAR_TEMPERATURE", true, Unit.DEZIDEGREE_CELSIUS, PersistencePriority.LOW));
+		protocol.addTasks(defineModbusBusBarAnalyticsTasks());
 
 		return protocol;
 	}
 
+	private Task defineModbusAlarmsTask() {
+		return new FC4ReadInputRegistersTask(10018, Priority.LOW,
+				defineModbusAlarmRegister(this, 1, 10018, this::addModbusAlarmChannel, value -> {
+					decodeAlarm(0, value,
+							this.channel(AlarmChannelId.HIGH_CELL_VOLTAGE_FAULT),
+							this.channel(AlarmChannelId.HIGH_CELL_VOLTAGE_INFO),
+							this.channel(AlarmChannelId.HIGH_CELL_VOLTAGE_WARNING));
+					decodeAlarm(2, value,
+							this.channel(AlarmChannelId.LOW_CELL_VOLTAGE_FAULT),
+							this.channel(AlarmChannelId.LOW_CELL_VOLTAGE_INFO),
+							this.channel(AlarmChannelId.LOW_CELL_VOLTAGE_WARNING));
+					decodeAlarm(4, value,
+							this.channel(AlarmChannelId.IMBALANCE_CELL_VOLTAGE_FAULT),
+							this.channel(AlarmChannelId.IMBALANCE_CELL_VOLTAGE_WARNING),
+							this.channel(AlarmChannelId.IMBALANCE_CELL_VOLTAGE_SEVERE_WARNING));
+					decodeAlarm(12, value,
+							this.channel(AlarmChannelId.HIGH_VOLTAGE_FAULT),
+							this.channel(AlarmChannelId.HIGH_VOLTAGE_INFO),
+							this.channel(AlarmChannelId.HIGH_VOLTAGE_WARNING));
+					decodeAlarm(14, value,
+							this.channel(AlarmChannelId.LOW_VOLTAGE_FAULT),
+							this.channel(AlarmChannelId.LOW_VOLTAGE_INFO),
+							this.channel(AlarmChannelId.LOW_VOLTAGE_WARNING));
+				}),
+				defineModbusAlarmRegister(this, 2, 10020, this::addModbusAlarmChannel, value -> {
+					decodeAlarm(0, value,
+							this.channel(AlarmChannelId.HIGH_DISCHARGE_CURRENT_FAULT),
+							this.channel(AlarmChannelId.HIGH_DISCHARGE_CURRENT_SEVERE_FAULT),
+							this.channel(AlarmChannelId.HIGH_DISCHARGE_CURRENT_CRITICAL_FAULT));
+					decodeAlarm(2, value,
+							this.channel(AlarmChannelId.HIGH_CHARGE_CURRENT_FAULT),
+							this.channel(AlarmChannelId.HIGH_CHARGE_CURRENT_SEVERE_FAULT),
+							this.channel(AlarmChannelId.HIGH_CHARGE_CURRENT_CRITICAL_FAULT));
+					decodeAlarm(4, value,
+							this.channel(AlarmChannelId.HIGH_TEMPERATURE_FAULT),
+							this.channel(AlarmChannelId.HIGH_TEMPERATURE_INFO),
+							this.channel(AlarmChannelId.HIGH_TEMPERATURE_WARNING));
+					decodeAlarm(6, value,
+							this.channel(AlarmChannelId.LOW_TEMPERATURE_FAULT),
+							this.channel(AlarmChannelId.LOW_TEMPERATURE_INFO),
+							this.channel(AlarmChannelId.LOW_TEMPERATURE_WARNING));
+					decodeAlarm(8, value,
+							this.channel(AlarmChannelId.HIGH_TEMPERATURE_DIFFERENTIAL_FAULT),
+							this.channel(AlarmChannelId.HIGH_TEMPERATURE_DIFFERENTIAL_INFO),
+							this.channel(AlarmChannelId.HIGH_TEMPERATURE_DIFFERENTIAL_WARNING));
+					decodeAlarm(10, value,
+							this.channel(AlarmChannelId.RAPID_TEMPERATURE_RISE_FAULT),
+							this.channel(AlarmChannelId.RAPID_TEMPERATURE_RISE_WARNING),
+							this.channel(AlarmChannelId.RAPID_TEMPERATURE_RISE_SEVERE_WARNING));
+				}),
+				defineModbusAlarmRegister(this, 3, 10022, this::addModbusAlarmChannel, value -> {
+					decodeAlarm(4, value,
+							this.channel(AlarmChannelId.HIGH_SOC_FAULT),
+							this.channel(AlarmChannelId.HIGH_SOC_INFO),
+							this.channel(AlarmChannelId.HIGH_SOC_WARNING));
+					decodeAlarm(6, value,
+							this.channel(AlarmChannelId.LOW_SOC_FAULT),
+							this.channel(AlarmChannelId.LOW_SOC_INFO),
+							this.channel(AlarmChannelId.LOW_SOC_WARNING));
+					decodeAlarm(12, value,
+							this.channel(AlarmChannelId.HIGH_BUSBAR_TEMPERATURE_FAULT),
+							this.channel(AlarmChannelId.HIGH_BUSBAR_TEMPERATURE_INFO),
+							this.channel(AlarmChannelId.HIGH_BUSBAR_TEMPERATURE_WARNING));
+					decodeAlarm(14, value,
+							this.channel(AlarmChannelId.EXCESSIVE_BATTERY_VOLTAGE_DIFFERENTIAL_FAULT),
+							this.channel(AlarmChannelId.EXCESSIVE_BATTERY_VOLTAGE_DIFFERENTIAL_WARNING),
+							this.channel(AlarmChannelId.EXCESSIVE_BATTERY_VOLTAGE_DIFFERENTIAL_SEVERE_WARNING));
+				}),
+				defineModbusAlarmRegister(this, 4, 10024, this::addModbusAlarmChannel, value -> {
+					decodeAlarm(7, value, this.channel(AlarmChannelId.BCMS_COMMUNICATION_FAULT));
+					decodeAlarm(8, value, this.channel(AlarmChannelId.BAMS_COMMUNICATION_FAULT));
+					decodeAlarm(12, value, this.channel(AlarmChannelId.EXTREME_HIGH_VOLTAGE_FAULT));
+					decodeAlarm(13, value, this.channel(AlarmChannelId.EXTREME_LOW_VOLTAGE_FAULT));
+					decodeAlarm(14, value, this.channel(AlarmChannelId.EXTREME_HIGH_TEMPERATURE_FAULT));
+					decodeAlarm(15, value, this.channel(AlarmChannelId.EXTREME_LOW_TEMPERATURE_FAULT));
+				}),
+				defineModbusAlarmRegister(this, 5, 10026, this::addModbusAlarmChannel, value -> {
+					decodeAlarm(2, value,
+							this.channel(AlarmChannelId.HIGH_CONTACTOR_TEMPERATURE_FAULT),
+							this.channel(AlarmChannelId.HIGH_CONTACTOR_TEMPERATURE_WARNING),
+							this.channel(AlarmChannelId.HIGH_CONTACTOR_TEMPERATURE_SEVERE_WARNING));
+					decodeAlarm(4, value,
+							this.channel(AlarmChannelId.HIGH_POWER_MODULE_TEMPERATURE_FAULT),
+							this.channel(AlarmChannelId.HIGH_POWER_MODULE_TEMPERATURE_WARNING),
+							this.channel(AlarmChannelId.HIGH_POWER_MODULE_TEMPERATURE_SEVERE_WARNING));
+					decodeAlarm(8, value,
+							this.channel(AlarmChannelId.HIGH_CONNECTOR_TEMPERATURE_FAULT),
+							this.channel(AlarmChannelId.HIGH_CONNECTOR_TEMPERATURE_WARNING),
+							this.channel(AlarmChannelId.HIGH_CONNECTOR_TEMPERATURE_SEVERE_WARNING));
+				}),
+				defineModbusAlarmRegister(this, 6, 10028, this::addModbusAlarmChannel, value -> {
+					decodeAlarm(0, value, this.channel(AlarmChannelId.INSULATION_MODULE_COMMUNICATION_WARNING));
+					decodeAlarm(1, value, this.channel(AlarmChannelId.PARAMETER_CONFIGURATION_WARNING));
+					decodeAlarm(2, value, this.channel(AlarmChannelId.HALL_SENSOR_OPEN_CIRCUIT_WARNING));
+					decodeAlarm(3, value, this.channel(AlarmChannelId.TEMPERATURE_SENSOR_OPEN_CIRCUIT_WARNING));
+					decodeAlarm(4, value, this.channel(AlarmChannelId.TEMPERATURE_SENSOR_SHORT_CIRCUIT_WARNING));
+					decodeAlarm(5, value, this.channel(AlarmChannelId.MAIN_POSITIVE_CONTACTOR_FAULT));
+					decodeAlarm(9, value, this.channel(AlarmChannelId.FIRE_DETECTOR_COMMUNICATION_TIMEOUT));
+					decodeAlarm(10, value, this.channel(AlarmChannelId.THERMAL_MANAGEMENT_COMMUNICATION_TIMEOUT));
+					decodeAlarm(11, value, this.channel(AlarmChannelId.AEROSOL_SIGNAL_DISCONNECT_WARNING));
+					decodeAlarm(12, value, this.channel(AlarmChannelId.HIGH_VOLTAGE_CALIBRATION_WARNING));
+					decodeAlarm(13, value, this.channel(AlarmChannelId.CURRENT_CALIBRATION_WARNING));
+					decodeAlarm(14, value, this.channel(AlarmChannelId.FIRE_DETECTOR_DISCONNECT_FAULT));
+					decodeAlarm(15, value, this.channel(AlarmChannelId.MSD_DISCONNECT_FAULT));
+				}),
+				defineModbusAlarmRegister(this, 7, 10030, this::addModbusAlarmChannel, value -> {
+					decodeAlarm(0, value, this.channel(AlarmChannelId.FIRE_DETECTOR_1_FAULT));
+					decodeAlarm(2, value, this.channel(AlarmChannelId.FIRE_DETECTOR_2_FAULT));
+					decodeAlarm(4, value, this.channel(AlarmChannelId.FIRE_DETECTOR_3_FAULT));
+					decodeAlarm(6, value, this.channel(AlarmChannelId.FIRE_DETECTOR_4_FAULT));
+					decodeAlarm(8, value, this.channel(AlarmChannelId.FIRE_DETECTOR_5_FAULT));
+					decodeAlarm(10, value, this.channel(AlarmChannelId.FIRE_DETECTOR_6_FAULT));
+				}),
+				defineModbusAlarmRegister(this, 8, 10032, this::addModbusAlarmChannel),
+				defineModbusAlarmRegister(this, 9, 10034, this::addModbusAlarmChannel, value -> {
+					decodeAlarm(0, value,
+							this.channel(AlarmChannelId.IMBALANCE_CELL_CHARGE_VOLTAGE_FAULT),
+							this.channel(AlarmChannelId.IMBALANCE_CELL_CHARGE_VOLTAGE_WARNING),
+							this.channel(AlarmChannelId.IMBALANCE_CELL_CHARGE_VOLTAGE_SEVERE_WARNING));
+					decodeAlarm(2, value,
+							this.channel(AlarmChannelId.IMBALANCE_CELL_DISCHARGE_VOLTAGE_FAULT),
+							this.channel(AlarmChannelId.IMBALANCE_CELL_DISCHARGE_VOLTAGE_WARNING),
+							this.channel(AlarmChannelId.IMBALANCE_CELL_DISCHARGE_VOLTAGE_SEVERE_WARNING));
+					decodeAlarm(4, value,
+							this.channel(AlarmChannelId.HIGH_PACK_VOLTAGE_FAULT),
+							this.channel(AlarmChannelId.HIGH_PACK_VOLTAGE_INFO),
+							this.channel(AlarmChannelId.HIGH_PACK_VOLTAGE_WARNING));
+					decodeAlarm(6, value,
+							this.channel(AlarmChannelId.LOW_PACK_VOLTAGE_FAULT),
+							this.channel(AlarmChannelId.LOW_PACK_VOLTAGE_INFO),
+							this.channel(AlarmChannelId.LOW_PACK_VOLTAGE_WARNING));
+					decodeAlarm(8, value,
+							this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_FAULT),
+							this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_SEVERE_FAULT),
+							this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_WARNING));
+				}),
+				defineModbusAlarmRegister(this, 10, 10036, this::addModbusAlarmChannel)
+		);
+	}
 
-	private static final int MAX_REGISTERS_PER_TASK = 100;
-	private static final int CELL_VOLTAGE_COUNT = 260;
-	private static final int CELL_TEMPERATURE_COUNT = 210;
-	private static final int CONNECTOR_TEMPERATURE_COUNT = 72;
-	private static final int BUSBAR_TEMPERATURE_COUNT = 100;
+	private Task[] defineModbusCellAnalyticsTasks() {
+		List<Task> tasks = new ArrayList<Task>();
 
-	private Task[] buildArrayTasks(int startAddress, int count, String namePrefix, boolean signed,
-			Unit unit, PersistencePriority pp) {
-		List<Task> tasks = new ArrayList<>();
-		var index = 0;
-		while (index < count) {
-			var chunk = Math.min(MAX_REGISTERS_PER_TASK, count - index);
-			var elements = new ModbusElement[chunk];
-			for (var i = 0; i < chunk; i++) {
-				var oneBased = index + i + 1;
-				var address = startAddress + index + i;
-				var channelId = new ChannelIdImpl(String.format("%s_%03d", namePrefix, oneBased),
-						Doc.of(OpenemsType.INTEGER).unit(unit).persistencePriority(pp));
-				this.addChannel(channelId);
-				elements[i] = signed
-						? m(channelId, new SignedWordElement(address))
-						: m(channelId, new UnsignedWordElement(address));
-			}
-			tasks.add(new FC4ReadInputRegistersTask(startAddress + index, Priority.LOW, elements));
-			index += chunk;
-		}
+		tasks.addAll(defineModbusUnsignedWordInputRegistersTasks(10058, 260,
+				this.addModbusAnalyticsChannel("CELL_VOLTAGE", "%s_%03d", Unit.MILLIVOLT),
+				this::m));
+		tasks.addAll(defineModbusSignedWordInputRegistersTasks(10490, 210,
+				this.addModbusAnalyticsChannel("CELL_TEMPERATURE", "%s_%03d", Unit.DEZIDEGREE_CELSIUS),
+				this::m));
+
 		return tasks.toArray(Task[]::new);
 	}
 
-
-	private UnsignedDoublewordElement rawAlarm(int address,
-			io.openems.edge.common.channel.ChannelId channelId) {
-		return m(channelId, new UnsignedDoublewordElement(address).wordOrder(WordOrder.LSWMSW));
-	}
-
-	private Task defineModbusConnectorAnalyticsTask(int startAddress) { //, HyperCubeModel model) {
-		List<ModbusElement> elements = new ArrayList<ModbusElement>(Arrays.asList(
+	private Task[] defineModbusConnectorAnalyticsTasks() { //, HyperCubeModel model) {
+		List<Task> tasks = new ArrayList<Task>(
+				defineModbusSignedWordInputRegistersTasks(10700, 72,
+						this.addModbusAnalyticsChannel("CONNECTOR_TEMPERATURE", "%s_%02d", Unit.DEZIDEGREE_CELSIUS),
+						this::m)
+		);
+		tasks.add(new FC4ReadInputRegistersTask(10772, Priority.LOW,
 				m(HyperCubeBattery.ChannelId.MAX_CONNECTOR_TEMPERATURE,
 						new SignedWordElement(10772)),
 				m(HyperCubeBattery.ChannelId.MIN_CONNECTOR_TEMPERATURE,
@@ -377,17 +337,21 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 						new UnsignedWordElement(10774)),
 				m(HyperCubeBattery.ChannelId.MIN_CONNECTOR_TEMPERATURE_INDEX,
 						new UnsignedWordElement(10775)),
-				m(HyperCubeBattery.ChannelId.MAX_CONNECTOR_TEMPERATURE_MODULE_INDEX,
+				m(HyperCubeBattery.ChannelId.MAX_CONNECTOR_MODULE_TEMPERATURE_INDEX,
 						new UnsignedWordElement(10776)),
-				m(HyperCubeBattery.ChannelId.MIN_CONNECTOR_TEMPERATURE_MODULE_INDEX,
+				m(HyperCubeBattery.ChannelId.MIN_CONNECTOR_MODULE_TEMPERATURE_INDEX,
 						new UnsignedWordElement(10777))
 		));
-		return new FC4ReadInputRegistersTask(10772, Priority.LOW,
-				elements.toArray(ModbusElement[]::new));
+		return tasks.toArray(Task[]::new);
 	}
 
-	private Task defineModbusBusBarAnalyticsTask(int startAddress) { //, HyperCubeModel model) {
-		List<ModbusElement> elements = new ArrayList<ModbusElement>(Arrays.asList(
+	private Task[] defineModbusBusBarAnalyticsTasks() { //, HyperCubeModel model) {
+		List<Task> tasks = new ArrayList<Task>(
+				defineModbusSignedWordInputRegistersTasks(10781, 100,
+						this.addModbusAnalyticsChannel("BUSBAR_TEMPERATURE", "%s_%03d", Unit.DEZIDEGREE_CELSIUS),
+						this::m)
+		);
+		tasks.add(new FC4ReadInputRegistersTask(10881, Priority.LOW,
 				m(HyperCubeBattery.ChannelId.MAX_BUSBAR_TEMPERATURE,
 						new SignedWordElement(10881)),
 				m(HyperCubeBattery.ChannelId.MIN_BUSBAR_TEMPERATURE,
@@ -397,8 +361,24 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 				m(HyperCubeBattery.ChannelId.MIN_BUSBAR_TEMPERATURE_INDEX,
 						new UnsignedWordElement(10884))
 		));
-		return new FC4ReadInputRegistersTask(10881, Priority.LOW,
-				elements.toArray(ModbusElement[]::new));
+		return tasks.toArray(Task[]::new);
+	}
+
+	private Function<Integer, io.openems.edge.common.channel.ChannelId> addModbusAnalyticsChannel(String namePrefix,
+			String nameFormat, Unit unit) {
+		return number -> {
+			var channelId = new ChannelIdImpl(String.format(nameFormat, namePrefix, number),
+					Doc.of(OpenemsType.INTEGER)
+							.unit(unit));
+			this.addChannel(channelId);
+			return channelId;
+		};
+	}
+
+	private io.openems.edge.common.channel.ChannelId addModbusAlarmChannel(int number) {
+		var channelId = new ChannelIdImpl(String.format("%s_%02d", "ALARM", number), Doc.of(OpenemsType.LONG));
+		this.addChannel(channelId);
+		return channelId;
 	}
 
 	@Override
