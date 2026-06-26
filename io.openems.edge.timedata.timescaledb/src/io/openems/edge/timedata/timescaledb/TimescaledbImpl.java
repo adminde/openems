@@ -83,7 +83,9 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 		try {
 			this.dbHandler = new TimescaleDbHandler(new TimescaleDbConfig(
 					config.host(), config.port(), config.database(), config.username(), config.password(), config.poolSize(),
-					config.rawRetentionDays(), config.rawCompressionDays()
+					config.rawRetentionDays(), config.rawCompressionDays(),
+					false,
+					config.writeWorkers()
 			));
 			this.log.info("TimescaleDB connected and schema applied");
 		} catch (SQLException e) {
@@ -101,12 +103,8 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 		super.deactivate();
 	}
 
-	// ===                     WRITE PATH                       
-	// ===                                                                   
-	// ===  Collecting channel values  
-	// ===  on every cycle and pushing them into the typed hypertables
+	// WRITE PATH
 	
-
 	@Override
 	public void handleEvent(Event event) {
 		if (!this.isEnabled() || this.dbHandler == null) {
@@ -123,11 +121,6 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 		}
 	}
 
-	/**
-	 * Walks every enabled component's channels, filters by persistence priority
-	 * and access mode, then buffers a {@link DataPoint} for each readable
-	 * channel that currently has a value.
-	 */
 	private void collectChannelValues(long timestamp) {
 		var minPriority = this.config.persistencePriority();
 		var edgeName = this.config.edgeName();
@@ -135,9 +128,7 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 		this.componentManager.getEnabledComponents().stream()
 				.forEach(component -> {
 					var componentAlias = component.id();
-					// Use the OSGi factory PID (e.g. "Simulator.GridMeter.Acting"),
-					// matching the Backend's EdgeConfig factoryId — not the impl
-					// class name — so both databases store the same component.type.
+					
 					var componentType = component.serviceFactoryPid();
 
 					component.channels().stream()
@@ -214,33 +205,7 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 		}
 	}
 
-	// =========================================================================
-	// =========================================================================
-	// ===                                                                   ===
-	// ===          TIMEDATA INTERFACE — READ-SIDE IMPLEMENTATION            ===
-	// ===                                                                   ===
-	// ===  Everything below this banner satisfies the OpenEMS `Timedata`    ===
-	// ===  service contract. Other components (UI backend, energy           ===
-	// ===  calculators, controllers) inject `@Reference Timedata` and call  ===
-	// ===  these methods to read historical data.                   ===
-	// ===                                                                   ===
-	// ===  Each method here is a thin adapter: it just translates the       ===
-	// ===  OpenEMS argument types into a SQL query against our hypertables  ===
-	// ===  and converts results into the JsonElement shape OpenEMS expects. ===
-	// ===  All real SQL lives in TimescaleDbHandler.                        ===
-	// ===                                                                   ===
-	// =========================================================================
-	// =========================================================================
 
-	/**
-	 * Returns the most recent value ever written for the given channel.
-	 *
-	 * <p>
-	 * Called by UI components that want to display a "last seen" value when
-	 * the live channel is currently unavailable (e.g. component temporarily
-	 * offline). Returns {@link Optional#empty()} if the channel has never been
-	 * written.
-	 */
 	@Override
 	public CompletableFuture<Optional<Object>> getLatestValue(ChannelAddress channelAddress) {
 		return CompletableFuture.supplyAsync(() -> {
@@ -286,15 +251,6 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 		}
 	}
 
-	/**
-	 * Returns the energy delta for each channel over the full [from, to)
-	 * window. Equivalent to "how much did each counter advance during this
-	 * period?". For monotonic counters this is real consumed/produced energy.
-	 *
-	 * <p>
-	 * Implemented as MAX(value) - MIN(value) over raw data so precision is not
-	 * lost to aggregation rounding.
-	 */
 	@Override
 	public SortedMap<ChannelAddress, JsonElement> queryHistoricEnergy(
 			String edgeId, ZonedDateTime fromDate, ZonedDateTime toDate,
@@ -313,15 +269,7 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 		}
 	}
 
-	/**
-	 * Like {@link #queryHistoricEnergy} but bucketed — returns the energy
-	 * delta per bucket per channel. Drives bar charts that show "energy
-	 * produced per day this month" or "energy consumed per hour today".
-	 *
-	 * <p>
-	 * For each bucket the delta is (last value in bucket) - (last value in
-	 * previous bucket), computed via a SQL window function.
-	 */
+
 	@Override
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricEnergyPerPeriod(
 			String edgeId, ZonedDateTime fromDate, ZonedDateTime toDate,
@@ -338,11 +286,7 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 		}
 	}
 
-	/**
-	 * Data-resend support — used by the Edge backend connector to replay
-	 * un-acknowledged data after a network outage. Reads failed-send timestamps
-	 * recorded on {@code notSendChannel} and groups them into contiguous ranges.
-	 */
+
 	@Override
 	public Timeranges getResendTimeranges(ChannelAddress notSendChannel, long lastResendTimestamp)
 			throws OpenemsNamedException {
@@ -361,10 +305,6 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 		}
 	}
 
-	/**
-	 * Counterpart to {@link #getResendTimeranges} — returns the raw samples for
-	 * the resolved time range so the backend connector can replay them.
-	 */
 	@Override
 	public SortedMap<Long, SortedMap<ChannelAddress, JsonElement>> queryResendData(
 			ZonedDateTime fromDate, ZonedDateTime toDate, Set<ChannelAddress> channels)

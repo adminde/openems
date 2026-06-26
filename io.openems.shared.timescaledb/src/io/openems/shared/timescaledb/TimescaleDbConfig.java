@@ -8,5 +8,7 @@ public record TimescaleDbConfig(
     String password,
     int poolSize,
     int rawRetentionDays,
-    int rawCompressionDays
+    int rawCompressionDays,
+    boolean createMinutelyAggregate,
+    int writeWorkers
 ) {}

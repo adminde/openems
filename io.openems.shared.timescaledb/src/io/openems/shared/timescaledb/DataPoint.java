@@ -7,7 +7,7 @@ public record DataPoint(
 		String componentType,
 		String channelName,
 		String dataType,   // "INTEGER", "FLOAT", or "STRING"
-		boolean core,      // true = Fast Lane (VERY_HIGH), false = Slow Lane
+		boolean core,      // true = Fast Lane false = Slow Lane
 		String unit,       // e.g. "W", "Wh", "%", "V" — may be null
 		Object value
 ) {}

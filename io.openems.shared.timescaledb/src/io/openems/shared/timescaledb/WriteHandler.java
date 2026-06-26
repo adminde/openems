@@ -16,7 +16,9 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,12 +34,23 @@ public class WriteHandler {
 
 	private final HikariDataSource dataSource;
 	private final ChannelManager channelManager;
-	
+
+	private static final int QUEUE_CAPACITY = 1_000_000;
 	// Queue to decouple WebSocket network threads from Database IO
-	private final BlockingQueue<DataPoint> writeQueue = new ArrayBlockingQueue<>(1_000_000);
-	
+	private final BlockingQueue<DataPoint> writeQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+
 	private final ExecutorService executor;
 	private volatile boolean isRunning = true;
+
+	// Backlog monitoring. The monitor logs queue depth and drain rate on a fixed
+	// cadence so a database that can't keep up is visible in the logs before the
+	// queue fills and back-pressures the WebSocket threads.
+	private static final long MONITOR_INTERVAL_SECONDS = 30;
+	private static final int QUEUE_LOG_THRESHOLD = QUEUE_CAPACITY / 100;  // 1% — stay quiet below this
+	private static final int QUEUE_HIGH_WATER = QUEUE_CAPACITY / 2;       // 50% — escalate to WARN
+	private final ScheduledExecutorService monitor;
+	private final AtomicLong totalWritten = new AtomicLong();
+	private long lastWrittenSnapshot = 0;
 
 	// Bounded retry on flush failure: enough attempts to ride out a brief DB
 	// restart / failover / network blip, but bounded so a poison-pill batch
@@ -46,29 +59,61 @@ public class WriteHandler {
 	private static final int MAX_FLUSH_RETRIES = 3;
 	private static final long FLUSH_RETRY_BASE_DELAY_MS = 500;
 
-	/**
-	 * Constructor for the WriteHandler.
-	 * 
-	 * @param dataSource      The Hikari connection pool
-	 * @param channelManager  The ChannelManager for resolving channel IDs
-	 * @param numThreads      Number of background worker threads
-	 */
+
 	public WriteHandler(HikariDataSource dataSource, ChannelManager channelManager, int numThreads) {
 		this.dataSource = dataSource;
 		this.channelManager = channelManager;
-		this.executor = Executors.newFixedThreadPool(numThreads);
-		
-		for (int i = 0; i < numThreads; i++) {
+
+		int workers = Math.max(1, numThreads); // never leave the queue with no drain
+		if (workers != numThreads) {
+			this.log.warn("Configured writeWorkers={} is invalid; using {}", numThreads, workers);
+		}
+		this.executor = Executors.newFixedThreadPool(workers);
+
+		for (int i = 0; i < workers; i++) {
 			this.executor.submit(this::writeWorker);
 		}
+
+		this.monitor = Executors.newSingleThreadScheduledExecutor(r -> {
+			var t = new Thread(r, "TimescaleDB-monitor");
+			t.setDaemon(true);
+			return t;
+		});
+		this.monitor.scheduleAtFixedRate(this::logQueueDepth,
+				MONITOR_INTERVAL_SECONDS, MONITOR_INTERVAL_SECONDS, TimeUnit.SECONDS);
 	}
 
 	/**
-	 * Adds a batch of data points to the processing queue.
-	 * This method returns almost instantly, freeing the calling network thread.
-	 *
-	 * @param points The list of data points to insert
+	 * Logs the current write-queue backlog and the drain rate since the last tick.
+	 * Stays silent while the backlog is negligible; escalates to WARN once the
+	 * queue passes the high-water mark. Never throws — an exception here would
+	 * cancel all future scheduled runs.
 	 */
+	private void logQueueDepth() {
+		try {
+			int depth = this.writeQueue.size();
+			long written = this.totalWritten.get();
+			long rate = (written - this.lastWrittenSnapshot) / MONITOR_INTERVAL_SECONDS;
+			this.lastWrittenSnapshot = written;
+
+			if (depth < QUEUE_LOG_THRESHOLD) {
+				return;
+			}
+			int pct = depth * 100 / QUEUE_CAPACITY;
+			if (depth >= QUEUE_HIGH_WATER) {
+				this.log.warn("TimescaleDB write queue HIGH: {} points ({}% of capacity), draining ~{} points/s",
+						depth, pct, rate);
+			} else {
+				this.log.info("TimescaleDB write queue: {} points ({}% of capacity), draining ~{} points/s",
+						depth, pct, rate);
+			}
+		} catch (Exception e) {
+			this.log.warn("Queue-depth monitor failed", e);
+		}
+	}
+
+	// Adding a batch of data points to the processing queue.
+	
 	public void writeBatch(List<DataPoint> points) {
 		if (points == null || points.isEmpty()) {
 			return;
@@ -84,23 +129,19 @@ public class WriteHandler {
 		}
 	}
 
-	/**
-	 * The background worker loop that pulls from the queue and executes JDBC inserts.
-	 */
+	// The background worker loop that pulls from the queue and executes JDBC inserts.
+	 
 	private void writeWorker() {
 		List<DataPoint> buffer = new ArrayList<>(10_000);
-		// Keep draining after isRunning flips so deactivate() doesn't strand
-		// queued points. Bounded by the deadline in deactivate().
+		
 		while (this.isRunning || !this.writeQueue.isEmpty()) {
 			try {
-				// Block for up to 1 second waiting for the first point
+				
 				DataPoint first = this.writeQueue.poll(1, TimeUnit.SECONDS);
 				if (first == null) {
 					continue;
 				}
 				buffer.add(first);
-				
-				// Drain up to 9,999 more points currently sitting in the queue
 				this.writeQueue.drainTo(buffer, 9_999);
 				
 				this.flushBuffer(buffer);
@@ -108,7 +149,7 @@ public class WriteHandler {
 				
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
-				break; // Exit loop on shutdown
+				break;
 			} catch (Exception e) {
 				if (this.isConnectionError(e)) {
 					this.log.warn("Database unavailable. Worker pausing and retrying infinitely to preserve data...", e);
@@ -118,7 +159,7 @@ public class WriteHandler {
 							Thread.sleep(backoffMs);
 							if (backoffMs < 10000) backoffMs *= 2;
 							this.flushBuffer(buffer);
-							break; // Success
+							break;
 						} catch (InterruptedException ie) {
 							Thread.currentThread().interrupt();
 							break;
@@ -130,8 +171,7 @@ public class WriteHandler {
 						}
 					}
 				} else {
-					// Bounded retry handles the common transient cause (e.g. deadlock).
-					// After MAX_FLUSH_RETRIES we drop to avoid a poison-pill batch looping forever.
+
 					if (!this.retryFlush(buffer)) {
 						this.log.error("Dropping {} points after {} failed flush attempts (Data Error)",
 								buffer.size(), MAX_FLUSH_RETRIES, e);
@@ -162,14 +202,7 @@ public class WriteHandler {
 		return false;
 	}
 
-	/**
-	 * Retries {@link #flushBuffer} up to {@link #MAX_FLUSH_RETRIES} times with
-	 * exponential backoff. Returns {@code true} if a retry eventually succeeded.
-	 *
-	 * @param buffer The buffer that failed to flush
-	 * @return {@code true} if a subsequent flush succeeded, {@code false} if all
-	 *         retries were exhausted or the thread was interrupted
-	 */
+
 	private boolean retryFlush(List<DataPoint> buffer) {
 		for (int attempt = 1; attempt <= MAX_FLUSH_RETRIES; attempt++) {
 			try {
@@ -178,7 +211,7 @@ public class WriteHandler {
 				return true;
 			} catch (InterruptedException ie) {
 				Thread.currentThread().interrupt();
-				return false; // shutting down — give up
+				return false;
 			} catch (Exception retryError) {
 				this.log.warn("Flush retry {}/{} failed", attempt, MAX_FLUSH_RETRIES, retryError);
 			}
@@ -203,8 +236,6 @@ public class WriteHandler {
 			distinct.merge(ChannelManager.channelKey(p), p, WriteHandler::mergeForResolve);
 		}
 
-		// Channels already warm in the cache need no Database round-trip, so a
-		// steady-state flush (all channels known) opens no connection in pass 1.
 		var infoByKey = new HashMap<String, ChannelInfo>();
 		var toResolve = new ArrayList<DataPoint>();
 		for (var entry : distinct.entrySet()) {
@@ -232,8 +263,6 @@ public class WriteHandler {
 		// PASS 2 — pure appends into the data_* hypertables.
 		try (Connection con = this.dataSource.getConnection()) {
 			con.setAutoCommit(false);
-
-			// Group points by target table
 			Map<String, List<Object[]>> byTable = new HashMap<>();
 			for (DataPoint p : points) {
 				ChannelInfo info = infoByKey.get(ChannelManager.channelKey(p));
@@ -259,19 +288,9 @@ public class WriteHandler {
 			}
 			con.commit();
 		}
+		this.totalWritten.addAndGet(points.size());
 	}
 
-	/**
-	 * Merges two DataPoints for the same channel into the strongest resolve input:
-	 * core uses "highest wins" (Fast Lane is sticky) and the unit takes the first
-	 * non-null value. Identity fields are taken from {@code base}. Ensures the
-	 * single pass-1 resolve performs any needed promotion / unit backfill, so
-	 * pass 2 never has to re-resolve.
-	 *
-	 * @param base     the representative kept so far
-	 * @param incoming a further point for the same channel
-	 * @return a DataPoint carrying the merged core and unit
-	 */
 	private static DataPoint mergeForResolve(DataPoint base, DataPoint incoming) {
 		boolean core = base.core() || incoming.core();
 		String unit = base.unit() != null ? base.unit() : incoming.unit();
@@ -282,12 +301,7 @@ public class WriteHandler {
 				base.channelName(), base.dataType(), core, unit, base.value());
 	}
 
-	/**
-	 * Determines the target raw table for a given data type.
-	 *
-	 * @param dataType The SQL data type (e.g. INTEGER, FLOAT)
-	 * @return The target raw table name
-	 */
+	
 	private static String tableFor(String dataType) {
 		return switch (dataType) {
 		case "INTEGER" -> "data_integer";
@@ -296,18 +310,12 @@ public class WriteHandler {
 		};
 	}
 
-	/**
-	 * Gracefully shuts down the executor and prevents new data from being added.
-	 */
+
 	public void deactivate() {
 		this.isRunning = false;
+		this.monitor.shutdownNow();
 		this.executor.shutdown();
 		try {
-			// Workers keep draining the queue once isRunning is false; the
-			// deadline is the hard ceiling so a stuck database can't block past
-			// container-kill windows (k8s default 30s, systemd default 10s).
-			// Anything still queued at the deadline is forfeited — the Edge
-			// will replay it on reconnect to the next backend instance.
 			if (!this.executor.awaitTermination(30, TimeUnit.SECONDS)) {
 				this.log.warn("Shutdown deadline reached with {} points still queued; forcing termination",
 						this.writeQueue.size());

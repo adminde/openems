@@ -27,16 +27,23 @@ public class ReadHandler {
 
 	private final HikariDataSource dataSource;
 	private final ChannelManager channelManager;
+	private final boolean minutelyAggregateAvailable;
 
 	/**
 	 * Constructor.
-	 * 
-	 * @param dataSource      The Hikari connection pool
-	 * @param channelManager  The ChannelManager to resolve channel metadata
+	 *
+	 * @param dataSource                 The Hikari connection pool
+	 * @param channelManager             The ChannelManager to resolve channel
+	 *                                   metadata
+	 * @param minutelyAggregateAvailable Whether the 1-minute Fast Lane aggregate
+	 *                                   exists; when false, sub-15m core queries
+	 *                                   fall back to raw tables
 	 */
-	public ReadHandler(HikariDataSource dataSource, ChannelManager channelManager) {
+	public ReadHandler(HikariDataSource dataSource, ChannelManager channelManager,
+			boolean minutelyAggregateAvailable) {
 		this.dataSource = dataSource;
 		this.channelManager = channelManager;
+		this.minutelyAggregateAvailable = minutelyAggregateAvailable;
 	}
 
 	/**
@@ -97,31 +104,29 @@ public class ReadHandler {
 		}
 
 		try (Connection con = this.dataSource.getConnection()) {
-			// Group channels by the source view they belong to so we can run one
-			// query per view instead of one per channel.
+			
 			Map<String, List<ChannelAddr>> byView = new HashMap<>();
 			for (ChannelAddress addr : channels) {
 				ChannelInfo info = this.channelManager.lookupChannel(con, edgeName, addr);
 				if (info == null) {
 					continue;
 				}
-				String view = pickSource(info.dataType(), info.core(), bucketSecs);
+				String view = this.pickSource(info.dataType(), info.core(), bucketSecs);
 				byView.computeIfAbsent(view, k -> new ArrayList<>()).add(new ChannelAddr(info.channelId(), addr));
 			}
 
-			// 2) Query each view exactly once.
+			
 			for (var entry : byView.entrySet()) {
 				String view = entry.getKey();
 				List<ChannelAddr> channelAddrs = entry.getValue();
 				UUID[] channelIds = channelAddrs.stream().map(ChannelAddr::channelId).toArray(UUID[]::new);
 
-				// Aggregate views already have a `bucket` column with min/max/avg/last.
-				// Raw tables need explicit time_bucket() + AVG().
+				
 				String timeCol = view.startsWith("agg_") ? "bucket" : "time";
 				String aggExpr = view.startsWith("agg_") ? "AVG(avg_val)" : "AVG(value)";
 
 				if (view.contains("string")) {
-					// Strings can't be averaged — use last value seen.
+					
 					aggExpr = view.startsWith("agg_") ? "last(last_val, bucket)" : "last(value, time)";
 				}
 
@@ -186,10 +191,8 @@ public class ReadHandler {
 				}
 				String table = "data_" + dataTypeFolder(info.dataType());
 
-				// Sum positive deltas, treating any downward jump as a counter
-				// reset (firmware update / device replacement). On reset the
-				// post-reset value itself counts as accumulation (assumes the
-				// counter restarted at 0). Plain MAX-MIN would overshoot.
+				// Sum positive deltas, treating any downward jump as a counter reset
+				// where the post-reset value itself counts as accumulation.
 				String sql = """
 						WITH ordered AS (
 						    SELECT value, LAG(value) OVER (ORDER BY time) AS prev
@@ -253,11 +256,7 @@ public class ReadHandler {
 				}
 				String table = "data_" + dataTypeFolder(info.dataType());
 
-				// Take the last value per bucket, then LAG() to compute deltas.
-				// A counter reset between buckets makes (last_val - prev) go
-				// negative; treat that as a reset and count the post-reset value
-				// itself (assumes the counter restarted at 0), so charts never
-				// show a negative energy delta.
+
 				String sql = """
 						WITH per_bucket AS (
 						    SELECT time_bucket(?::interval, time) AS b,
@@ -408,19 +407,17 @@ public class ReadHandler {
 	}
 
 	/**
-	 * Picks the best source view/table for a given resolution.
-	 *
-	 * <p>
-	 * Rule: use the COARSEST view whose bucket size is &lt;= the requested
-	 * resolution. This keeps the number of rows the query must scan to a
-	 * minimum while still being able to re-bucket to the requested resolution.
+	 * Picks the best source view/table for a given resolution: the coarsest view
+	 * whose bucket size is &lt;= the requested resolution. When the 1-minute
+	 * aggregate is unavailable (e.g. on Edge devices), sub-15m core queries fall
+	 * back to raw tables.
 	 *
 	 * @param dataType       INTEGER / FLOAT / STRING
 	 * @param core           true = Fast Lane (VERY_HIGH), false = Slow Lane
 	 * @param bucketSeconds  desired bucket size in seconds
 	 * @return the unqualified table or materialized-view name
 	 */
-	private static String pickSource(String dataType, boolean core, long bucketSeconds) {
+	private String pickSource(String dataType, boolean core, long bucketSeconds) {
 		String typePart = switch (dataType) {
 		case "INTEGER" -> "integer";
 		case "FLOAT"   -> "float";
@@ -432,8 +429,7 @@ public class ReadHandler {
 			return "data_" + typePart;
 		}
 
-		// === FAST LANE (core = true) ===
-		// Tiers: 1m, 15m, 1d.
+		// Fast Lane (core = true): tiers 1m, 15m, 1d.
 		if (core) {
 			if (bucketSeconds >= 86400) {
 				return "agg_1d_core_" + typePart;
@@ -441,14 +437,13 @@ public class ReadHandler {
 			if (bucketSeconds >= 900) {
 				return "agg_15m_core_" + typePart;
 			}
-			if (bucketSeconds >= 60) {
+			if (bucketSeconds >= 60 && this.minutelyAggregateAvailable) {
 				return "agg_1m_core_" + typePart;
 			}
 			return "data_" + typePart;
 		}
 
-		// === SLOW LANE (core = false) ===
-		// Tiers: 15m, 1d. Sub-15m falls back to raw.
+		// Slow Lane (core = false): tiers 15m, 1d. Sub-15m falls back to raw.
 		if (bucketSeconds >= 86400) {
 			return "agg_1d_" + typePart;
 		}

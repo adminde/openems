@@ -53,19 +53,15 @@ public class TimescaledbImpl extends AbstractOpenemsBackendComponent implements 
 
 	private final Logger log = LoggerFactory.getLogger(TimescaledbImpl.class);
 
-	// Seconds between background initialization attempts while the Database is
-	// unreachable (e.g. Postgres still booting after a host/Docker restart).
+
 	private static final int INIT_RETRY_SECONDS = 10;
 
 	private Config config;
-	// volatile: published by the init-retry thread, read by the WebSocket
-	// threads in writeData and by deactivate().
+	
 	private volatile TimescaleDbHandler dbHandler;
 	private volatile boolean active;
 	private ScheduledExecutorService initExecutor;
 
-	// Used to resolve component types and channel core flags from the
-	// EdgeConfig the Edge pushes on connect (controller.api.backend OnOpen).
 	@Reference
 	private volatile Metadata metadata;
 
@@ -87,29 +83,24 @@ public class TimescaledbImpl extends AbstractOpenemsBackendComponent implements 
 		this.initExecutor.execute(this::tryInitialize);
 	}
 
-	/**
-	 * Attempts to build the {@link TimescaleDbHandler} (which opens the connection
-	 * pool and applies the schema). On failure — typically the Database not being
-	 * reachable yet — schedules another attempt in {@link #INIT_RETRY_SECONDS}.
-	 * The handler construction is resource-safe on failure, so repeated attempts
-	 * do not leak pools or threads.
-	 */
 	private void tryInitialize() {
 		if (!this.active) {
-			return; // deactivated while an attempt was queued
+			return;
 		}
 		TimescaleDbHandler handler;
 		try {
 			handler = new TimescaleDbHandler(new TimescaleDbConfig(
 					config.host(), config.port(), config.database(), config.username(), config.password(),
-					config.poolSize(), config.rawRetentionDays(), config.rawCompressionDays()));
+					config.poolSize(), config.rawRetentionDays(), config.rawCompressionDays(),
+					true, // Backend builds the 1-minute aggregate
+					config.writeWorkers()));
 		} catch (SQLException | RuntimeException e) {
 			this.logError(this.log, "TimescaleDB initialization failed; retrying in "
 					+ INIT_RETRY_SECONDS + "s: " + e.getMessage());
 			try {
 				this.initExecutor.schedule(this::tryInitialize, INIT_RETRY_SECONDS, TimeUnit.SECONDS);
 			} catch (RejectedExecutionException ree) {
-				// executor shut down by deactivate() — stop retrying
+				
 			}
 			return;
 		}
@@ -229,12 +220,7 @@ public class TimescaledbImpl extends AbstractOpenemsBackendComponent implements 
 		}
 	}
 
-	/**
-	 * Maps an {@link OpenemsType} to the schema's data-type bucket.
-	 *
-	 * @param type the channel's declared type
-	 * @return "INTEGER", "FLOAT", or "STRING"
-	 */
+	
 	private static String toDataType(OpenemsType type) {
 		return switch (type) {
 		case BOOLEAN, SHORT, INTEGER, LONG -> "INTEGER";
@@ -243,13 +229,7 @@ public class TimescaledbImpl extends AbstractOpenemsBackendComponent implements 
 		};
 	}
 
-	/**
-	 * Fallback type inference from a JSON value, used only when the channel is
-	 * not present in the EdgeConfig.
-	 *
-	 * @param primitive the JSON value
-	 * @return "INTEGER", "FLOAT", or "STRING"
-	 */
+	
 	private static String inferDataType(JsonPrimitive primitive) {
 		if (primitive.isBoolean()) {
 			return "INTEGER";

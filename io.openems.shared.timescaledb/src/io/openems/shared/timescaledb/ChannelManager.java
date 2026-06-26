@@ -65,16 +65,7 @@ public class ChannelManager {
 		}
 	}
 
-	/**
-	 * Resolves a channel, creating it in the database if it doesn't exist yet.
-	 * Calls the PostgreSQL stored function `get_or_create_channel_id`.
-	 *
-	 * @param con An open JDBC connection
-	 * @param p   The DataPoint containing edge and channel information
-	 * @return The resolved {@link ChannelInfo}
-	 * @throws SQLException on database error
-	 */
-	public ChannelInfo resolveChannel(Connection con, DataPoint p) throws SQLException {
+ ChannelInfo resolveChannel(Connection con, DataPoint p) throws SQLException {
 		var key = channelKey(p);
 		var cached = this.channelCache.get(key);
 		if (cached != null && !needsReresolve(cached, p)) {
@@ -100,13 +91,7 @@ public class ChannelManager {
 
 	/**
 	 * Cache-only resolution: returns the {@link ChannelInfo} for a point when it
-	 * is already cached and fully up to date (no Fast Lane promotion or unit
-	 * backfill pending). Returns {@code null} on a cache miss or when a re-resolve
-	 * is required, signalling the caller to route the point through
-	 * {@link #resolveChannel} (which performs a Database round-trip).
-	 *
-	 * <p>
-	 * Lets a batch writer skip opening a Database connection entirely when every
+	 * is already cached and fully up to date and Lets a batch writer skip opening a Database connection entirely when every
 	 * channel is already warm.
 	 *
 	 * @param p The DataPoint to resolve
@@ -117,28 +102,11 @@ public class ChannelManager {
 		return cached != null && !needsReresolve(cached, p) ? cached : null;
 	}
 
-	/**
-	 * The in-memory cache key for a channel: {@code "edge/component/channel"}.
-	 * Exposed so a caller resolving a batch can key its own lookup map identically.
-	 *
-	 * @param p The DataPoint
-	 * @return the cache key
-	 */
-	public static String channelKey(DataPoint p) {
+	static String channelKey(DataPoint p) {
 		return p.edgeName() + "/" + p.componentAlias() + "/" + p.channelName();
 	}
 
-	/**
-	 * Whether a cached entry must be re-resolved for this point — either a Fast
-	 * Lane promotion (core false-&gt;true, "highest wins") or a unit backfill (a
-	 * real unit differs from the cached one, e.g. the first writes landed before
-	 * the EdgeConfig was known). A {@code null} incoming unit never forces a
-	 * re-resolve, so there is no thrashing once a unit is known.
-	 *
-	 * @param cached the cached info
-	 * @param p      the incoming point
-	 * @return true if {@link #resolveChannel} must hit the Database
-	 */
+
 	private static boolean needsReresolve(ChannelInfo cached, DataPoint p) {
 		var needsCorePromotion = p.core() && !cached.core();
 		var needsUnitBackfill = p.unit() != null && !p.unit().equals(cached.unit());

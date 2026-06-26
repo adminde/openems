@@ -30,10 +30,13 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	String username() default "postgres";
 
 	@AttributeDefinition(name = "Password")
-	String password() default "123";
+	String password() default "password";
 
 	@AttributeDefinition(name = "Pool Size", description = "HikariCP connection pool size")
-	int poolSize() default 10;
+	int poolSize() default 50;
+
+	@AttributeDefinition(name = "Write Workers", description = "Number of background threads draining the write queue into the database. Keep below Pool Size so reads still get a connection.")
+	int writeWorkers() default 10;
 
 	String webconsole_configurationFactory_nameHint() default "Timedata TimescaleDB [{id}]";
 }

@@ -39,7 +39,10 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	String password() default "password";
 
 	@AttributeDefinition(name = "Pool Size", description = "HikariCP connection pool size")
-	int poolSize() default 5;
+	int poolSize() default 10;
+
+	@AttributeDefinition(name = "Write Workers", description = "Number of background threads draining the write queue into the database. Keep below Pool Size so reads still get a connection.")
+	int writeWorkers() default 4;
 
 	@AttributeDefinition(name = "Edge Name", description = "Identifier for this edge in the database, e.g. edge-site-01")
 	String edgeName() default "edge0";
