@@ -117,7 +117,8 @@ public class RctCessBatteryImpl extends AbstractOpenemsModbusComponent implement
 				"Modbus", config.modbus_id())) {
 			return;
 		}
-		RctCessBattery.mirrorOpenCircuitVoltageFromPrecharge(this);
+		// TODO: Validate Open Circuit Voltage of CESS for improved battery protection
+		// RctCessBattery.mirrorOpenCircuitVoltageFromPrecharge(this);
 		BatteryManagementSystem.calculateRackPowerFromVoltageAndCurrent(this);
 		BatteryManagementSystem.calculateMaxPowerFromCurrentAndVoltage(this);
 	}
