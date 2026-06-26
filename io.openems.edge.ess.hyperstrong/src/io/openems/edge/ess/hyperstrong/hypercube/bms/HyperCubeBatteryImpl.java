@@ -50,9 +50,8 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 		HyperCubeBattery, BatteryManagementSystem, Battery,
 		OpenemsComponent, ModbusComponent, ModbusSlave, StartStoppable {
 
-	/** Nominal and effective capacity of a HyperStrong Battery Rack in [Wh]. */
-	public static final int NOMINAL_CAPACITY = 233_000;
-	public static final int EFFECTIVE_CAPACITY = 220_000;
+	/** Capacity of a HyperStrong Battery Rack in [Wh]. */
+	public static final int CAPACITY = 233_000;
 
 	@Reference
 	private ConfigurationAdmin cm;
@@ -81,7 +80,7 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 				config.modbusUnitId(), this.cm, "Modbus", config.modbus_id())) {
 			return;
 		}
-		this._setCapacity(EFFECTIVE_CAPACITY);
+		this._setCapacity(CAPACITY);
 
 		HyperCubeBattery.mirrorOpenCircuitVoltageFromPrecharge(this);
 		BatteryManagementSystem.calculateRackPowerFromVoltageAndCurrent(this);
