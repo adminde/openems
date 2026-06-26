@@ -1,10 +1,10 @@
 package io.openems.edge.ess.hyperstrong.hypercube;
 
-import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.chain;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.INVERT;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_1;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
-import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.INVERT;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.chain;
 import static io.openems.edge.ess.hyperstrong.AlarmAnalysis.decodeAlarm;
 import static io.openems.edge.ess.hyperstrong.ModbusUtils.defineModbusAlarmRegister;
 import static org.osgi.service.component.annotations.ReferenceCardinality.MANDATORY;
@@ -15,8 +15,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
-import io.openems.edge.common.channel.Doc;
-import io.openems.edge.ess.hyperstrong.hypercube.bms.HyperCubeBattery;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -45,9 +43,10 @@ import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
 import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
 import io.openems.edge.bridge.modbus.api.task.FC16WriteRegistersTask;
-import io.openems.edge.bridge.modbus.api.task.FC3ReadRegistersTask;
 import io.openems.edge.bridge.modbus.api.task.FC4ReadInputRegistersTask;
 import io.openems.edge.bridge.modbus.api.task.FC6WriteRegisterTask;
+import io.openems.edge.common.channel.ChannelId.ChannelIdImpl;
+import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.channel.IntegerWriteChannel;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
@@ -56,9 +55,7 @@ import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
-import io.openems.edge.common.sum.GridMode;
 import io.openems.edge.common.taskmanager.Priority;
-import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.ess.api.EssErrorAcknowledge;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
@@ -348,22 +345,6 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 						),
 						m(HyperCube.ChannelId.OPERATING_TARGET, new UnsignedWordElement(143))),
 
-				new FC3ReadRegistersTask(302, Priority.LOW,
-						m(SymmetricEss.ChannelId.GRID_MODE, new UnsignedWordElement(302),
-								new ElementToChannelConverter(value -> {
-									var intValue = TypeUtils.<Integer>getAsType(OpenemsType.INTEGER, value);
-									if (intValue != null) {
-										switch (intValue) {
-											case 1:
-												return GridMode.OFF_GRID;
-											case 2:
-												return GridMode.ON_GRID;
-										}
-									}
-									return GridMode.UNDEFINED;
-								})),
-						m(HyperCube.ChannelId.RUN_MODE_TARGET, new UnsignedWordElement(303))),
-
 				// FIXME: Reading appears to not work correctly. Validate this with future firmware update.
 				// Channels were set to WRITE_ONLY to reflect this.
 				// new DummyRegisterElement(304, 314),
@@ -418,7 +399,7 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 	}
 
 	private io.openems.edge.common.channel.ChannelId addModbusAlarmChannel(int number) {
-		var channelId = new io.openems.edge.common.channel.ChannelId.ChannelIdImpl(String.format("%s_%02d", "ALARM", number), Doc.of(OpenemsType.LONG));
+		var channelId = new ChannelIdImpl(String.format("%s_%02d", "ALARM", number), Doc.of(OpenemsType.LONG));
 		this.addChannel(channelId);
 		return channelId;
 	}

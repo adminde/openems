@@ -13,6 +13,9 @@ import static io.openems.edge.ess.power.api.Relationship.LESS_OR_EQUALS;
 
 import java.util.ArrayList;
 
+import io.openems.edge.bridge.modbus.api.ElementToChannelConverter;
+import io.openems.edge.common.sum.GridMode;
+import io.openems.edge.common.type.TypeUtils;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -44,6 +47,7 @@ import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
 import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
 import io.openems.edge.bridge.modbus.api.task.FC4ReadInputRegistersTask;
+import io.openems.edge.common.channel.ChannelId.ChannelIdImpl;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
@@ -355,8 +359,20 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 								.bit(3, HyperCubeInverter.ChannelId.COMMUNICATION_FAULT)
 						),
 						new DummyRegisterElement(3041, 3043),
-						m(HyperCubeInverter.ChannelId.GRID_MODE, new UnsignedWordElement(3044)),
-						new DummyRegisterElement(3044, 3073),
+						m(SymmetricBatteryInverter.ChannelId.GRID_MODE, new UnsignedWordElement(3044),
+								new ElementToChannelConverter(value -> {
+									var intValue = TypeUtils.<Integer>getAsType(OpenemsType.INTEGER, value);
+									if (intValue != null) {
+										switch (intValue) {
+											case 0:
+												return GridMode.ON_GRID;
+											case 1:
+												return GridMode.OFF_GRID;
+										}
+									}
+									return GridMode.UNDEFINED;
+								})),
+						new DummyRegisterElement(3045, 3073),
 						m(HyperCubeInverter.ChannelId.PCS_RUNNING_STATUS, new UnsignedWordElement(3074)),
 						new DummyRegisterElement(3075, 3075),
 						defineModbusAlarmRegister(this, 11, 3076, this::addModbusAlarmChannel, value -> {
@@ -423,7 +439,7 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 	}
 
 	private io.openems.edge.common.channel.ChannelId addModbusAlarmChannel(int number) {
-		var channelId = new io.openems.edge.common.channel.ChannelId.ChannelIdImpl(String.format("%s_%02d", "ALARM", number), Doc.of(OpenemsType.LONG));
+		var channelId = new ChannelIdImpl(String.format("%s_%02d", "ALARM", number), Doc.of(OpenemsType.LONG));
 		this.addChannel(channelId);
 		return channelId;
 	}
