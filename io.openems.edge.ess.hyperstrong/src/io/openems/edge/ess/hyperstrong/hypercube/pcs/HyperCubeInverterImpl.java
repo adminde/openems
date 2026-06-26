@@ -13,9 +13,6 @@ import static io.openems.edge.ess.power.api.Relationship.LESS_OR_EQUALS;
 
 import java.util.ArrayList;
 
-import io.openems.edge.bridge.modbus.api.ElementToChannelConverter;
-import io.openems.edge.common.sum.GridMode;
-import io.openems.edge.common.type.TypeUtils;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -40,6 +37,7 @@ import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
 import io.openems.edge.bridge.modbus.api.BridgeModbus;
+import io.openems.edge.bridge.modbus.api.ElementToChannelConverter;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.bridge.modbus.api.ModbusProtocol;
 import io.openems.edge.bridge.modbus.api.element.BitsWordElement;
@@ -54,7 +52,9 @@ import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
+import io.openems.edge.common.sum.GridMode;
 import io.openems.edge.common.taskmanager.Priority;
+import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.hyperstrong.ModbusUtils;
 import io.openems.edge.oros.common.SymmetricComponent;

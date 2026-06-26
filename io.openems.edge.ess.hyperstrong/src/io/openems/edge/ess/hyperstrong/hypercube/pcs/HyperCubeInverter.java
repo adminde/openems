@@ -49,8 +49,7 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		 * </ul>
 		 */
 		IGBT_L1_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEZIDEGREE_CELSIUS)
-				.persistencePriority(PersistencePriority.MEDIUM)),
+				.unit(Unit.DEZIDEGREE_CELSIUS)),
 		/**
 		 * IGBT Temperature L2.
 		 *
@@ -62,8 +61,7 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		 * </ul>
 		 */
 		IGBT_L2_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEZIDEGREE_CELSIUS)
-				.persistencePriority(PersistencePriority.MEDIUM)),
+				.unit(Unit.DEZIDEGREE_CELSIUS)),
 		/**
 		 * IGBT Temperature L3.
 		 *
@@ -75,8 +73,7 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		 * </ul>
 		 */
 		IGBT_L3_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEZIDEGREE_CELSIUS)
-				.persistencePriority(PersistencePriority.MEDIUM)),
+				.unit(Unit.DEZIDEGREE_CELSIUS)),
 
 		/**
 		 * Module Temperature.
@@ -89,8 +86,7 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		 * </ul>
 		 */
 		MODULE_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEZIDEGREE_CELSIUS)
-				.persistencePriority(PersistencePriority.MEDIUM)),
+				.unit(Unit.DEZIDEGREE_CELSIUS)),
 
 		COMMUNICATION_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
 		COMMUNICATION_CONNECTED(Doc.of(OpenemsType.BOOLEAN)),

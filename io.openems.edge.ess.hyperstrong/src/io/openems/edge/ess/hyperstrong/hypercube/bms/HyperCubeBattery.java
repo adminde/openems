@@ -116,12 +116,10 @@ public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 		MIN_BUSBAR_TEMPERATURE_INDEX(Doc.of(OpenemsType.INTEGER)),
 
 		INSULATION_RESISTANCE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.KILOOHM)
-				.persistencePriority(PersistencePriority.MEDIUM)),
+				.unit(Unit.KILOOHM)),
 
 		PRECHARGE_VOLTAGE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.MILLIVOLT)
-				.persistencePriority(PersistencePriority.MEDIUM)),
+				.unit(Unit.MILLIVOLT)),
 
 		COMMUNICATION_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
 		COMMUNICATION_CONNECTED(Doc.of(OpenemsType.BOOLEAN)),

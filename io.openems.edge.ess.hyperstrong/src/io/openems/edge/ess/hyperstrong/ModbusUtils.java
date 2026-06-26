@@ -1,5 +1,6 @@
 package io.openems.edge.ess.hyperstrong;
 
+import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;
 import static io.openems.edge.common.channel.ChannelUtils.setValue;
 
 import java.util.ArrayList;
@@ -54,7 +55,7 @@ public class ModbusUtils {
 	public static ModbusElement defineModbusAlarmRegister(OpenemsComponent component, int number, int address,
 			Function<Integer, ChannelId> addChannel, LongConsumer decode) {
 		var channel = addChannel.apply(number);
-		return new UnsignedDoublewordElement(address).onUpdateCallback(value -> {
+		return new UnsignedDoublewordElement(address).wordOrder(LSWMSW).onUpdateCallback(value -> {
 			if (value == null) {
 				return;
 			}
