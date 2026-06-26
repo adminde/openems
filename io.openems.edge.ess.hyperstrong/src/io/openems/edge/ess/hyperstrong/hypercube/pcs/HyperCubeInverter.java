@@ -21,10 +21,10 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		OpenemsComponent, ModbusComponent, ModbusSlave {
 
 	/** Maximum AC charge power of one HyperCube II PCS in [W]. */
-	public static final int MAX_CHARGE_POWER = 115_000;
+	public static final int MAX_CHARGE_POWER = 116_500;
 
 	/** Maximum AC discharge power of one HyperCube II PCS in [W]. */
-	public static final int MAX_DISCHARGE_POWER = 105_000;
+	public static final int MAX_DISCHARGE_POWER = 116_500;
 
 	/** Efficiency factor (%) used for AC/DC conversion. */
 	public static final float EFFICIENCY_FACTOR = 98F;
