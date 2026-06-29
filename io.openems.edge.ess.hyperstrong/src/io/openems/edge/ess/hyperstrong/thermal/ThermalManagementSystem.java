@@ -10,7 +10,8 @@ public interface ThermalManagementSystem extends OpenemsComponent {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 
-		THERMAL_MANAGEMENT_SYSTEM_MODE(Doc.of(ThermalManagementMode.values())),
+		THERMAL_MANAGEMENT_SYSTEM_RUN_MODE(Doc.of(RunMode.values())),
+		THERMAL_MANAGEMENT_SYSTEM_RUN_MODE_TARGET(Doc.of(RunModeTarget.values())),
 
 		THERMAL_MANAGEMENT_SYSTEM_FAULT_CODE(Doc.of(OpenemsType.INTEGER)),
 

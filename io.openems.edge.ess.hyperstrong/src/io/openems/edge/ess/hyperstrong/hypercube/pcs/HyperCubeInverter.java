@@ -38,7 +38,6 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
-
 		/**
 		 * IGBT Temperature L1.
 		 *
@@ -50,8 +49,7 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		 * </ul>
 		 */
 		IGBT_L1_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEZIDEGREE_CELSIUS)
-				.persistencePriority(PersistencePriority.HIGH)),
+				.unit(Unit.DEZIDEGREE_CELSIUS)),
 		/**
 		 * IGBT Temperature L2.
 		 *
@@ -63,8 +61,7 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		 * </ul>
 		 */
 		IGBT_L2_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEZIDEGREE_CELSIUS)
-				.persistencePriority(PersistencePriority.HIGH)),
+				.unit(Unit.DEZIDEGREE_CELSIUS)),
 		/**
 		 * IGBT Temperature L3.
 		 *
@@ -76,8 +73,7 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		 * </ul>
 		 */
 		IGBT_L3_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEZIDEGREE_CELSIUS)
-				.persistencePriority(PersistencePriority.HIGH)),
+				.unit(Unit.DEZIDEGREE_CELSIUS)),
 
 		/**
 		 * Module Temperature.
@@ -90,13 +86,15 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		 * </ul>
 		 */
 		MODULE_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.DEZIDEGREE_CELSIUS)
-				.persistencePriority(PersistencePriority.HIGH)),
+				.unit(Unit.DEZIDEGREE_CELSIUS)),
 
 		COMMUNICATION_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
 		COMMUNICATION_CONNECTED(Doc.of(OpenemsType.BOOLEAN)),
 		COMMUNICATION_ABNORMAL(Doc.of(Level.INFO)),
 		COMMUNICATION_FAULT(Doc.of(Level.WARNING)),
+
+		PCS_POWER_ON_STATUS(Doc.of(OpenemsType.INTEGER)),
+		PCS_RUNNING_STATUS(Doc.of(OpenemsType.INTEGER)),
 		;
 
 		private final Doc doc;
@@ -121,14 +119,15 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		FAST_HIGH_AC_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
 		PHASE_REVERSAL_FAULT(Doc.of(Level.FAULT)),
 		PHASE_LOSS_FAULT(Doc.of(Level.FAULT)),
-		OUTPUT_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
-		OFF_GRID_STARTUP_BLOCKED_FAULT(Doc.of(Level.FAULT)),
+		OUTPUT_VOLTAGE_ANOMALY(Doc.of(Level.FAULT)),
+		OFF_GRID_STARTUP_BLOCKED(Doc.of(Level.FAULT)),
 		ISLAND_PROTECTION_FAULT(Doc.of(Level.FAULT)),
 		AC_SHORT_CIRCUIT_FAULT(Doc.of(Level.FAULT)),
-		HIGH_AC_CURRENT_FAULT(Doc.of(Level.FAULT)),
-		PARALLEL_OVERLOAD_TIMEOUT_FAULT(Doc.of(Level.FAULT)),
-		OUTPUT_OVERLOAD_TIMEOUT_FAULT(Doc.of(Level.FAULT)),
-		AC_POWER_ANOMALY_FAULT(Doc.of(Level.FAULT)),
+		AC_CURRENT_ABNORMAL_FAULT(Doc.of(Level.FAULT)),
+		PARALLEL_OVERLOAD_TIMEOUT(Doc.of(Level.FAULT)),
+		OUTPUT_OVERLOAD_TIMEOUT(Doc.of(Level.FAULT)),
+		AC_POWER_ABNORMAL(Doc.of(Level.FAULT)),
+		MODULE_IDENTIFICATION_FAULT(Doc.of(Level.FAULT)),
 		VOLTAGE_L1_L2_FAULT(Doc.of(Level.FAULT)),
 		VOLTAGE_L2_L3_FAULT(Doc.of(Level.FAULT)),
 		VOLTAGE_L3_L1_FAULT(Doc.of(Level.FAULT)),
@@ -139,16 +138,16 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		INDUCTOR_CURRENT_BALANCE_L3_FAULT(Doc.of(Level.FAULT)),
 
 		// Alarm Value 2
-		BAMS_CURRENT_LIMIT_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
-		BAMS_POWER_LIMIT_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
-		BCMS_NO_CHARGE_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
-		BCMS_DISABLE_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
-		BAMS_CHARGE_DISABLED_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
-		BAMS_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
-		BCMS_CURRENT_LIMIT_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
-		BCMS_POWER_LIMIT_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
-		BATTERY_VOLTAGE_LIMIT_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
-		BATTERY_CURRENT_LIMIT_SHUTDOWN_FAULT(Doc.of(Level.FAULT)),
+		BAMS_CURRENT_LIMIT_SHUTDOWN(Doc.of(Level.FAULT)),
+		BAMS_POWER_LIMIT_SHUTDOWN(Doc.of(Level.FAULT)),
+		BCMS_NO_CHARGE_SHUTDOWN(Doc.of(Level.FAULT)),
+		BCMS_DISABLE_SHUTDOWN(Doc.of(Level.FAULT)),
+		BAMS_CHARGE_DISABLED_SHUTDOWN(Doc.of(Level.FAULT)),
+		BAMS_SHUTDOWN(Doc.of(Level.FAULT)),
+		BCMS_CURRENT_LIMIT_SHUTDOWN(Doc.of(Level.FAULT)),
+		BCMS_POWER_LIMIT_SHUTDOWN(Doc.of(Level.FAULT)),
+		BATTERY_VOLTAGE_LIMIT_SHUTDOWN(Doc.of(Level.FAULT)),
+		BATTERY_CURRENT_LIMIT_SHUTDOWN(Doc.of(Level.FAULT)),
 		LOW_BATTERY_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
 		HIGH_BATTERY_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
 		REVERSE_BATTERY_POLARITY_FAULT(Doc.of(Level.FAULT)),
@@ -188,7 +187,7 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		BUS_VOLTAGE_IMBALANCE_FAULT(Doc.of(Level.FAULT)),
 		HIGH_POSITIVE_BUS_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
 		HIGH_NEGATIVE_BUS_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
-		LOW_EFFICIENCY_FAULT(Doc.of(Level.FAULT)),
+		CONVERSION_EFFICIENCY_ABNORMAL(Doc.of(Level.FAULT)),
 		HIGH_DC_BUS1_HARDWARE_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
 		HIGH_DC_BUS2_HARDWARE_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
 		HIGH_DC_BUS3_HARDWARE_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
@@ -215,8 +214,8 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		INDUCTOR_CURRENT_BRANCH2_L3_FAULT(Doc.of(Level.FAULT)),
 
 		// Alarm Value 9
-		CABIN_TEMPERATURE_SENSOR_WARNING(Doc.of(Level.WARNING)),
-		HIGH_CABIN_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
+		CABINET_TEMPERATURE_SENSOR_ANOMALY_WARNING(Doc.of(Level.WARNING)),
+		HIGH_CABINET_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
 		HIGH_DISCHARGE_RESISTOR_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
 		LOCAL_EPO_FAULT(Doc.of(Level.FAULT)),
 		REMOTE_EPO_FAULT(Doc.of(Level.FAULT)),
@@ -232,7 +231,10 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		// Alarm Value 11
 		CARRIER_SYNC_FAULT(Doc.of(Level.FAULT)),
 		POWER_FREQUENCY_SYNC_FAULT(Doc.of(Level.FAULT)),
-		MODULE_ID_CONFLICT_FAULT(Doc.of(Level.FAULT)),
+		MODULE_IDENTIFICATION_CONFLICT(Doc.of(Level.FAULT)),
+		SCHEDULING_CAN_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
+		POWER_CAN1_COMMUNICATION_ANOMALY(Doc.of(Level.WARNING)),
+		POWER_CAN2_COMMUNICATION_ANOMALY(Doc.of(Level.FAULT)),
 		DSP_ARM_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
 		DSP_FPGA_VERSION_MISMATCH_WARNING(Doc.of(Level.WARNING)),
 
@@ -267,7 +269,7 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		LOW_GRID_FREQUENCY_LEVEL5_FAULT(Doc.of(Level.FAULT)),
 		HIGH_MEAN_VOLTAGE_FAULT(Doc.of(Level.FAULT)),
 		CT_PHASE_REVERSAL_WARNING(Doc.of(Level.WARNING)),
-		CT_DETECTION_WARNING(Doc.of(Level.WARNING)),
+		CT_DETECTION_ANOMALY_WARNING(Doc.of(Level.WARNING)),
 		DETECTION_BOX_WARNING(Doc.of(Level.WARNING)),
 		ANTI_BACKFLOW_OVERLIMIT_FAULT(Doc.of(Level.FAULT)),
 		ANTI_BACKFLOW_METER_COMMUNICATION_WARNING(Doc.of(Level.WARNING)),

@@ -1,8 +1,8 @@
-package io.openems.edge.ess.hyperstrong;
+package io.openems.edge.ess.hyperstrong.hypercube;
 
 import io.openems.common.types.OptionsEnum;
 
-public enum ChargingMode implements OptionsEnum {
+public enum ChargingConstraint implements OptionsEnum {
 	UNDEFINED(-1, "Undefined"),
 	IDLE(0, "Idle"),
 	CHARGE(1, "Charge"),
@@ -12,7 +12,7 @@ public enum ChargingMode implements OptionsEnum {
 	private final int value;
 	private final String name;
 
-	private ChargingMode(int value, String name) {
+	private ChargingConstraint(int value, String name) {
 		this.value = value;
 		this.name = name;
 	}

@@ -1,4 +1,4 @@
-package io.openems.edge.ess.hyperstrong;
+package io.openems.edge.ess.hyperstrong.hypercube;
 
 import io.openems.common.types.OptionsEnum;
 

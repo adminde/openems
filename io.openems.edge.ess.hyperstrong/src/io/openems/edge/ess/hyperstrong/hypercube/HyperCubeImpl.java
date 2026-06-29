@@ -1,10 +1,12 @@
 package io.openems.edge.ess.hyperstrong.hypercube;
 
-import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.chain;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.INVERT;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_1;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
-import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.INVERT;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.chain;
+import static io.openems.edge.ess.hyperstrong.AlarmAnalysis.decodeAlarm;
+import static io.openems.edge.ess.hyperstrong.ModbusUtils.defineModbusAlarmRegister;
 import static org.osgi.service.component.annotations.ReferenceCardinality.MANDATORY;
 import static org.osgi.service.component.annotations.ReferencePolicy.STATIC;
 import static org.osgi.service.component.annotations.ReferencePolicyOption.GREEDY;
@@ -33,7 +35,6 @@ import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.bridge.modbus.api.BridgeModbus;
-import io.openems.edge.bridge.modbus.api.ElementToChannelConverter;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.bridge.modbus.api.ModbusProtocol;
 import io.openems.edge.bridge.modbus.api.element.BitsWordElement;
@@ -41,9 +42,10 @@ import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
 import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
 import io.openems.edge.bridge.modbus.api.task.FC16WriteRegistersTask;
-import io.openems.edge.bridge.modbus.api.task.FC3ReadRegistersTask;
 import io.openems.edge.bridge.modbus.api.task.FC4ReadInputRegistersTask;
 import io.openems.edge.bridge.modbus.api.task.FC6WriteRegisterTask;
+import io.openems.edge.common.channel.ChannelId.ChannelIdImpl;
+import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.channel.IntegerWriteChannel;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
@@ -52,9 +54,7 @@ import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
-import io.openems.edge.common.sum.GridMode;
 import io.openems.edge.common.taskmanager.Priority;
-import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.ess.api.EssErrorAcknowledge;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
@@ -276,32 +276,8 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 	@Override
 	protected ModbusProtocol defineModbusProtocol() {
 		return new ModbusProtocol(this,
-				new FC3ReadRegistersTask(302, Priority.LOW,
-						m(SymmetricEss.ChannelId.GRID_MODE, new UnsignedWordElement(302),
-								new ElementToChannelConverter(value -> {
-									var intValue = TypeUtils.<Integer>getAsType(OpenemsType.INTEGER, value);
-									if (intValue != null) {
-										switch (intValue) {
-										case 1:
-											return GridMode.OFF_GRID;
-										case 2:
-											return GridMode.ON_GRID;
-										}
-									}
-									return GridMode.UNDEFINED;
-								})),
-						m(HyperCube.ChannelId.RUN_MODE, new UnsignedWordElement(303))),
-
-						// FIXME: Reading appears to not work correctly. Validate this with future firmware update.
-						// Channels were set to WRITE_ONLY to reflect this.
-						// new DummyRegisterElement(304, 314),
-						// m(HyperCube.ChannelId.SET_ACTIVE_POWER,
-						// 		new SignedWordElement(315), SCALE_FACTOR_3),
-						// m(HyperCube.ChannelId.SET_REACTIVE_POWER,
-						// 		new SignedWordElement(316), SCALE_FACTOR_3)),
-
 				new FC4ReadInputRegistersTask(101, Priority.LOW,
-						m(HyperCube.ChannelId.DEVICE_MODE, new UnsignedWordElement(101)),
+						m(HyperCube.ChannelId.CHARGE_MODE, new UnsignedWordElement(101)),
 						m(HyperCube.ChannelId.OPERATING_STATUS, new UnsignedWordElement(102)),
 						new DummyRegisterElement(103, 115),
 						m(ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER,
@@ -312,57 +288,75 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 								new UnsignedWordElement(118), SCALE_FACTOR_2),
 						m(EnergyStorageSystem.ChannelId.AVAILABLE_CHARGE_ENERGY,
 								new UnsignedWordElement(119), SCALE_FACTOR_2),
-						m(new BitsWordElement(120, this)
-								.bit(0, HyperCube.AlarmChannelId.INITIALIZATION_FAILURE)
-								.bit(2, HyperCube.AlarmChannelId.SMOKE_SENSOR_ALARM)
-								.bit(3, HyperCube.AlarmChannelId.FIRE_ALARM)
-								.bit(4, HyperCube.AlarmChannelId.WATER_LEAKAGE_ALARM)
-								.bit(6, HyperCube.AlarmChannelId.SEVERE_HUMIDITY_ALARM)
-								.bit(7, HyperCube.AlarmChannelId.SUBSYSTEM_ISLANDING)
-								.bit(8, HyperCube.AlarmChannelId.CABINET_DOOR_INTERLOCK)
-								.bit(9, HyperCube.AlarmChannelId.PCS_EMERGENCY_STOP)
-								.bit(10, HyperCube.AlarmChannelId.QZ_CONTACTOR_RELEASE_FAULT)
+						defineModbusAlarmRegister(this, 1, 120, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(0, value, this.channel(AlarmChannelId.INITIALIZATION_FAILURE));
+							decodeAlarm(2, value, this.channel(AlarmChannelId.SMOKE_SENSOR_ALARM));
+							decodeAlarm(3, value, this.channel(AlarmChannelId.FIRE_ALARM));
+							decodeAlarm(4, value, this.channel(AlarmChannelId.WATER_LEAKAGE_ALARM));
+							decodeAlarm(6, value, this.channel(AlarmChannelId.SEVERE_HUMIDITY_ALARM));
+							decodeAlarm(7, value, this.channel(AlarmChannelId.SUBSYSTEM_ISLANDING));
+							decodeAlarm(8, value, this.channel(AlarmChannelId.CABINET_DOOR_INTERLOCK));
+							decodeAlarm(9, value, this.channel(AlarmChannelId.PCS_EMERGENCY_STOP));
+							decodeAlarm(10, value, this.channel(AlarmChannelId.QZ_CONTACTOR_RELEASE_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 2, 122, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(0, value, this.channel(AlarmChannelId.UPS_FAULT));
+							decodeAlarm(1, value, this.channel(AlarmChannelId.BMS_FAULT));
+							decodeAlarm(2, value, this.channel(AlarmChannelId.PCS_FAULT));
+							decodeAlarm(3, value, this.channel(AlarmChannelId.METER_ALARM));
+							decodeAlarm(4, value, this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_FAULT));
+							decodeAlarm(5, value, this.channel(AlarmChannelId.BMS_RS485_COMMUNICATION_ABNORMAL));
+							decodeAlarm(6, value, this.channel(AlarmChannelId.PCS_RS485_COMMUNICATION_ABNORMAL));
+							decodeAlarm(7, value, this.channel(AlarmChannelId.CABINET_EMERGENCY_STOP));
+							decodeAlarm(13, value, this.channel(AlarmChannelId.INSULATION_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 3, 124, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(5, value, this.channel(AlarmChannelId.GRID_POWER_CUTOFF_FAULT));
+							decodeAlarm(14, value, this.channel(AlarmChannelId.SURGE_PROTECTION_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 4, 126, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(0, value, this.channel(AlarmChannelId.GAS_DISCHARGE));
+							decodeAlarm(9, value, this.channel(AlarmChannelId.SUBSYSTEM_SHUTDOWN_FAILURE));
+							decodeAlarm(12, value, this.channel(AlarmChannelId.PCS_POWER_CONTROL_FAILURE));
+							decodeAlarm(13, value, this.channel(AlarmChannelId.PCS_COMMUNICATION_FAILURE));
+							decodeAlarm(14, value, this.channel(AlarmChannelId.BMS_COMMUNICATION_FAILURE));
+						}),
+						defineModbusAlarmRegister(this, 5, 128, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(0, value, this.channel(AlarmChannelId.SUBSYSTEM_HIGH_VOLTAGE_FAULT));
+							decodeAlarm(1, value, this.channel(AlarmChannelId.SUBSYSTEM_LOW_VOLTAGE_FAULT));
+							decodeAlarm(14, value, this.channel(AlarmChannelId.THERMAL_MANAGEMENT_COMMUNICATION_WARNING));
+						}),
+						defineModbusAlarmRegister(this, 6, 130, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(0, value, this.channel(AlarmChannelId.QS_FUSE_FAULT));
+							decodeAlarm(3, value, this.channel(AlarmChannelId.QF_TRIP_FAULT));
+							decodeAlarm(4, value, this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_ALARM));
+						}),
+						defineModbusAlarmRegister(this, 7, 132, this::addModbusAlarmChannel, value -> {
+							decodeAlarm(11, value, this.channel(AlarmChannelId.PCS_STARTUP_FAULT));
+						}),
+						defineModbusAlarmRegister(this, 8, 134, this::addModbusAlarmChannel),
+						defineModbusAlarmRegister(this, 9, 136, this::addModbusAlarmChannel),
+						defineModbusAlarmRegister(this, 10, 138, this::addModbusAlarmChannel),
+						new DummyRegisterElement(140),
+						m(HyperCube.ChannelId.CHARGE_CONSTRAINT, new UnsignedWordElement(141)),
+						m(new BitsWordElement(142, this)
+								.bit(0, HyperCube.ChannelId.REMOTE_COMMUNICATION_ABNORMAL)
+								.bit(1, HyperCube.ChannelId.REMOTE_COMMUNICATION_CONNECTED)
+								.bit(2, HyperCube.ChannelId.REMOTE_COMMUNICATION_ENABLED)
+								.bit(3, HyperCube.ChannelId.REMOTE_COMMUNICATION_FAULT)
 						),
-						new DummyRegisterElement(121),
-						m(new BitsWordElement(122, this)
-								.bit(0, HyperCube.AlarmChannelId.UPS_FAULT)
-								.bit(1, HyperCube.AlarmChannelId.BMS_FAULT)
-								.bit(2, HyperCube.AlarmChannelId.PCS_FAULT)
-								.bit(3, HyperCube.AlarmChannelId.METER_ALARM)
-								.bit(4, HyperCube.AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_WARNING)
-								.bit(5, HyperCube.AlarmChannelId.BMS_RS485_COMMUNICATION_ABNORMAL)
-								.bit(6, HyperCube.AlarmChannelId.PCS_RS485_COMMUNICATION_ABNORMAL)
-								.bit(7, HyperCube.AlarmChannelId.CONTROL_CABINET_EMERGENCY_STOP)
-								.bit(13, HyperCube.AlarmChannelId.INSULATION_FAULT)
-						),
-						new DummyRegisterElement(123),
-						m(new BitsWordElement(124, this)
-								.bit(5, HyperCube.AlarmChannelId.GRID_POWER_CUTOFF_FAULT)
-								.bit(14, HyperCube.AlarmChannelId.SURGE_PROTECTION_FAULT)
-						),
-						new DummyRegisterElement(125),
-						m(new BitsWordElement(126, this)
-								.bit(0, HyperCube.AlarmChannelId.GAS_DISCHARGE)
-								.bit(9, HyperCube.AlarmChannelId.SUBSYSTEM_SHUTDOWN_FAILURE)
-								.bit(12, HyperCube.AlarmChannelId.PCS_POWER_CONTROL_FAILURE)
-								.bit(13, HyperCube.AlarmChannelId.PCS_COMMUNICATION_FAILURE)
-								.bit(14, HyperCube.AlarmChannelId.BMS_COMMUNICATION_FAILURE)
-						),
-						new DummyRegisterElement(127),
-						m(new BitsWordElement(128, this)
-								.bit(0, HyperCube.AlarmChannelId.SUBSYSTEM_HIGH_VOLTAGE_FAULT)
-								.bit(1, HyperCube.AlarmChannelId.SUBSYSTEM_LOW_VOLTAGE_FAULT)
-								.bit(14, HyperCube.AlarmChannelId.THERMAL_MANAGEMENT_COMMUNICATION_WARNING)
-						),
-						new DummyRegisterElement(129),
-						m(new BitsWordElement(130, this)
-								.bit(0, HyperCube.AlarmChannelId.QS_FUSE_FAULT)
-								.bit(3, HyperCube.AlarmChannelId.QF_TRIP_FAULT)
-								.bit(4, HyperCube.AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_ALARM)
-						)),
+						m(HyperCube.ChannelId.OPERATING_TARGET, new UnsignedWordElement(143))),
+
+				// FIXME: Reading appears to not work correctly. Validate this with future firmware update.
+				// Channels were set to WRITE_ONLY to reflect this.
+				// new DummyRegisterElement(304, 314),
+				// m(HyperCube.ChannelId.SET_ACTIVE_POWER,
+				// 		new SignedWordElement(315), SCALE_FACTOR_3),
+				// m(HyperCube.ChannelId.SET_REACTIVE_POWER,
+				// 		new SignedWordElement(316), SCALE_FACTOR_3)),
 
 				new FC4ReadInputRegistersTask(50001, Priority.LOW,
-						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_SYSTEM_MODE,
+						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_SYSTEM_RUN_MODE,
 								new UnsignedWordElement(50001)),
 						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_SYSTEM_RETURN_TEMPERATURE,
 								new SignedWordElement(50002)),
@@ -378,9 +372,11 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 								.bit(0, ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_MAIN_CONTACTOR_STATE)
 								.bit(1, ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_COMPRESSOR_STATE)
 								.bit(2, ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_HEATING_STATE)
-						)),
-
-				new FC4ReadInputRegistersTask(50077, Priority.LOW,
+						),
+						new DummyRegisterElement(50006, 50073),
+						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_SYSTEM_RUN_MODE_TARGET,
+								new UnsignedWordElement(50074)),
+						new DummyRegisterElement(50075, 50076),
 						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_SYSTEM_FAULT_CODE,
 								new UnsignedWordElement(50077)),
 						new DummyRegisterElement(50078, 50098),
@@ -395,13 +391,19 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 				new FC6WriteRegisterTask(302, 
 						m(SymmetricEss.ChannelId.GRID_MODE, new UnsignedWordElement(302))),
 				new FC6WriteRegisterTask(303, 
-						m(HyperCube.ChannelId.RUN_MODE, new UnsignedWordElement(303))),
+						m(HyperCube.ChannelId.RUN_MODE_TARGET, new UnsignedWordElement(303))),
 
 				new FC16WriteRegistersTask(315,
 						m(HyperCube.ChannelId.SET_ACTIVE_POWER,
 								new SignedWordElement(315), SCALE_FACTOR_3),
 						m(HyperCube.ChannelId.SET_REACTIVE_POWER,
 								new SignedWordElement(316), SCALE_FACTOR_3)));
+	}
+
+	private io.openems.edge.common.channel.ChannelId addModbusAlarmChannel(int number) {
+		var channelId = new ChannelIdImpl(String.format("%s_%02d", "ALARM", number), Doc.of(OpenemsType.LONG));
+		this.addChannel(channelId);
+		return channelId;
 	}
 
 	@Override

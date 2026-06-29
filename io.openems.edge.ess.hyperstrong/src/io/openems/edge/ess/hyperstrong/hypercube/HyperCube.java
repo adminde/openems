@@ -15,9 +15,6 @@ import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.ess.api.EssErrorAcknowledge;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
-import io.openems.edge.ess.hyperstrong.ChargingMode;
-import io.openems.edge.ess.hyperstrong.OperatingStatus;
-import io.openems.edge.ess.hyperstrong.RunMode;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 import io.openems.edge.oros.bms.api.BatteryManagementProvider;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
@@ -48,10 +45,16 @@ public interface HyperCube extends EnergyStorageSystem,
 				.text("Current State of State-Machine")),
 		RUN_FAILED(Doc.of(Level.FAULT)
 				.text("Running the Logic failed")),
-
-		RUN_MODE(Doc.of(RunMode.values())),
-		DEVICE_MODE(Doc.of(ChargingMode.values())),
+		RUN_MODE_TARGET(Doc.of(RunModeTarget.values())
+				.accessMode(AccessMode.WRITE_ONLY)),
+		CHARGE_MODE(Doc.of(ChargingMode.values())),
+		CHARGE_CONSTRAINT(Doc.of(ChargingConstraint.values())),
 		OPERATING_STATUS(Doc.of(OperatingStatus.values())),
+		OPERATING_TARGET(Doc.of(OperatingTarget.values())),
+		REMOTE_COMMUNICATION_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
+		REMOTE_COMMUNICATION_CONNECTED(Doc.of(OpenemsType.BOOLEAN)),
+		REMOTE_COMMUNICATION_ABNORMAL(Doc.of(Level.WARNING)),
+		REMOTE_COMMUNICATION_FAULT(Doc.of(Level.FAULT)),
 
 		/**
 		 * Sets the Active Power in [W].
@@ -108,10 +111,10 @@ public interface HyperCube extends EnergyStorageSystem,
 		BMS_FAULT(Doc.of(Level.FAULT)),
 		PCS_FAULT(Doc.of(Level.FAULT)),
 		METER_ALARM(Doc.of(Level.WARNING)),
-		THERMAL_MANAGEMENT_SYSTEM_WARNING(Doc.of(Level.FAULT)),
+		THERMAL_MANAGEMENT_SYSTEM_FAULT(Doc.of(Level.FAULT)),
 		BMS_RS485_COMMUNICATION_ABNORMAL(Doc.of(Level.WARNING)),
 		PCS_RS485_COMMUNICATION_ABNORMAL(Doc.of(Level.WARNING)),
-		CONTROL_CABINET_EMERGENCY_STOP(Doc.of(Level.FAULT)),
+		CABINET_EMERGENCY_STOP(Doc.of(Level.FAULT)),
 		INSULATION_FAULT(Doc.of(Level.FAULT)),
 
 		// Alarm Value 3
@@ -134,6 +137,9 @@ public interface HyperCube extends EnergyStorageSystem,
 		QS_FUSE_FAULT(Doc.of(Level.FAULT)),
 		QF_TRIP_FAULT(Doc.of(Level.FAULT)),
 		THERMAL_MANAGEMENT_SYSTEM_ALARM(Doc.of(Level.FAULT)),
+
+		// Alarm Value 7
+		PCS_STARTUP_FAULT(Doc.of(Level.FAULT)),
 		;
 
 		private final Doc doc;

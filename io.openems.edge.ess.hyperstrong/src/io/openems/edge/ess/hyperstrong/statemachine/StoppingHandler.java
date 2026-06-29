@@ -3,7 +3,7 @@ package io.openems.edge.ess.hyperstrong.statemachine;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.timedata.Timeout;
 import io.openems.edge.common.statemachine.StateHandler;
-import io.openems.edge.ess.hyperstrong.OperatingStatus;
+import io.openems.edge.ess.hyperstrong.hypercube.OperatingStatus;
 import io.openems.edge.ess.hyperstrong.hypercube.HyperCube;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 
