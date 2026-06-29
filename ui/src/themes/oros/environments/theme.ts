@@ -6,7 +6,7 @@ export const theme: Omit<Environment, "url" | "backend" | "production" | "debugM
 
     uiTitle: "OROS ENERGY",
     uiTitleShort: "OROS",
-    edgeShortName: "OR/OS EMS",
+    edgeShortName: "OR/OS",
     edgeLongName: "OR/OS Energy Management System",
     headerLogo: "oros-logo-black-text.svg",
     headerTitleShow: false,
