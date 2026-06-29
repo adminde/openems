@@ -329,7 +329,6 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 						defineModbusAlarmRegister(this, 6, 130, this::addModbusAlarmChannel, value -> {
 							decodeAlarm(0, value, this.channel(AlarmChannelId.QS_FUSE_FAULT));
 							decodeAlarm(3, value, this.channel(AlarmChannelId.QF_TRIP_FAULT));
-							decodeAlarm(4, value, this.channel(AlarmChannelId.THERMAL_MANAGEMENT_SYSTEM_ALARM));
 						}),
 						defineModbusAlarmRegister(this, 7, 132, this::addModbusAlarmChannel, value -> {
 							decodeAlarm(11, value, this.channel(AlarmChannelId.PCS_STARTUP_FAULT));
