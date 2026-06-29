@@ -4,6 +4,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -111,7 +113,7 @@ public class ReadHandler {
 				if (info == null) {
 					continue;
 				}
-				String view = this.pickSource(info.dataType(), info.core(), bucketSecs);
+				String view = this.pickSource(info.dataType(), info.core(), bucketSecs, from);
 				byView.computeIfAbsent(view, k -> new ArrayList<>()).add(new ChannelAddr(info.channelId(), addr));
 			}
 
@@ -412,12 +414,20 @@ public class ReadHandler {
 	 * aggregate is unavailable (e.g. on Edge devices), sub-15m core queries fall
 	 * back to raw tables.
 	 *
+	 * <p>
+	 * For core channels the choice is also time-aware: the Fast Lane (_core) views
+	 * expire on their retention policies, while the shared (Slow Lane) views are
+	 * kept forever. If the query window reaches further back than the picked _core
+	 * tier's retention horizon, this routes to the shared view instead, so old
+	 * core history remains reachable (at the same or the next-coarser resolution).
+	 *
 	 * @param dataType       INTEGER / FLOAT / STRING
 	 * @param core           true = Fast Lane (VERY_HIGH), false = Slow Lane
 	 * @param bucketSeconds  desired bucket size in seconds
+	 * @param from           start of the query window (its oldest point)
 	 * @return the unqualified table or materialized-view name
 	 */
-	private String pickSource(String dataType, boolean core, long bucketSeconds) {
+	private String pickSource(String dataType, boolean core, long bucketSeconds, ZonedDateTime from) {
 		String typePart = switch (dataType) {
 		case "INTEGER" -> "integer";
 		case "FLOAT"   -> "float";
@@ -429,14 +439,23 @@ public class ReadHandler {
 			return "data_" + typePart;
 		}
 
-		// Fast Lane (core = true): tiers 1m, 15m, 1d.
+		// Fast Lane (core = true): tiers 1m, 15m, 1d, each falling back to the
+		// never-expiring shared view once the window predates its retention.
 		if (core) {
+			// Daily tier.
 			if (bucketSeconds >= 86400) {
-				return "agg_1d_core_" + typePart;
+				return reachesBefore(from, SchemaHandler.AGG_1D_CORE_DAYS)
+						? "agg_1d_" + typePart          // shared, kept forever
+						: "agg_1d_core_" + typePart;
 			}
-			if (bucketSeconds >= 900) {
-				return "agg_15m_core_" + typePart;
+			// 15-minute tier — also where a sub-15m request lands once it predates
+			// the 1-minute retention (no 1-minute data exists that far back).
+			if (bucketSeconds >= 900 || reachesBefore(from, SchemaHandler.AGG_1M_CORE_DAYS)) {
+				return reachesBefore(from, SchemaHandler.AGG_15M_CORE_DAYS)
+						? "agg_15m_" + typePart         // shared, kept forever
+						: "agg_15m_core_" + typePart;
 			}
+			// 1-minute tier (recent window only).
 			if (bucketSeconds >= 60 && this.minutelyAggregateAvailable) {
 				return "agg_1m_core_" + typePart;
 			}
@@ -451,6 +470,15 @@ public class ReadHandler {
 			return "agg_15m_" + typePart;
 		}
 		return "data_" + typePart;
+	}
+
+	/**
+	 * Whether {@code from} is older than {@code days} ago — i.e. the query window
+	 * reaches into a region a _core view's retention policy may already have
+	 * dropped.
+	 */
+	private static boolean reachesBefore(ZonedDateTime from, long days) {
+		return from.toInstant().isBefore(Instant.now().minus(Duration.ofDays(days)));
 	}
 
 	/** Helper record pairing an channel_id (UUID v7) with its ChannelAddress. */

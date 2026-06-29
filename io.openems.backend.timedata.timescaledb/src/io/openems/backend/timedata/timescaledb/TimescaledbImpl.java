@@ -150,7 +150,7 @@ public class TimescaledbImpl extends AbstractOpenemsBackendComponent implements 
 		if (handler == null) {
 			return;
 		}
-
+// dealing with JSON
 		var data = notification.getData();
 		var dataEntries = data.rowMap().entrySet();
 		if (dataEntries.isEmpty()) {

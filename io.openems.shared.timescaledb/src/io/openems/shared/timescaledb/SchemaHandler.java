@@ -9,6 +9,11 @@ import com.zaxxer.hikari.HikariDataSource;
  */
 public class SchemaHandler {
 
+	// Fast Lane (_core) continuous-aggregate retention horizons.
+	public static final int AGG_1M_CORE_DAYS = 90;
+	public static final int AGG_15M_CORE_DAYS = 365;
+	public static final int AGG_1D_CORE_DAYS = 3650;
+
 	private final HikariDataSource dataSource;
 	private final int rawRetentionDays;
 	private final int rawCompressionDays;
@@ -173,10 +178,13 @@ public class SchemaHandler {
 			// Retention policies (Fast Lane only; Slow Lane kept forever)
 			for (var t : new String[] { "integer", "float" }) {
 				if (this.createMinutelyAggregate) {
-					addPolicyIfAbsent(st, "add_retention_policy", "agg_1m_core_" + t, "INTERVAL '90 days'");
+					addPolicyIfAbsent(st, "add_retention_policy", "agg_1m_core_" + t,
+							"INTERVAL '" + AGG_1M_CORE_DAYS + " days'");
 				}
-				addPolicyIfAbsent(st, "add_retention_policy", "agg_15m_core_" + t, "INTERVAL '1 year'");
-				addPolicyIfAbsent(st, "add_retention_policy", "agg_1d_core_" + t,  "INTERVAL '10 years'");
+				addPolicyIfAbsent(st, "add_retention_policy", "agg_15m_core_" + t,
+						"INTERVAL '" + AGG_15M_CORE_DAYS + " days'");
+				addPolicyIfAbsent(st, "add_retention_policy", "agg_1d_core_" + t,
+						"INTERVAL '" + AGG_1D_CORE_DAYS + " days'");
 			}
 
 			// Stored function for atomic channel registration.
