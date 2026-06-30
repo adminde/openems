@@ -311,7 +311,7 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 	private Task[] defineModbusCellAnalyticsTasks() {
 		List<Task> tasks = new ArrayList<Task>();
 
-		tasks.addAll(defineModbusUnsignedWordInputRegistersTasks(10058, 260,
+		tasks.addAll(defineModbusUnsignedWordInputRegistersTasks(10057, 260,
 				this.addModbusAnalyticsChannel("CELL_VOLTAGE", "%s_%03d", Unit.MILLIVOLT),
 				this::m));
 		tasks.addAll(defineModbusSignedWordInputRegistersTasks(10490, 210,
