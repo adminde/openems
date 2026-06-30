@@ -39,6 +39,7 @@ import io.openems.common.types.ChannelAddress;
 import io.openems.common.types.EdgeConfig;
 import io.openems.common.types.OpenemsType;
 import io.openems.shared.timescaledb.DataPoint;
+import io.openems.shared.timescaledb.TimescaleDbConfig.Deployment;
 import io.openems.shared.timescaledb.Priorities;
 import io.openems.shared.timescaledb.TimescaleDbConfig;
 import io.openems.shared.timescaledb.TimescaleDbHandler;
@@ -93,7 +94,8 @@ public class TimescaledbImpl extends AbstractOpenemsBackendComponent implements 
 					config.host(), config.port(), config.database(), config.username(), config.password(),
 					config.poolSize(), config.rawRetentionDays(), config.rawCompressionDays(),
 					true, // Backend builds the 1-minute aggregate
-					config.writeWorkers()));
+					config.writeWorkers(),
+					Deployment.BACKEND));
 		} catch (SQLException | RuntimeException e) {
 			this.logError(this.log, "TimescaleDB initialization failed; retrying in "
 					+ INIT_RETRY_SECONDS + "s: " + e.getMessage());

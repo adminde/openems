@@ -1,13 +1,23 @@
 package io.openems.shared.timescaledb;
 
 import java.sql.SQLException;
+import java.sql.Statement;
 
 import com.zaxxer.hikari.HikariDataSource;
 
 /**
  * Handles the creation and initialization of the TimescaleDB database schema.
+ *
+ * <p>
+ * This base class creates everything the Edge and Backend deployments share
+ * (extensions, the {@code channel_def}/{@code channel} tables, hypertables,
+ * compression, retention, continuous aggregates and their policies). The parts
+ * that differ — the {@code edge} dimension and the {@code component} table, plus
+ * the {@code get_or_create_channel_id} stored function — are deferred to
+ * {@link #createDimensionTables} and {@link #createGetOrCreateFunction}, which
+ * {@link EdgeSchemaHandler} and {@link BackendSchemaHandler} implement.
  */
-public class SchemaHandler {
+public abstract class SchemaHandler {
 
 	// Fast Lane (_core) continuous-aggregate retention horizons.
 	public static final int AGG_1M_CORE_DAYS = 90;
@@ -31,7 +41,7 @@ public class SchemaHandler {
 	 *                                the 15-minute core aggregate reads raw data
 	 *                                directly instead of cascading from 1m.
 	 */
-	public SchemaHandler(HikariDataSource dataSource, int rawRetentionDays, int rawCompressionDays,
+	protected SchemaHandler(HikariDataSource dataSource, int rawRetentionDays, int rawCompressionDays,
 			boolean createMinutelyAggregate) {
 		this.dataSource = dataSource;
 		this.rawRetentionDays = rawRetentionDays;
@@ -49,29 +59,14 @@ public class SchemaHandler {
 		try (var con = this.dataSource.getConnection();
 				var st = con.createStatement()) {
 
+			// Activate the extensions this schema relies on. The extension binaries
+			// must already be installed on the server
 			st.execute("CREATE EXTENSION IF NOT EXISTS timescaledb");
-			st.execute("CREATE EXTENSION IF NOT EXISTS tablefunc");
 			st.execute("CREATE EXTENSION IF NOT EXISTS pg_uuidv7");
 
-			// Layer 1 — dimension tables
-			st.execute("""
-					CREATE TABLE IF NOT EXISTS edge (
-					    id         UUID        DEFAULT uuid_generate_v7() PRIMARY KEY,
-					    name       VARCHAR NOT NULL UNIQUE,
-					    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-					)""");
-
-			st.execute("""
-					CREATE TABLE IF NOT EXISTS component (
-					    id         UUID        DEFAULT uuid_generate_v7() PRIMARY KEY,
-					    edge_id    UUID        NOT NULL REFERENCES edge(id) ON DELETE CASCADE,
-					    name       VARCHAR NOT NULL,
-					    type       VARCHAR,
-					    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-					    UNIQUE (edge_id, name)
-					)""");
-
-			st.execute("CREATE INDEX IF NOT EXISTS idx_component_edge_id ON component (edge_id)");
+			// Layer 1 — dimension tables.
+			// The edge dimension and the component table differ per deployment.
+			this.createDimensionTables(st);
 
 			st.execute("""
 					CREATE TABLE IF NOT EXISTS channel_def (
@@ -187,97 +182,36 @@ public class SchemaHandler {
 						"INTERVAL '" + AGG_1D_CORE_DAYS + " days'");
 			}
 
-			// Stored function for atomic channel registration.
-			st.execute("""
-					DROP FUNCTION IF EXISTS get_or_create_channel_id(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BOOLEAN, VARCHAR);
-					CREATE OR REPLACE FUNCTION get_or_create_channel_id(
-					    p_edge_name       VARCHAR,
-					    p_component_name  VARCHAR,
-					    p_component_type  VARCHAR,
-					    p_channel_name    VARCHAR,
-					    p_type            VARCHAR,
-					    p_core            BOOLEAN DEFAULT false,
-					    p_unit            VARCHAR DEFAULT NULL
-					)
-					RETURNS TABLE (out_channel_id UUID, out_type VARCHAR, out_core BOOLEAN)
-					LANGUAGE plpgsql AS $$
-					DECLARE
-					    v_edge_id        UUID;
-					    v_component_id   UUID;
-					    v_component_type VARCHAR;
-					    v_channel_def_id UUID;
-					    v_type           VARCHAR;
-					    v_unit           VARCHAR;
-					    v_channel_id     UUID;
-					    v_core           BOOLEAN;
-					BEGIN
-					    SELECT id INTO v_edge_id FROM edge WHERE name = p_edge_name;
-					    IF v_edge_id IS NULL THEN
-					        INSERT INTO edge (name) VALUES (p_edge_name)
-					            ON CONFLICT (name) DO NOTHING
-					            RETURNING id INTO v_edge_id;
-					        IF v_edge_id IS NULL THEN
-					            SELECT id INTO v_edge_id FROM edge WHERE name = p_edge_name;
-					        END IF;
-					    END IF;
-
-					    SELECT id, type INTO v_component_id, v_component_type FROM component
-					        WHERE edge_id = v_edge_id AND name = p_component_name;
-					    IF v_component_id IS NULL THEN
-					        INSERT INTO component (edge_id, name, type)
-					            VALUES (v_edge_id, p_component_name, p_component_type)
-					            ON CONFLICT (edge_id, name) DO NOTHING
-					            RETURNING id INTO v_component_id;
-					        IF v_component_id IS NULL THEN
-					            SELECT id, type INTO v_component_id, v_component_type FROM component
-					                WHERE edge_id = v_edge_id AND name = p_component_name;
-					        END IF;
-					    ELSIF v_component_type IS DISTINCT FROM p_component_type AND p_component_type <> 'backend' THEN
-					        UPDATE component SET type = p_component_type WHERE id = v_component_id;
-					    END IF;
-
-					    SELECT id, type, unit INTO v_channel_def_id, v_type, v_unit FROM channel_def
-					        WHERE name = p_channel_name;
-					    IF v_channel_def_id IS NULL THEN
-					        INSERT INTO channel_def (name, type, unit) VALUES (p_channel_name, p_type, p_unit)
-					            ON CONFLICT (name) DO NOTHING
-					            RETURNING id, type INTO v_channel_def_id, v_type;
-					        IF v_channel_def_id IS NULL THEN
-					            SELECT id, type, unit INTO v_channel_def_id, v_type, v_unit FROM channel_def
-					                WHERE name = p_channel_name;
-					        END IF;
-					    ELSIF p_unit IS NOT NULL AND v_unit IS DISTINCT FROM p_unit THEN
-					        UPDATE channel_def SET unit = p_unit WHERE id = v_channel_def_id;
-					    END IF;
-
-					    IF v_type IS DISTINCT FROM p_type THEN
-					        RAISE WARNING 'channel_def % type mismatch: stored=%, incoming=% (keeping stored)',
-					            p_channel_name, v_type, p_type;
-					    END IF;
-
-					    SELECT id, core INTO v_channel_id, v_core FROM channel
-					        WHERE component_id = v_component_id AND channel_def_id = v_channel_def_id;
-					    IF v_channel_id IS NULL THEN
-					        INSERT INTO channel (component_id, channel_def_id, core)
-					            VALUES (v_component_id, v_channel_def_id, p_core)
-					            ON CONFLICT (component_id, channel_def_id) DO NOTHING
-					            RETURNING id, core INTO v_channel_id, v_core;
-					        IF v_channel_id IS NULL THEN
-					            SELECT id, core INTO v_channel_id, v_core FROM channel
-					                WHERE component_id = v_component_id AND channel_def_id = v_channel_def_id;
-					        END IF;
-					    END IF;
-
-					    IF p_core AND NOT v_core THEN
-					        UPDATE channel SET core = true WHERE id = v_channel_id;
-					        v_core := true;
-					    END IF;
-
-					    RETURN QUERY SELECT v_channel_id, v_type, v_core;
-					END;
-					$$""");
+			// Stored function for atomic channel registration (deployment-specific).
+			this.createGetOrCreateFunction(st);
 		}
 	}
+
+	/**
+	 * Creates the dimension tables that differ between deployments.
+	 *
+	 * <p>
+	 * The Backend creates an {@code edge} table plus an {@code edge_id} foreign key
+	 * on {@code component} (so one database can hold many edges); the Edge creates
+	 * the {@code component} table alone, keyed by component name.
+	 *
+	 * @param st an open JDBC {@link Statement}
+	 * @throws SQLException on database error
+	 */
+	protected abstract void createDimensionTables(Statement st) throws SQLException;
+
+	/**
+	 * Creates the {@code get_or_create_channel_id} stored function used for atomic
+	 * channel registration on the write path.
+	 *
+	 * <p>
+	 * The Backend variant takes an edge name as its first argument and upserts the
+	 * edge; the Edge variant omits it.
+	 *
+	 * @param st an open JDBC {@link Statement}
+	 * @throws SQLException on database error
+	 */
+	protected abstract void createGetOrCreateFunction(Statement st) throws SQLException;
 
 	private static void createHypertable(java.sql.Statement st, String table, String valueType, String chunkInterval)
 			throws SQLException {

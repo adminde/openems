@@ -26,6 +26,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 
 import io.openems.shared.timescaledb.DataPoint;
+import io.openems.shared.timescaledb.TimescaleDbConfig.Deployment;
 import io.openems.shared.timescaledb.Priorities;
 import io.openems.shared.timescaledb.TimescaleDbConfig;
 import io.openems.shared.timescaledb.TimescaleDbHandler;
@@ -85,7 +86,8 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 					config.host(), config.port(), config.database(), config.username(), config.password(), config.poolSize(),
 					config.rawRetentionDays(), config.rawCompressionDays(),
 					false,
-					config.writeWorkers()
+					config.writeWorkers(),
+					Deployment.EDGE
 			));
 			this.log.info("TimescaleDB connected and schema applied");
 		} catch (SQLException e) {

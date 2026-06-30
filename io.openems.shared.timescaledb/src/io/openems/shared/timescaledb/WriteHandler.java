@@ -236,7 +236,7 @@ public class WriteHandler {
 			distinct.merge(ChannelManager.channelKey(p), p, WriteHandler::mergeForResolve);
 		}
 
-		var infoByKey = new HashMap<String, ChannelInfo>();
+		var infoByKey = new HashMap<String, ChannelDefinition>();
 		var toResolve = new ArrayList<DataPoint>();
 		for (var entry : distinct.entrySet()) {
 			var cached = this.channelManager.peekResolved(entry.getValue());
@@ -265,7 +265,7 @@ public class WriteHandler {
 			con.setAutoCommit(false);
 			Map<String, List<Object[]>> byTable = new HashMap<>();
 			for (DataPoint p : points) {
-				ChannelInfo info = infoByKey.get(ChannelManager.channelKey(p));
+				ChannelDefinition info = infoByKey.get(ChannelManager.channelKey(p));
 				String table = tableFor(info.dataType());
 				byTable.computeIfAbsent(table, k -> new ArrayList<>())
 						.add(new Object[] { p.timestamp(), info.channelId(), p.value(), info.core() });

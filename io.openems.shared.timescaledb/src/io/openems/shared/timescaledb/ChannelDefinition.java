@@ -15,4 +15,4 @@ import java.util.UUID;
  *                  unit can trigger a one-off re-resolve to backfill a
  *                  previously-NULL {@code channel_def.unit} without a restart.
  */
-public record ChannelInfo(UUID channelId, String dataType, boolean core, String unit) {}
+public record ChannelDefinition(UUID channelId, String dataType, boolean core, String unit) {}

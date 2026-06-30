@@ -46,6 +46,32 @@ Three cooperating bundles:
 | `io.openems.edge.timedata.timescaledb` | OSGi DS component wiring the shared library to OpenEMS Edge. |
 | `io.openems.backend.timedata.timescaledb` | OSGi DS component wiring the shared library to OpenEMS Backend. |
 
+### Edge vs Backend schema
+
+Both deployments share one schema *except* for the edge dimension. `SchemaHandler`
+and `ChannelManager` are abstract bases holding everything common — the
+`channel_def`/`channel` tables, hypertables, aggregates, policies, and all the
+caching/resolution logic — and each deployment supplies only the two parts that
+differ:
+
+| | Backend (`Backend*`) | Edge (`Edge*`) |
+|---|---|---|
+| `edge` dimension table | yes — one DB holds many edges | none — a single local edge |
+| `component` uniqueness | `(edge_id, name)` | `name` |
+| `get_or_create_channel_id(...)` | takes an edge name; upserts the edge | no edge argument |
+
+`TimescaleDbConfig.deployment` (`Deployment.EDGE` / `Deployment.BACKEND`) selects
+the pair, and `TimescaleDbHandler` instantiates the matching `SchemaHandler` +
+`ChannelManager` at construction. The read/write handlers, `DataPoint`, and the
+rest of the API are deployment-agnostic — on the Edge the `edgeName` simply
+flows through and is ignored.
+
+Channel registration is a small "conductor" stored procedure
+(`get_or_create_channel_id`) that calls modular PL/pgSQL helpers
+(`get_or_create_component`, `get_or_create_channel_def`, `get_or_create_channel`,
+plus `get_or_create_edge` on the Backend). A single server-side call stays atomic
+with no extra round trips.
+
 ### Fast Lane vs Slow Lane
 
 Every channel carries a boolean `core` flag, derived in code from its
@@ -131,8 +157,10 @@ Enable the component matching your deployment mode in the Felix Web Console:
 | `noOfCycles` | OpenEMS cycles between each DB flush. |
 | `persistencePriority` | Minimum channel priority to store (`HIGH` = critical only … `LOW` = everything). |
 
-> **Not a console field:** whether the 1-minute aggregate is built is fixed by
-> deployment type in code — `true` for the Backend, `false` for the Edge.
+> **Not a console field:** the deployment type (`Deployment.EDGE` /
+> `Deployment.BACKEND`) is fixed in code by whichever bundle activates the
+> handler. It selects the schema/resolver variant **and** whether the 1-minute
+> aggregate is built (`true` for the Backend, `false` for the Edge).
 
 ### 3. Verify
 
@@ -143,6 +171,10 @@ SELECT uuid_generate_v7();   -- should return a time-ordered UUID
 
 -- Are the hypertables created?
 SELECT hypertable_name FROM timescaledb_information.hypertables;
+
+-- Backend only: the edge dimension exists and is populated.
+-- (On the Edge this table is intentionally absent.)
+SELECT name FROM edge;
 
 -- Are rows arriving?
 SELECT COUNT(*) FROM data_integer;
@@ -188,15 +220,19 @@ averaging aggregates.
 io.openems.shared.timescaledb/
 ├── README.md                ← you are here
 └── src/io/openems/shared/timescaledb/
-    ├── TimescaleDbConfig.java   immutable connection + tuning parameters
-    ├── TimescaleDbHandler.java  facade — entry point
-    ├── SchemaHandler.java       DDL: tables, hypertables, aggregates, policies, retention constants
-    ├── Priorities.java          PersistencePriority → core (Fast Lane) flag
-    ├── ChannelManager.java      names → channel_id UUID, with cache
-    ├── WriteHandler.java        async batched writes + queue monitor
-    ├── ReadHandler.java         read queries + resolution/retention routing
-    ├── DataPoint.java           one channel sample in transit
-    └── ChannelInfo.java         resolved channel metadata
+    ├── TimescaleDbConfig.java       connection + tuning parameters; nested Deployment enum (EDGE/BACKEND)
+    ├── TimescaleDbHandler.java      facade — entry point; picks the variant pair from config.deployment()
+    ├── SchemaHandler.java           abstract DDL base: shared tables, hypertables, aggregates, policies, retention constants
+    ├── BackendSchemaHandler.java    multi-edge schema: edge dimension + edge_id FK + edge-aware stored functions
+    ├── EdgeSchemaHandler.java       single-edge schema: no edge table; component keyed by name
+    ├── Priorities.java              PersistencePriority → core (Fast Lane) flag
+    ├── ChannelManager.java          abstract names → channel_id UUID resolver, with cache
+    ├── BackendChannelManager.java   multi-edge lookup/resolve (joins through edge)
+    ├── EdgeChannelManager.java      single-edge lookup/resolve (no edge join; edge name ignored)
+    ├── WriteHandler.java            async batched writes + queue monitor
+    ├── ReadHandler.java             read queries + resolution/retention routing
+    ├── DataPoint.java               one channel sample in transit
+    └── ChannelDefinition.java       resolved channel metadata
 ```
 
 ---

@@ -47,9 +47,26 @@ public class TimescaleDbHandler {
 		hikari.setDataSource(pgds);
 		this.dataSource = hikari;
 
-		this.channelManager = new ChannelManager();
-		this.schemaHandler = new SchemaHandler(this.dataSource, config.rawRetentionDays(), config.rawCompressionDays(),
-				config.createMinutelyAggregate());
+		// Pick the deployment-specific ChannelManager + SchemaHandler. All other
+		// variance between Edge (single-edge) and Backend (multi-edge) is confined
+		// to these two classes; the read/write handlers stay deployment-agnostic.
+		ChannelManager cm;
+		SchemaHandler sh;
+		switch (config.deployment()) {
+		case EDGE -> {
+			cm = new EdgeChannelManager();
+			sh = new EdgeSchemaHandler(this.dataSource, config.rawRetentionDays(), config.rawCompressionDays(),
+					config.createMinutelyAggregate());
+		}
+		case BACKEND -> {
+			cm = new BackendChannelManager();
+			sh = new BackendSchemaHandler(this.dataSource, config.rawRetentionDays(), config.rawCompressionDays(),
+					config.createMinutelyAggregate());
+		}
+		default -> throw new IllegalArgumentException("Unsupported TimescaleDB deployment: " + config.deployment());
+		}
+		this.channelManager = cm;
+		this.schemaHandler = sh;
 		this.writeHandler = new WriteHandler(this.dataSource, this.channelManager, config.writeWorkers());
 		this.readHandler = new ReadHandler(this.dataSource, this.channelManager, config.createMinutelyAggregate());
 
@@ -68,7 +85,6 @@ public class TimescaleDbHandler {
 	}
 
 	// Queries historic data for a set of channels at a specific resolution
-	
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricData(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
 			Set<ChannelAddress> channels, long bucketSeconds) throws SQLException {
@@ -76,7 +92,6 @@ public class TimescaleDbHandler {
 	}
 
 	// Queries the total historic energy consumed/produced during a period.
-	 
 	public SortedMap<ChannelAddress, JsonElement> queryHistoricEnergy(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
 			Set<ChannelAddress> channels) throws SQLException {
@@ -84,34 +99,28 @@ public class TimescaleDbHandler {
 	}
 
 	// Queries historic energy per bucket resolution.
-	
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricEnergyPerPeriod(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
 			Set<ChannelAddress> channels, long bucketSeconds) throws SQLException {
 		return this.readHandler.queryHistoricEnergyPerPeriod(edgeName, from, to, channels, bucketSeconds);
 	}
-
 	
 	// Queries the most recent known value for a channel.
-	 
 	public Optional<Object> queryLatestValue(String edgeName, ChannelAddress addr) throws SQLException {
 		return this.readHandler.queryLatestValue(edgeName, addr);
 	}
-
 	
 	public java.util.List<Long> getResendTimestamps(String edgeName,
 			ChannelAddress notSendChannel, long lastResendTimestamp) throws SQLException {
 		return this.readHandler.getResendTimestamps(edgeName, notSendChannel, lastResendTimestamp);
 	}
 
-	
 	public SortedMap<Long, SortedMap<ChannelAddress, JsonElement>> queryResendData(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
 			Set<ChannelAddress> channels) throws SQLException {
 		return this.readHandler.queryResendData(edgeName, from, to, channels);
 	}
 
-	
 	public void deactivate() {
 		this.writeHandler.deactivate();
 		if (this.dataSource != null && !this.dataSource.isClosed()) {

@@ -1,103 +1,118 @@
 package io.openems.shared.timescaledb;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet; 
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import io.openems.common.types.ChannelAddress;
 
-import java.util.concurrent.ConcurrentHashMap;
-
 /**
- * Manages the in-memory cache of Channel metadata to avoid costly Database JOINs.
+ * Manages the in-memory cache of Channel metadata to avoid costly Database
+ * JOINs.
+ *
+ * <p>
+ * This base class holds the deployment-agnostic caching logic. The actual SQL
+ * differs between deployments and is provided by subclasses:
+ * <ul>
+ * <li>{@link BackendChannelManager} resolves through the {@code edge} dimension
+ * table, so one Backend database can hold many edges.
+ * <li>{@link EdgeChannelManager} omits the {@code edge} table entirely — the
+ * local Edge database stores data for exactly one edge, so the edge name is
+ * ignored.
+ * </ul>
  */
-public class ChannelManager {
+public abstract class ChannelManager {
 
 	// Key: "edgeName/componentName/channelName"
-	private final Map<String, ChannelInfo> channelCache = new ConcurrentHashMap<>();
+	protected final Map<String, ChannelDefinition> channelCache = new ConcurrentHashMap<>();
 
 	/**
-	 * Looks up the {@link ChannelInfo} (ec_id, type, core flag) for one
-	 * channel address on a given edge.
+	 * Looks up the {@link ChannelDefinition} (channel id, type, core flag, unit)
+	 * for one channel address on a given edge.
 	 *
 	 * <p>
-	 * Tries the in-memory cache first (populated during writes). On miss, joins the
-	 * four dimension tables to find the channel. Returns {@code null} if the
-	 * channel has never been written.
+	 * Tries the in-memory cache first (populated during writes). On miss, delegates
+	 * to {@link #doLookupChannel}. Returns {@code null} if the channel has never
+	 * been written.
 	 *
 	 * @param con      An open JDBC connection
-	 * @param edgeName The edge identifier, e.g. "edge0"
-	 * @param addr     OpenEMS channel address (componentAlias/channelName)
+	 * @param edgeName The edge identifier, e.g. "edge0" (ignored by single-edge
+	 *                 deployments)
+	 * @param addr     OpenEMS channel address (componentId/channelName)
 	 * @return The resolved channel info or {@code null} if unknown
 	 * @throws SQLException on database error
 	 */
-	public ChannelInfo lookupChannel(Connection con, String edgeName, ChannelAddress addr) throws SQLException {
+	public ChannelDefinition lookupChannel(Connection con, String edgeName, ChannelAddress addr) throws SQLException {
 		var key = edgeName + "/" + addr.getComponentId() + "/" + addr.getChannelId();
 		var cached = this.channelCache.get(key);
 		if (cached != null) {
 			return cached;
 		}
-		var sql = """
-				SELECT c.id, cd.type, c.core, cd.unit
-				FROM channel c
-				JOIN component   co ON co.id = c.component_id
-				JOIN edge        e  ON e.id  = co.edge_id
-				JOIN channel_def cd ON cd.id = c.channel_def_id
-				WHERE e.name = ? AND co.name = ? AND cd.name = ?
-				""";
-		try (var pst = con.prepareStatement(sql)) {
-			pst.setString(1, edgeName);
-			pst.setString(2, addr.getComponentId());
-			pst.setString(3, addr.getChannelId());
-			try (var rs = pst.executeQuery()) {
-				if (!rs.next()) {
-					return null;
-				}
-				var info = new ChannelInfo(rs.getObject(1, UUID.class), rs.getString(2), rs.getBoolean(3),
-						rs.getString(4));
-				this.channelCache.put(key, info);
-				return info;
-			}
+		var info = this.doLookupChannel(con, edgeName, addr);
+		if (info != null) {
+			this.channelCache.put(key, info);
 		}
+		return info;
 	}
 
- ChannelInfo resolveChannel(Connection con, DataPoint p) throws SQLException {
+	/**
+	 * Deployment-specific read-path lookup. No caching — the base class handles
+	 * that.
+	 *
+	 * @param con      An open JDBC connection
+	 * @param edgeName The edge identifier (ignored by single-edge deployments)
+	 * @param addr     OpenEMS channel address
+	 * @return the resolved {@link ChannelDefinition} or {@code null} if unknown
+	 * @throws SQLException on database error
+	 */
+	protected abstract ChannelDefinition doLookupChannel(Connection con, String edgeName, ChannelAddress addr)
+			throws SQLException;
+
+	/**
+	 * Resolves (creating if necessary) the {@link ChannelDefinition} for a write.
+	 *
+	 * <p>
+	 * Tries the cache first; on a miss, or when a re-resolve is needed (core
+	 * promotion or unit backfill), delegates to {@link #doResolveChannel}.
+	 *
+	 * @param con An open JDBC connection
+	 * @param p   The DataPoint being written
+	 * @return the resolved {@link ChannelDefinition}
+	 * @throws SQLException on database error
+	 */
+	public ChannelDefinition resolveChannel(Connection con, DataPoint p) throws SQLException {
 		var key = channelKey(p);
 		var cached = this.channelCache.get(key);
 		if (cached != null && !needsReresolve(cached, p)) {
 			return cached;
 		}
-		var sql = "SELECT * FROM get_or_create_channel_id(?,?,?,?,?,?,?)";
-		try (var pst = con.prepareStatement(sql)) {
-			pst.setString(1, p.edgeName());
-			pst.setString(2, p.componentAlias());
-			pst.setString(3, p.componentType());
-			pst.setString(4, p.channelName());
-			pst.setString(5, p.dataType());
-			pst.setBoolean(6, p.core());
-			pst.setString(7, p.unit());
-			try (var rs = pst.executeQuery()) {
-				rs.next();
-				var info = new ChannelInfo(rs.getObject(1, UUID.class), rs.getString(2), rs.getBoolean(3), p.unit());
-				this.channelCache.put(key, info);
-				return info;
-			}
-		}
+		var info = this.doResolveChannel(con, p);
+		this.channelCache.put(key, info);
+		return info;
 	}
 
 	/**
-	 * Cache-only resolution: returns the {@link ChannelInfo} for a point when it
-	 * is already cached and fully up to date and Lets a batch writer skip opening a Database connection entirely when every
-	 * channel is already warm.
+	 * Deployment-specific write-path resolve (get-or-create). No caching — the base
+	 * class handles that.
+	 *
+	 * @param con An open JDBC connection
+	 * @param p   The DataPoint being written
+	 * @return the resolved {@link ChannelDefinition}
+	 * @throws SQLException on database error
+	 */
+	protected abstract ChannelDefinition doResolveChannel(Connection con, DataPoint p) throws SQLException;
+
+	/**
+	 * Cache-only resolution: returns the {@link ChannelDefinition} for a point when
+	 * it is already cached and fully up to date, letting a batch writer skip
+	 * opening a Database connection entirely when every channel is already warm.
 	 *
 	 * @param p The DataPoint to resolve
-	 * @return The cached {@link ChannelInfo}, or {@code null} if a DB resolve is needed
+	 * @return The cached {@link ChannelDefinition}, or {@code null} if a DB resolve
+	 *         is needed
 	 */
-	public ChannelInfo peekResolved(DataPoint p) {
+	public ChannelDefinition peekResolved(DataPoint p) {
 		var cached = this.channelCache.get(channelKey(p));
 		return cached != null && !needsReresolve(cached, p) ? cached : null;
 	}
@@ -106,8 +121,7 @@ public class ChannelManager {
 		return p.edgeName() + "/" + p.componentAlias() + "/" + p.channelName();
 	}
 
-
-	private static boolean needsReresolve(ChannelInfo cached, DataPoint p) {
+	private static boolean needsReresolve(ChannelDefinition cached, DataPoint p) {
 		var needsCorePromotion = p.core() && !cached.core();
 		var needsUnitBackfill = p.unit() != null && !p.unit().equals(cached.unit());
 		return needsCorePromotion || needsUnitBackfill;

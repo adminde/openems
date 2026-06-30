@@ -63,7 +63,7 @@ public class ReadHandler {
 	 */
 	public Optional<Object> queryLatestValue(String edgeName, ChannelAddress addr) throws SQLException {
 		try (Connection con = this.dataSource.getConnection()) {
-			ChannelInfo info = this.channelManager.lookupChannel(con, edgeName, addr);
+			ChannelDefinition info = this.channelManager.lookupChannel(con, edgeName, addr);
 			if (info == null) {
 				return Optional.empty();
 			}
@@ -109,7 +109,7 @@ public class ReadHandler {
 			
 			Map<String, List<ChannelAddr>> byView = new HashMap<>();
 			for (ChannelAddress addr : channels) {
-				ChannelInfo info = this.channelManager.lookupChannel(con, edgeName, addr);
+				ChannelDefinition info = this.channelManager.lookupChannel(con, edgeName, addr);
 				if (info == null) {
 					continue;
 				}
@@ -186,7 +186,7 @@ public class ReadHandler {
 		SortedMap<ChannelAddress, JsonElement> result = new java.util.TreeMap<>();
 		try (Connection con = this.dataSource.getConnection()) {
 			for (ChannelAddress addr : channels) {
-				ChannelInfo info = this.channelManager.lookupChannel(con, edgeName, addr);
+				ChannelDefinition info = this.channelManager.lookupChannel(con, edgeName, addr);
 				if (info == null) {
 					result.put(addr, com.google.gson.JsonNull.INSTANCE);
 					continue;
@@ -252,7 +252,7 @@ public class ReadHandler {
 
 		try (Connection con = this.dataSource.getConnection()) {
 			for (ChannelAddress addr : channels) {
-				ChannelInfo info = this.channelManager.lookupChannel(con, edgeName, addr);
+				ChannelDefinition info = this.channelManager.lookupChannel(con, edgeName, addr);
 				if (info == null) {
 					continue;
 				}
@@ -318,7 +318,7 @@ public class ReadHandler {
 			ChannelAddress notSendChannel, long lastResendTimestamp) throws SQLException {
 		var result = new ArrayList<Long>();
 		try (Connection con = this.dataSource.getConnection()) {
-			ChannelInfo info = this.channelManager.lookupChannel(con, edgeName, notSendChannel);
+			ChannelDefinition info = this.channelManager.lookupChannel(con, edgeName, notSendChannel);
 			if (info == null) {
 				return result;
 			}
@@ -361,7 +361,7 @@ public class ReadHandler {
 			// Group channels by raw table so we run at most three queries.
 			Map<String, List<ChannelAddr>> byTable = new HashMap<>();
 			for (ChannelAddress addr : channels) {
-				ChannelInfo info = this.channelManager.lookupChannel(con, edgeName, addr);
+				ChannelDefinition info = this.channelManager.lookupChannel(con, edgeName, addr);
 				if (info == null) {
 					continue;
 				}
