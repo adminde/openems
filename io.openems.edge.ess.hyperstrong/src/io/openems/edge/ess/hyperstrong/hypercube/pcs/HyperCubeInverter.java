@@ -93,7 +93,7 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		COMMUNICATION_ABNORMAL(Doc.of(Level.INFO)),
 		COMMUNICATION_FAULT(Doc.of(Level.WARNING)),
 
-		PCS_POWER_ON_STATUS(Doc.of(OpenemsType.INTEGER)),
+		PCS_POWER_ON_STATUS(Doc.of(OpenemsType.BOOLEAN)),
 		PCS_RUNNING_STATUS(Doc.of(OpenemsType.INTEGER)),
 		;
 
