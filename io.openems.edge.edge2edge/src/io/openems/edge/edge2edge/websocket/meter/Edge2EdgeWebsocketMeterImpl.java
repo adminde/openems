@@ -1,4 +1,4 @@
-package io.openems.edge.edge2edge.websocket.pvinverter;
+package io.openems.edge.edge2edge.websocket.meter;
 
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
@@ -12,26 +12,21 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.osgi.service.metatype.annotations.Designate;
 
-import com.google.gson.JsonPrimitive;
-
-import io.openems.common.channel.AccessMode;
 import io.openems.common.types.MeterType;
 import io.openems.edge.common.component.OpenemsComponent;
-import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.edge2edge.websocket.Edge2EdgeWebsocket;
 import io.openems.edge.edge2edge.websocket.bridge.Edge2EdgeWebsocketBridge;
 import io.openems.edge.edge2edge.websocket.AbstractEdge2EdgeWebsocket;
 import io.openems.edge.meter.api.ElectricityMeter;
-import io.openems.edge.pvinverter.api.ManagedSymmetricPvInverter;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(//
-		name = "Edge2Edge.Websocket.PV-Inverter", //
+		name = "Edge2Edge.Websocket.Meter", //
 		immediate = true, //
 		configurationPolicy = ConfigurationPolicy.REQUIRE //
 )
-public class Edge2EdgeWebsocketPvInverterImpl extends AbstractEdge2EdgeWebsocket implements
-		ManagedSymmetricPvInverter, ElectricityMeter, Edge2EdgePvInverter, Edge2EdgeWebsocket, OpenemsComponent {
+public class Edge2EdgeWebsocketMeterImpl extends AbstractEdge2EdgeWebsocket
+		implements ElectricityMeter, Edge2EdgeMeter, Edge2EdgeWebsocket, OpenemsComponent {
 
 	@Reference
 	private ConfigurationAdmin cm;
@@ -61,25 +56,13 @@ public class Edge2EdgeWebsocketPvInverterImpl extends AbstractEdge2EdgeWebsocket
 		super.unbindBridge(bridge);
 	}
 
-	public Edge2EdgeWebsocketPvInverterImpl() {
+	public Edge2EdgeWebsocketMeterImpl() {
 		super(//
 				OpenemsComponent.ChannelId.values(), //
-				ElectricityMeter.ChannelId.values(),
-				ManagedSymmetricPvInverter.ChannelId.values(),
-				StartStoppable.ChannelId.values(), //
-				Edge2EdgeWebsocket.ChannelId.values(), //
-				Edge2EdgePvInverter.ChannelId.values() //
+				ElectricityMeter.ChannelId.values(), //
+				Edge2EdgeMeter.ChannelId.values(), //
+				Edge2EdgeWebsocket.ChannelId.values() //
 		);
-		this._setMaxApparentPower(Integer.MAX_VALUE); // has no effect, as long as AllowedCharge/DischargePower are null
-
-		this.getActivePowerLimitChannel().onSetNextWrite(t -> {
-			if (this.config.remoteAccessMode() == AccessMode.READ_ONLY) {
-				return;
-			}
-
-			this.bridgeStateHandler.setChannelValue(ManagedSymmetricPvInverter.ChannelId.ACTIVE_POWER_LIMIT.id(),
-					new JsonPrimitive(t));
-		});
 	}
 
 	@Activate
@@ -97,7 +80,7 @@ public class Edge2EdgeWebsocketPvInverterImpl extends AbstractEdge2EdgeWebsocket
 
 	@Override
 	public MeterType getMeterType() {
-		return MeterType.PRODUCTION;
+		return this.config.type();
 	}
 
 	@Override
