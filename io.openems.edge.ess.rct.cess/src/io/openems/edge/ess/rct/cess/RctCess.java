@@ -2,6 +2,8 @@ package io.openems.edge.ess.rct.cess;
 
 import java.util.List;
 
+import io.openems.edge.ess.api.HybridEss;
+import io.openems.edge.oros.ess.api.EnergyStorageProtection;
 import org.osgi.service.event.EventHandler;
 
 import io.openems.common.channel.AccessMode;
@@ -32,8 +34,9 @@ import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 import io.openems.edge.timedata.api.TimedataProvider;
 
 public interface RctCess extends EnergyStorageSystem,
-		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave,
-		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler, StartStoppable {
+		HybridEss, ManagedSymmetricEss, SymmetricEss, EnergyStorageProtection, EssErrorAcknowledge,
+		OpenemsComponent, ModbusComponent, ModbusSlave, PowerConversionProvider, BatteryManagementProvider,
+		TimedataProvider, EventHandler, StartStoppable {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 

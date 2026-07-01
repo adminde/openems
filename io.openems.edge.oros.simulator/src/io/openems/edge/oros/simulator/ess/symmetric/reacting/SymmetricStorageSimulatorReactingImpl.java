@@ -36,9 +36,9 @@ import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.power.api.Constraint;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.oros.common.SymmetricComponent;
-import io.openems.edge.oros.ess.core.ChannelManager;
-import io.openems.edge.oros.ess.api.EnergyStorageProtection;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
+import io.openems.edge.oros.ess.core.ChannelManager;
+import io.openems.edge.oros.ess.core.protection.PowerLimiter;
 import io.openems.edge.oros.simulator.bms.BatteryManagementSimulator;
 import io.openems.edge.oros.simulator.pcs.PowerConversionSimulator;
 import io.openems.edge.timedata.api.Timedata;
@@ -49,13 +49,11 @@ import io.openems.edge.timedata.api.TimedataProvider;
 		name = "Simulator.ESS.Symmetric.OROS",
 		immediate = true,
 		configurationPolicy = REQUIRE)
-public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsComponent
-		implements SymmetricStorageSimulatorReacting, EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss,
+public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsComponent implements SymmetricStorageSimulatorReacting,
+		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, SymmetricComponent,
 		OpenemsComponent, ModbusSlave, TimedataProvider, StartStoppable {
 
 	private final ChannelManager channelManager = new ChannelManager(this);
-
-	private Config config;
 
 	@Reference
 	private Power power;
@@ -78,12 +76,11 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 	public SymmetricStorageSimulatorReactingImpl() {
 		super(
 				OpenemsComponent.ChannelId.values(),
+				StartStoppable.ChannelId.values(),
+				SymmetricComponent.ChannelId.values(),
 				SymmetricEss.ChannelId.values(),
 				ManagedSymmetricEss.ChannelId.values(),
-				StartStoppable.ChannelId.values(),
 				EnergyStorageSystem.ChannelId.values(),
-				EnergyStorageProtection.ChannelId.values(),
-				SymmetricComponent.ChannelId.values(),
 				SymmetricStorageSimulatorReacting.ChannelId.values()
 		);
 	}
@@ -91,7 +88,6 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 	@Activate
 	private void activate(ComponentContext context, Config config) throws IOException, OpenemsException {
 		super.activate(context, config.id(), config.alias(), config.enabled());
-		this.config = config;
 
 		// update filter for 'PowerConversionSystem'
 		if (OpenemsComponent.updateReferenceFilter(cm, this.servicePid(), "pcs", config.pcs_id())) {
@@ -103,7 +99,9 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 			return;
 		}
 
-		this.channelManager.activate(this.componentManager, this.bms, this.pcs);
+		var powerLimiter = new PowerLimiter(this, this.pcs, this.bms);
+		this.channelManager.setPowerLimiter(powerLimiter);
+		this.channelManager.activate(this.componentManager, this.pcs, this.bms);
 		this._setStartStop(StartStop.START);
 	}
 

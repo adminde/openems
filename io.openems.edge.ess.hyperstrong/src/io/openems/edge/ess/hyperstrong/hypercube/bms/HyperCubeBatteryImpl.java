@@ -321,7 +321,7 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 		return tasks.toArray(Task[]::new);
 	}
 
-	private Task[] defineModbusConnectorAnalyticsTasks() { //, HyperCubeModel model) {
+	private Task[] defineModbusConnectorAnalyticsTasks() {
 		List<Task> tasks = new ArrayList<Task>(
 				defineModbusSignedWordInputRegistersTasks(10700, 72,
 						this.addModbusAnalyticsChannel("CONNECTOR_TEMPERATURE", "%s_%02d", Unit.DEZIDEGREE_CELSIUS),
@@ -344,7 +344,7 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 		return tasks.toArray(Task[]::new);
 	}
 
-	private Task[] defineModbusBusBarAnalyticsTasks() { //, HyperCubeModel model) {
+	private Task[] defineModbusBusBarAnalyticsTasks() {
 		List<Task> tasks = new ArrayList<Task>(
 				defineModbusSignedWordInputRegistersTasks(10781, 100,
 						this.addModbusAnalyticsChannel("BUSBAR_TEMPERATURE", "%s_%03d", Unit.DEZIDEGREE_CELSIUS),

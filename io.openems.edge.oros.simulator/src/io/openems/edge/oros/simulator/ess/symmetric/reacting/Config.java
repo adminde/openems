@@ -17,9 +17,6 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "Is enabled?", description = "Is this Component enabled?")
 	boolean enabled() default true;
 
-	@AttributeDefinition(name = "Maximum power increase in Percent [%]", description = "Maximum power the system is allowed to ramp up per cycle.")
-	float maxPowerIncreasePercentage() default 100.F;
-
 	@AttributeDefinition(name = "PCS-ID", description = "ID of Power Conversion System.")
 	String pcs_id() default "pcs0";
 

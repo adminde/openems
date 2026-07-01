@@ -25,9 +25,6 @@ public @interface Config {
 	@AttributeDefinition(name = "Start/stop behaviour", description = "Should this Component be forced to start or stop?")
 	StartStopConfig startStop() default StartStopConfig.START;
 
-	@AttributeDefinition(name = "Maximum power increase in Percent [%]", description = "Maximum power the system is allowed to ramp up per cycle.")
-	float maxPowerIncreasePercentage() default 100.F;
-
 	@AttributeDefinition(name = "Modbus-ID", description = "ID of Modbus bridge.")
 	String modbus_id() default "modbus0";
 

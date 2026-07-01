@@ -48,7 +48,7 @@ public interface RctCessDcCharger extends
 		}
 
 		final Consumer<Value<Integer>> calculatePower = ignore -> {
-			var dcPower = batteryInverter.getDcPower().get();
+			var dcPower = batteryInverter.getDcPower();
 			var batteryPower = battery.getRackPower().get();
 			if (batteryPower == null || dcPower == null) {
 				return;
@@ -56,7 +56,7 @@ public interface RctCessDcCharger extends
 			charger._setActualPower(maxInteger(subtract(dcPower, batteryPower), 0));
 		};
 		battery.getRackPowerChannel().onSetNextValue(calculatePower);
-		batteryInverter.getDcPowerChannel().onSetNextValue(calculatePower);
+		batteryInverter.getDcDischargePowerChannel().onSetNextValue(calculatePower);
 
 		final Consumer<Value<Integer>> calculateVoltageAndCurrent = ignore -> {
 			var voltage = batteryInverter.getDcVoltage().get();

@@ -66,7 +66,6 @@ import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.oros.bms.api.BatteryManagementProvider;
 import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 import io.openems.edge.oros.common.SymmetricComponent;
-import io.openems.edge.oros.ess.api.EnergyStorageProtection;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.ess.core.AbstractModbusEss;
 import io.openems.edge.oros.ess.core.RuntimeChannels;
@@ -87,8 +86,9 @@ import io.openems.edge.timedata.api.TimedataProvider;
 })
 public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, SymmetricComponent, 
-		EnergyStorageProtection, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave, RuntimeChannels,
-		ThermalManagementSystem, PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler, StartStoppable {
+		EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave, RuntimeChannels,
+		ThermalManagementSystem, PowerConversionProvider, BatteryManagementProvider,
+		TimedataProvider, EventHandler, StartStoppable {
 
 	private final Logger log = LoggerFactory.getLogger(HyperCubeImpl.class);
 	private final StateMachine stateMachine = new StateMachine(State.UNDEFINED);
@@ -135,7 +135,6 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 				SymmetricEss.ChannelId.values(),
 				ManagedSymmetricEss.ChannelId.values(),
 				EnergyStorageSystem.ChannelId.values(),
-				EnergyStorageProtection.ChannelId.values(),
 				EssErrorAcknowledge.ChannelId.values(),
 				RuntimeChannels.ChannelId.values(),
 				HyperCube.ChannelId.values(),
@@ -251,11 +250,6 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 	@Override
 	public Power getPower() {
 		return this.power;
-	}
-
-	@Override
-	protected float getMaxPowerIncreasePercentage() {
-		return this.config.maxPowerIncreasePercentage();
 	}
 
 	@Override

@@ -17,14 +17,8 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "Is enabled?", description = "Is this Component enabled?")
 	boolean enabled() default true;
 
-	@AttributeDefinition(name = "Max Apparent Power [VA]")
-	int maxApparentPower() default 100000;
-
-	@AttributeDefinition(name = "Max Charge Power [W]")
-	int maxChargePower() default 100000;
-
-	@AttributeDefinition(name = "Max Discharge Power [W]")
-	int maxDischargePower() default 100000;
+	@AttributeDefinition(name = "Max Active Power [W]")
+	int maxActivePower() default 100000;
 
 	String webconsole_configurationFactory_nameHint() default "Simulator PowerConversionSystem OROS [{id}]";
 

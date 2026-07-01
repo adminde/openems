@@ -13,7 +13,6 @@ import static org.osgi.service.component.annotations.ReferencePolicyOption.GREED
 import java.util.LinkedList;
 import java.util.List;
 
-import io.openems.edge.oros.ess.core.protection.PowerLimiter;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -65,6 +64,7 @@ import io.openems.edge.oros.ess.api.EnergyStorageProtection;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.ess.core.AbstractModbusEss;
 import io.openems.edge.oros.ess.core.RuntimeChannels;
+import io.openems.edge.oros.ess.core.protection.PowerLimiter;
 import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
@@ -132,10 +132,10 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 				SymmetricComponent.ChannelId.values(),
 				SymmetricEss.ChannelId.values(),
 				ManagedSymmetricEss.ChannelId.values(),
+				HybridEss.ChannelId.values(),
 				EnergyStorageSystem.ChannelId.values(),
 				EnergyStorageProtection.ChannelId.values(),
 				EssErrorAcknowledge.ChannelId.values(),
-				HybridEss.ChannelId.values(),
 				RuntimeChannels.ChannelId.values(),
 				RctCess.ChannelId.values()
 		);
@@ -157,13 +157,12 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 		this.channelManager.setPowerLimiter(
 				new PowerLimiter(this,
 						this.getPowerConversionSystem(),
-						this.getBatteryManagementSystem(),
-						this::getMaxPowerIncreasePercentage));
+						this.getBatteryManagementSystem()));
 		this.channelManager.setStateOfChargeLimiter(
 				new StateOfChargeClipper(this, this.getBatteryManagementSystem()));
 		this.channelManager.activate(this.getComponentManager(),
-				this.getBatteryManagementSystem(),
-				this.getPowerConversionSystem());
+				this.getPowerConversionSystem(),
+				this.getBatteryManagementSystem());
 	}
 
 	@Override
@@ -225,10 +224,10 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 
 	private void calculateDcPower() {
 		var inverter = this.getPowerConversionSystem();
-		if (!inverter.getDcPower().isDefined()) {
+		if (!inverter.getDcDischargePower().isDefined()) {
 			return;
 		}
-		var dcPower = inverter.getDcPower().get();
+		var dcPower = inverter.getDcDischargePower().get();
 
 		if (this.hasDcChargers()) {
 			var pvPower = 0;
@@ -292,11 +291,6 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 	@Override
 	public Power getPower() {
 		return this.power;
-	}
-
-	@Override
-	protected float getMaxPowerIncreasePercentage() {
-		return this.config.maxPowerIncreasePercentage();
 	}
 
 	@Override

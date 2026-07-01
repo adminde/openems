@@ -1,7 +1,10 @@
 package io.openems.edge.ess.hyperstrong.hypercube.pcs;
 
+import static io.openems.common.channel.PersistencePriority.HIGH;
+import static io.openems.common.channel.Unit.WATT;
+import static io.openems.common.types.OpenemsType.INTEGER;
+
 import io.openems.common.channel.Level;
-import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
@@ -20,12 +23,6 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 		ManagedSymmetricBatteryInverter, SymmetricBatteryInverter, SymmetricComponent,
 		OpenemsComponent, ModbusComponent, ModbusSlave {
 
-	/** Maximum AC charge power of one HyperCube II PCS in [W]. */
-	public static final int MAX_CHARGE_POWER = 116_500;
-
-	/** Maximum AC discharge power of one HyperCube II PCS in [W]. */
-	public static final int MAX_DISCHARGE_POWER = 116_500;
-
 	/** Efficiency factor (%) used for AC/DC conversion. */
 	public static final float EFFICIENCY_FACTOR = 98F;
 
@@ -36,8 +33,25 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 	public static final float APPARENT_POWER_FACTOR = 1.1F;
 	public static final float REACTIVE_POWER_FACTOR = 0.46F;
 
+	/** Maximum active power of one HyperCube II PCS in [W]. */
+	public static final int MAX_ACTIVE_POWER = 116_500;
+
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
+		/**
+		 * DC Discharge Power.
+		 *
+		 * <ul>
+		 * <li>Interface: HyperCubeInverter
+		 * <li>Type: {@link OpenemsType#INTEGER}
+		 * <li>Unit: {@link Unit#WATT}
+		 * <li>Range: negative values for Charge; positive for Discharge
+		 * </ul>
+		 */
+		DC_DISCHARGE_POWER(Doc.of(INTEGER)
+				.unit(WATT)
+				.persistencePriority(HIGH)),
+
 		/**
 		 * IGBT Temperature L1.
 		 *
@@ -301,16 +315,6 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 	}
 
 	@Override
-	public default int getChargeMaxPower() {
-		return MAX_CHARGE_POWER;
-	}
-
-	@Override
-	public default int getDischargeMaxPower() {
-		return MAX_DISCHARGE_POWER;
-	}
-
-	@Override
 	public default float getEfficiencyFactor() {
 		return EFFICIENCY_FACTOR;
 	}
@@ -318,6 +322,55 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 	@Override
 	public default int getPowerPrecision() {
 		return APPARENT_POWER_PRECISION;
+	}
+
+	/**
+	 * Gets the DC Discharge Power in [W]. See
+	 * {@link ChannelId#DC_DISCHARGE_POWER}.
+	 *
+	 * @return the DC Power
+	 */
+	public default Integer getDcPower() {
+		return this.getDcDischargePower().get();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#DC_DISCHARGE_POWER}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getDcDischargePowerChannel() {
+		return this.channel(ChannelId.DC_DISCHARGE_POWER);
+	}
+
+	/**
+	 * Gets the DC Discharge Power in [W]. See
+	 * {@link ChannelId#DC_DISCHARGE_POWER}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getDcDischargePower() {
+		return this.getDcDischargePowerChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#DC_DISCHARGE_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setDcDischargePower(Integer value) {
+		this.getDcDischargePowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#DC_DISCHARGE_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setDcDischargePower(int value) {
+		this.getDcDischargePowerChannel().setNextValue(value);
 	}
 
 	/**

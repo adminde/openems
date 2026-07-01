@@ -6,8 +6,14 @@ import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_1;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.chain;
 import static io.openems.edge.common.sum.GridMode.ON_GRID;
+import static io.openems.edge.common.type.Phase.SingleOrAllPhase.ALL;
+import static io.openems.edge.ess.power.api.Pwr.ACTIVE;
+import static io.openems.edge.ess.power.api.Pwr.REACTIVE;
+import static io.openems.edge.ess.power.api.Relationship.GREATER_OR_EQUALS;
+import static io.openems.edge.ess.power.api.Relationship.LESS_OR_EQUALS;
 import static io.openems.edge.ess.rct.cess.batteryinverter.statemachine.StateMachine.State.UNDEFINED;
 
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -31,7 +37,9 @@ import io.openems.common.channel.AccessMode;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
 import io.openems.edge.battery.api.Battery;
+import io.openems.edge.batteryinverter.api.BatteryInverterConstraint;
 import io.openems.edge.batteryinverter.api.BatteryInverterErrorAcknowledge;
+import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
@@ -112,10 +120,6 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 				SymmetricBatteryInverter.ChannelId.values(),
 				ManagedSymmetricBatteryInverter.ChannelId.values(),
 				RctCessBatteryInverter.ChannelId.values());
-		this._setMaxApparentPower(MAX_APPARENT_POWER);
-		this._setDcMinVoltage(DC_MIN_VOLTAGE);
-		this._setDcMaxVoltage(DC_MAX_VOLTAGE);
-		this._setGridMode(ON_GRID);
 	}
 
 	@Activate
@@ -125,6 +129,13 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 				"Modbus", config.modbus_id())) {
 			return;
 		}
+		this._setGridMode(ON_GRID);
+		this._setMaxActivePower(
+				RctCessBatteryInverter.MAX_ACTIVE_POWER);
+		this._setMaxReactivePower((int) Math.floor(
+				RctCessBatteryInverter.MAX_ACTIVE_POWER * RctCessBatteryInverter.REACTIVE_POWER_FACTOR));
+		this._setMaxApparentPower((int) Math.floor(
+				RctCessBatteryInverter.MAX_ACTIVE_POWER * RctCessBatteryInverter.APPARENT_POWER_FACTOR));
 
 		// Calculate the Phase Voltages from Phase to Phase Voltages
 		SymmetricComponent.calculatePhaseVoltages(this);
@@ -230,28 +241,27 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 	}
 
 	@Override
-	public float getEfficiencyFactor() {
-		return EFFICIENCY_FACTOR;
-	}
-
-	@Override
-	public int getPowerPrecision() {
-		return APPARENT_POWER_PRECISION;
-	}
-
-	@Override
-	public int getChargeMaxPower() {
-		return MAX_APPARENT_POWER;
-	}
-
-	@Override
-	public int getDischargeMaxPower() {
-		return MAX_APPARENT_POWER;
-	}
-
-	@Override
 	public Timedata getTimedata() {
 		return this.timedata;
+	}
+
+	@Override
+	public BatteryInverterConstraint[] getStaticConstraints() throws OpenemsNamedException {
+		var constraints = new ArrayList<BatteryInverterConstraint>();
+
+		var maxActivePower = this.getMaxActivePower().get();
+		constraints.add(new BatteryInverterConstraint("RCT Power CESS maximum Active Power",
+				ALL, ACTIVE, LESS_OR_EQUALS, maxActivePower));
+		constraints.add(new BatteryInverterConstraint("RCT Power CESS minimum Active Power",
+				ALL, ACTIVE, GREATER_OR_EQUALS, maxActivePower * -1));
+
+		var maxReactivePower = this.getMaxActivePower().get();
+		constraints.add(new BatteryInverterConstraint("RCT Power CESS maximum Reactive Power",
+				ALL, REACTIVE, LESS_OR_EQUALS, maxReactivePower));
+		constraints.add(new BatteryInverterConstraint("RCT Power CESS minimum Reactive Power",
+				ALL, REACTIVE, GREATER_OR_EQUALS, maxReactivePower * -1));
+
+		return constraints.toArray(new BatteryInverterConstraint[constraints.size()]);
 	}
 
 	@Override
@@ -301,7 +311,7 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
                                 new UnsignedWordElement(0x000C), SCALE_FACTOR_2),
                         m(PowerConversionSystem.ChannelId.DC_CURRENT,
                                 new SignedWordElement(0x000D), SCALE_FACTOR_2),
-                        m(PowerConversionSystem.ChannelId.DC_POWER,
+                        m(HybridManagedSymmetricBatteryInverter.ChannelId.DC_DISCHARGE_POWER,
                                 new SignedWordElement(0x000E), SCALE_FACTOR_2)),
 
 				new FC3ReadRegistersTask(0x000F, Priority.LOW,
@@ -425,5 +435,4 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 				.addValue(this.id())
 				.toString();
 	}
-
 }

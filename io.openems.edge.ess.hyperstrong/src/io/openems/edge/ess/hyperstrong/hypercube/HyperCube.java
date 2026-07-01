@@ -17,13 +17,14 @@ import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 import io.openems.edge.oros.bms.api.BatteryManagementProvider;
+import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.pcs.api.PowerConversionProvider;
-import io.openems.edge.timedata.api.TimedataProvider;
 
 public interface HyperCube extends EnergyStorageSystem,
-		ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave,
-		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, StartStoppable {
+		ManagedSymmetricEss, SymmetricEss, SymmetricComponent, EssErrorAcknowledge,
+		PowerConversionProvider, BatteryManagementProvider, StartStoppable,
+		OpenemsComponent, ModbusComponent, ModbusSlave {
 
 	/**
 	 * How often the OEM EMS controller will check for a changed heartbeat value

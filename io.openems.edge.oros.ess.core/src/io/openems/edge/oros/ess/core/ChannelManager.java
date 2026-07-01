@@ -2,8 +2,12 @@ package io.openems.edge.oros.ess.core;
 
 import static io.openems.edge.common.channel.ChannelUtils.setValue;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
+import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
+import io.openems.common.function.ThrowingConsumer;
 import io.openems.edge.battery.api.Battery;
 import io.openems.edge.battery.api.BatteryErrorAcknowledge;
 import io.openems.edge.batteryinverter.api.BatteryInverterErrorAcknowledge;
@@ -12,12 +16,16 @@ import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.common.channel.AbstractChannelListenerManager;
 import io.openems.edge.common.channel.ChannelId;
+import io.openems.edge.common.channel.IntegerWriteChannel;
+import io.openems.edge.common.channel.WriteChannel;
 import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.ClockProvider;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.startstop.StartStoppable;
+import io.openems.edge.ess.api.AsymmetricEss;
 import io.openems.edge.ess.api.EssErrorAcknowledge;
 import io.openems.edge.ess.api.HybridEss;
+import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 import io.openems.edge.oros.common.SymmetricComponent;
@@ -27,6 +35,14 @@ import io.openems.edge.oros.ess.core.protection.StateOfChargeLimiter;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 
 public class ChannelManager extends AbstractChannelListenerManager {
+
+	private record OnSetNextWriteValueListener<T>(
+			OpenemsComponent component, 
+			ChannelId channelId,
+			ThrowingConsumer<T, OpenemsNamedException> callback) {
+	}
+
+	private final List<OnSetNextWriteValueListener<?>> onSetNextWriteValueListeners = new ArrayList<>();
 
 	private final EnergyStorageSystem parent;
 
@@ -63,7 +79,7 @@ public class ChannelManager extends AbstractChannelListenerManager {
 	 * @param battery                    the {@link BatteryManagementSystem}
 	 * @param inverter                   the {@link PowerConversionSystem}
 	 */
-	public void activate(ClockProvider clock, BatteryManagementSystem battery, PowerConversionSystem inverter) {
+	public void activate(ClockProvider clock, PowerConversionSystem inverter, BatteryManagementSystem battery) {
 		this.stateOfChargeLimiter = new StateOfChargeLimiter(this.parent, battery);
 
 		this.addBatteryListener(clock, battery);
@@ -71,8 +87,27 @@ public class ChannelManager extends AbstractChannelListenerManager {
 		this.addEssListener(clock, battery);
 	}
 
+	@Override
+	public synchronized void deactivate() {
+		super.deactivate();
+		for (OnSetNextWriteValueListener<?> listener : this.onSetNextWriteValueListeners) {
+			this.removeOnSetNextWriteCallback(listener.component, listener.channelId, listener.callback);
+		}
+		this.onSetNextWriteValueListeners.clear();
+	}
+
 	private void addEssListener(ClockProvider clock, BatteryManagementSystem battery) {
 		this.addEssSocListener(clock, battery);
+		this.addOnRelativePowerListener(this.parent,
+				EnergyStorageSystem.ChannelId.SET_ACTIVE_RELATIVE_POWER_EQUALS,
+				ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_EQUALS);
+		this.addOnRelativePowerListener(this.parent,
+				EnergyStorageSystem.ChannelId.SET_ACTIVE_RELATIVE_POWER_LESS_OR_EQUALS,
+				ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_LESS_OR_EQUALS);
+		this.addOnRelativePowerListener(this.parent,
+				EnergyStorageSystem.ChannelId.SET_ACTIVE_RELATIVE_POWER_GREATER_OR_EQUALS,
+				ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_GREATER_OR_EQUALS);
+
 		if (this.powerLimiter != null) {
 			this.addOnChangeListener(this.parent, StartStoppable.ChannelId.START_STOP, (ignored0, ignored1) ->
 					this.powerLimiter.accept(clock));
@@ -102,6 +137,12 @@ public class ChannelManager extends AbstractChannelListenerManager {
 		this.<Long>addOnSetNextMirrorListener(inverter,
 				SymmetricBatteryInverter.ChannelId.MAX_APPARENT_POWER,
 				SymmetricEss.ChannelId.MAX_APPARENT_POWER);
+		this.<Long>addOnSetNextMirrorListener(inverter,
+				PowerConversionSystem.ChannelId.MAX_ACTIVE_POWER,
+				EnergyStorageSystem.ChannelId.MAX_ACTIVE_POWER);
+		this.<Long>addOnSetNextMirrorListener(inverter,
+				PowerConversionSystem.ChannelId.MAX_REACTIVE_POWER,
+				EnergyStorageSystem.ChannelId.MAX_REACTIVE_POWER);
 
 		if (this.parent instanceof HybridEss) {
 			switch (inverter) {
@@ -140,64 +181,80 @@ public class ChannelManager extends AbstractChannelListenerManager {
 				SymmetricBatteryInverter.ChannelId.ACTIVE_POWER,
 				SymmetricEss.ChannelId.ACTIVE_POWER);
 		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.ACTIVE_POWER_L1,
-				SymmetricComponent.ChannelId.ACTIVE_POWER_L1);
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.ACTIVE_POWER_L2,
-				SymmetricComponent.ChannelId.ACTIVE_POWER_L2);
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.ACTIVE_POWER_L3,
-				SymmetricComponent.ChannelId.ACTIVE_POWER_L3);
-
-		this.<Long>addOnSetNextMirrorListener(inverter,
 				SymmetricBatteryInverter.ChannelId.REACTIVE_POWER,
 				SymmetricEss.ChannelId.REACTIVE_POWER);
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.REACTIVE_POWER_L1,
-				SymmetricComponent.ChannelId.REACTIVE_POWER_L1);
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.REACTIVE_POWER_L2,
-				SymmetricComponent.ChannelId.REACTIVE_POWER_L2);
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.REACTIVE_POWER_L3,
-				SymmetricComponent.ChannelId.REACTIVE_POWER_L3);
 
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.VOLTAGE_L1,
-				SymmetricComponent.ChannelId.VOLTAGE_L1);
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.VOLTAGE_L2,
-				SymmetricComponent.ChannelId.VOLTAGE_L2);
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.VOLTAGE_L3,
-				SymmetricComponent.ChannelId.VOLTAGE_L3);
+		if (this.parent instanceof SymmetricComponent || 
+				this.parent instanceof AsymmetricEss) {
 
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.CURRENT_L1,
-				SymmetricComponent.ChannelId.CURRENT_L1);
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.CURRENT_L2,
-				SymmetricComponent.ChannelId.CURRENT_L2);
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.CURRENT_L3,
-				SymmetricComponent.ChannelId.CURRENT_L3);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.FREQUENCY,
+					SymmetricComponent.ChannelId.FREQUENCY);
 
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.FREQUENCY,
-				SymmetricComponent.ChannelId.FREQUENCY);
-
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.POWER_FACTOR,
-				SymmetricComponent.ChannelId.POWER_FACTOR);
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.POWER_FACTOR_L1,
-				SymmetricComponent.ChannelId.POWER_FACTOR_L1);
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.POWER_FACTOR_L2,
-				SymmetricComponent.ChannelId.POWER_FACTOR_L2);
-		this.<Long>addOnSetNextMirrorListener(inverter,
-				SymmetricComponent.ChannelId.POWER_FACTOR_L3,
-				SymmetricComponent.ChannelId.POWER_FACTOR_L3);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.ACTIVE_POWER_L1,
+					SymmetricComponent.ChannelId.ACTIVE_POWER_L1);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.ACTIVE_POWER_L2,
+					SymmetricComponent.ChannelId.ACTIVE_POWER_L2);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.ACTIVE_POWER_L3,
+					SymmetricComponent.ChannelId.ACTIVE_POWER_L3);
+	
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.REACTIVE_POWER_L1,
+					SymmetricComponent.ChannelId.REACTIVE_POWER_L1);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.REACTIVE_POWER_L2,
+					SymmetricComponent.ChannelId.REACTIVE_POWER_L2);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.REACTIVE_POWER_L3,
+					SymmetricComponent.ChannelId.REACTIVE_POWER_L3);
+	
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.CURRENT_L1,
+					SymmetricComponent.ChannelId.CURRENT_L1);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.CURRENT_L2,
+					SymmetricComponent.ChannelId.CURRENT_L2);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.CURRENT_L3,
+					SymmetricComponent.ChannelId.CURRENT_L3);
+	
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.VOLTAGE_L1,
+					SymmetricComponent.ChannelId.VOLTAGE_L1);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.VOLTAGE_L2,
+					SymmetricComponent.ChannelId.VOLTAGE_L2);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.VOLTAGE_L3,
+					SymmetricComponent.ChannelId.VOLTAGE_L3);
+		}
+		if (this.parent instanceof SymmetricComponent) {
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.VOLTAGE_L1_L2,
+					SymmetricComponent.ChannelId.VOLTAGE_L1_L2);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.VOLTAGE_L2_L3,
+					SymmetricComponent.ChannelId.VOLTAGE_L2_L3);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.VOLTAGE_L3_L1,
+					SymmetricComponent.ChannelId.VOLTAGE_L3_L1);
+	
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.POWER_FACTOR,
+					SymmetricComponent.ChannelId.POWER_FACTOR);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.POWER_FACTOR_L1,
+					SymmetricComponent.ChannelId.POWER_FACTOR_L1);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.POWER_FACTOR_L2,
+					SymmetricComponent.ChannelId.POWER_FACTOR_L2);
+			this.<Long>addOnSetNextMirrorListener(inverter,
+					SymmetricComponent.ChannelId.POWER_FACTOR_L3,
+					SymmetricComponent.ChannelId.POWER_FACTOR_L3);
+		}
 	}
 
 	private void addBatteryListener(ClockProvider clock, BatteryManagementSystem battery) {
@@ -227,11 +284,14 @@ public class ChannelManager extends AbstractChannelListenerManager {
 				SymmetricEss.ChannelId.MAX_CELL_TEMPERATURE);
 
 		if (this.powerLimiter != null) {
-			this.addOnSetNextValueListener(battery, Battery.ChannelId.CHARGE_MAX_VOLTAGE,
-					ignored -> powerLimiter.getOverChargeCurrentLimiter().accept(clock));
-			this.addOnSetNextValueListener(battery, Battery.ChannelId.DISCHARGE_MIN_VOLTAGE,
-					ignored -> powerLimiter.getDeepDischargeCurrentLimiter().accept(clock));
-
+			if (this.powerLimiter.hasOverChargeCurrentLimiter()) {
+				this.addOnSetNextValueListener(battery, Battery.ChannelId.CHARGE_MAX_VOLTAGE,
+						ignored -> powerLimiter.getOverChargeCurrentLimiter().accept(clock));
+			}
+			if (this.powerLimiter.hasDeepDischargeCurrentLimiter()) {
+				this.addOnSetNextValueListener(battery, Battery.ChannelId.DISCHARGE_MIN_VOLTAGE,
+						ignored -> powerLimiter.getDeepDischargeCurrentLimiter().accept(clock));
+			}
 			this.addOnSetNextValueListener(battery, Battery.ChannelId.CHARGE_MAX_CURRENT,
 					ignored -> this.powerLimiter.accept(clock));
 			this.addOnSetNextValueListener(battery, Battery.ChannelId.DISCHARGE_MAX_CURRENT,
@@ -244,7 +304,7 @@ public class ChannelManager extends AbstractChannelListenerManager {
 	/**
 	 * Adds a Copy-Listener. It listens on setNextValue() and copies the value to the target channel.
 	 *
-	 * @param <T>             the Channel-Type
+	 * @param <T>             the Channel value type
 	 * @param sourceComponent the source component - Battery or BatteryInverter
 	 * @param sourceChannelId the source ChannelId
 	 * @param targetChannelId the target ChannelId
@@ -256,4 +316,63 @@ public class ChannelManager extends AbstractChannelListenerManager {
 		});
 	}
 
+	/**
+	 * Scales a per-mille command against {@link EnergyStorageSystem#getMaxActivePower()} and forwards 
+	 * the resulting Watt value to the target Channel. Out-of-range values are left to the fixed value
+	 * Channels constraint handling.
+	 *
+	 * @param sourceComponent the source component
+	 * @param sourceChannelId the source ChannelId
+	 * @param targetChannelId the target ChannelId
+	 */
+	private void addOnRelativePowerListener(EnergyStorageSystem sourceComponent,
+			ChannelId sourceChannelId, ChannelId targetChannelId) {
+		this.<Integer>addOnSetNextWriteValueListener(sourceComponent, sourceChannelId, value -> {
+			var max = sourceComponent.getMaxActivePower();
+			if (!max.isDefined()) {
+				return;
+			}
+			IntegerWriteChannel channel = sourceComponent.channel(targetChannelId);
+			channel.setNextWriteValue((int) Math.round(value / 1000F * max.get()));
+		});
+	}
+
+	/**
+	 * Adds a Listener. Also applies the callback once to make sure it applies
+	 * already existing values.
+	 *
+	 * @param <T>       the Channel value type
+	 * @param component the Component
+	 * @param channelId the ChannelId
+	 * @param callback  the callback
+	 */
+	protected <T> void addOnSetNextWriteValueListener(OpenemsComponent component,
+			  ChannelId channelId, ThrowingConsumer<T, OpenemsNamedException> callback) {
+		this.onSetNextWriteValueListeners.add(new OnSetNextWriteValueListener<>(component, channelId, callback));
+		WriteChannel<T> channel = component.channel(channelId);
+		channel.onSetNextWrite(callback);
+		try {
+			var value = channel.getNextWriteValue();
+			if (value.isPresent()) {
+				callback.accept(value.get());
+			}
+		} catch (OpenemsNamedException e) {
+			// TODO: Validate if or how this should be logged
+		}
+	}
+
+
+	/**
+	 * Removes a Listener.
+	 *
+	 * @param <T>       the Channel value type
+	 * @param component the Component
+	 * @param channelId the ChannelId
+	 * @param callback  the callback
+	 */
+	protected <T> void removeOnSetNextWriteCallback(OpenemsComponent component,
+			  ChannelId channelId, ThrowingConsumer<T, OpenemsNamedException> callback) {
+		WriteChannel<T> channel = component.channel(channelId);
+		channel.removeOnSetNextWriteCallback(callback);
+	}
 }

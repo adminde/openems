@@ -1,5 +1,9 @@
 package io.openems.edge.ess.rct.cess.batteryinverter;
 
+import static io.openems.common.channel.PersistencePriority.HIGH;
+import static io.openems.common.channel.Unit.WATT;
+import static io.openems.common.types.OpenemsType.INTEGER;
+
 import io.openems.common.channel.Level;
 import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
@@ -31,12 +35,12 @@ public interface RctCessBatteryInverter extends PowerConversionSystem,
 	/** Efficiency factor (%) used for AC/DC conversion. */
 	public static final float EFFICIENCY_FACTOR = 97F;
 
-	public static final int MAX_APPARENT_POWER = 100_000; // [W]
-
 	public static final int APPARENT_POWER_PRECISION = 100; // [W]
 
-	public static final int DC_MIN_VOLTAGE = 200;
-	public static final int DC_MAX_VOLTAGE = 950;
+	/** FIXME: This are just placeholder values and needs to be validated at some point */
+	public static final float APPARENT_POWER_FACTOR = 1.1F;
+	public static final float REACTIVE_POWER_FACTOR = 0.45F;
+	public static final int MAX_ACTIVE_POWER = 116_500; // [W]
 
 	/**
 	 * After how many seconds will commands be retried to send, 
@@ -53,6 +57,20 @@ public interface RctCessBatteryInverter extends PowerConversionSystem,
 
 		RUN_STATE(Doc.of(RunState.values())
 				.persistencePriority(PersistencePriority.HIGH)),
+
+		/**
+		 * DC Discharge Power.
+		 *
+		 * <ul>
+		 * <li>Interface: HyperCubeInverter
+		 * <li>Type: {@link OpenemsType#INTEGER}
+		 * <li>Unit: {@link Unit#WATT}
+		 * <li>Range: negative values for Charge; positive for Discharge
+		 * </ul>
+		 */
+		DC_DISCHARGE_POWER(Doc.of(INTEGER)
+				.unit(WATT)
+				.persistencePriority(HIGH)),
 
 		IGBT_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.DEGREE_CELSIUS)
@@ -165,6 +183,16 @@ public interface RctCessBatteryInverter extends PowerConversionSystem,
 		}
 	}
 
+	@Override
+	public default float getEfficiencyFactor() {
+		return EFFICIENCY_FACTOR;
+	}
+
+	@Override
+	public default int getPowerPrecision() {
+		return APPARENT_POWER_PRECISION;
+	}
+
 	/**
 	 * Gets the Channel for {@link ChannelId#STATE_MACHINE}.
 	 *
@@ -235,6 +263,55 @@ public interface RctCessBatteryInverter extends PowerConversionSystem,
 	 */
 	public default Value<RunState> getRunState() {
 		return this.getRunStateChannel().value();
+	}
+
+	/**
+	 * Gets the DC Discharge Power in [W]. See
+	 * {@link ChannelId#DC_DISCHARGE_POWER}.
+	 *
+	 * @return the DC Power
+	 */
+	public default Integer getDcPower() {
+		return this.getDcDischargePower().get();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#DC_DISCHARGE_POWER}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getDcDischargePowerChannel() {
+		return this.channel(ChannelId.DC_DISCHARGE_POWER);
+	}
+
+	/**
+	 * Gets the DC Discharge Power in [W]. See
+	 * {@link ChannelId#DC_DISCHARGE_POWER}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getDcDischargePower() {
+		return this.getDcDischargePowerChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#DC_DISCHARGE_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setDcDischargePower(Integer value) {
+		this.getDcDischargePowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#DC_DISCHARGE_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setDcDischargePower(int value) {
+		this.getDcDischargePowerChannel().setNextValue(value);
 	}
 
 	/**

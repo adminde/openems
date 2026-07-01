@@ -37,10 +37,7 @@ import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.power.api.Constraint;
 import io.openems.edge.oros.bms.api.BatteryManagementProvider;
-import io.openems.edge.oros.common.SymmetricComponent;
-import io.openems.edge.oros.ess.api.EnergyStorageProtection;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
-import io.openems.edge.oros.ess.core.protection.PowerLimiter;
 import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 import io.openems.edge.timedata.api.TimedataProvider;
@@ -49,8 +46,8 @@ import io.openems.edge.timedata.api.TimedataProvider;
  * Parent class for different implementations of Managed Energy Storage Systems,
  * consisting of a Power Conversion System component and a Battery Management System component.
  */
-public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent implements EnergyStorageSystem,
-		ManagedSymmetricEss, SymmetricEss, SymmetricComponent, EnergyStorageProtection, EssErrorAcknowledge,
+public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent implements
+		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge,
 		OpenemsComponent, ModbusComponent, ModbusSlave, ComponentJsonApi, RuntimeChannels, StartStoppable,
 		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler {
 
@@ -99,20 +96,11 @@ public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent i
 
 		if (activateChannelManager) {
 			this.getChannelManager().activate(this.getComponentManager(),
-					this.getBatteryManagementSystem(),
-					this.getPowerConversionSystem());
+					this.getPowerConversionSystem(),
+					this.getBatteryManagementSystem());
 		}
 		return false;
 	}
-
-	/**
-	 * Gets the maximum allowed power increase percentage per second. Used by
-	 * {@link PowerLimiter} to ramp charge/discharge power. Implementations
-	 * typically take this value from their Config.
-	 *
-	 * @return the max power increase percentage (e.g. 5 for 5%)
-	 */
-	protected abstract float getMaxPowerIncreasePercentage();
 
 	@Override
 	protected void deactivate() {
@@ -161,7 +149,7 @@ public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent i
 	}
 
 	/**
-	 * Retrieves PowerPrecision from {@link SymmetricBatteryInverter}.
+	 * Retrieves Power Precision from {@link SymmetricBatteryInverter}.
 	 *
 	 * {@inheritDoc}
 	 */

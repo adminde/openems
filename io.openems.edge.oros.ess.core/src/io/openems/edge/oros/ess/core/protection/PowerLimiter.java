@@ -8,6 +8,7 @@ import static java.lang.Math.round;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -19,6 +20,7 @@ import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.oros.bms.api.BatteryManagementSystem;
+import io.openems.edge.oros.ess.api.EnergyStorageProtection;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.ess.core.ChannelManager;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
@@ -35,8 +37,8 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 	private final PowerConversionSystem inverter;
 	private final BatteryManagementSystem battery;
 	private final Supplier<Float> maxPowerIncreasePercentage;
-	private final OverChargeCurrentLimiter overChargeCurrentLimiter;
-	private final DeepDischargeCurrentLimiter deepDischargeCurrentLimiter;
+	private final Optional<OverChargeCurrentLimiter> overChargeCurrentLimiter;
+	private final Optional<DeepDischargeCurrentLimiter> deepDischargeCurrentLimiter;
 
 	private float lastAllowedChargePower;
 	private float lastAllowedDischargePower;
@@ -46,31 +48,48 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 
 	public PowerLimiter(EnergyStorageSystem parent,
 				PowerConversionSystem inverter,
+				BatteryManagementSystem battery) {
+		this(parent, inverter, battery, null);
+	}
+
+	public PowerLimiter(EnergyStorageSystem parent,
+				PowerConversionSystem inverter,
 				BatteryManagementSystem battery,
 				Supplier<Float> maxPowerIncreasePercentage) {
 		this.parent = parent;
 		this.inverter = inverter;
 		this.battery = battery;
 		this.maxPowerIncreasePercentage = maxPowerIncreasePercentage;
-		this.overChargeCurrentLimiter = new OverChargeCurrentLimiter(parent, inverter, battery);
-		this.deepDischargeCurrentLimiter = new DeepDischargeCurrentLimiter(parent, inverter, battery);
+		this.overChargeCurrentLimiter = OverChargeCurrentLimiter.of(parent, inverter, battery);
+		this.deepDischargeCurrentLimiter = DeepDischargeCurrentLimiter.of(parent, inverter, battery);
+	}
+
+	public boolean hasOverChargeCurrentLimiter() {
+		return this.overChargeCurrentLimiter.isPresent();
 	}
 
 	public OverChargeCurrentLimiter getOverChargeCurrentLimiter() {
-		return this.overChargeCurrentLimiter;
+		return this.overChargeCurrentLimiter.get();
+	}
+
+	public boolean hasDeepDischargeCurrentLimiter() {
+		return this.deepDischargeCurrentLimiter.isPresent();
 	}
 
 	public DeepDischargeCurrentLimiter getDeepDischargeCurrentLimiter() {
-		return this.deepDischargeCurrentLimiter;
+		return this.deepDischargeCurrentLimiter.get();
 	}
 
 	@Override
 	public void accept(ClockProvider clockProvider) {
 		var chargeMaxCurrent = this.battery.getChargeMaxCurrentChannel().getNextValue().get();
 		var dischargeMaxCurrent = this.battery.getDischargeMaxCurrentChannel().getNextValue().get();
-		chargeMaxCurrent = IntUtils.minInteger(chargeMaxCurrent, this.overChargeCurrentLimiter.getMaxCurrent());
-		dischargeMaxCurrent = IntUtils.minInteger(dischargeMaxCurrent, this.deepDischargeCurrentLimiter.getMaxCurrent());
-
+		if (overChargeCurrentLimiter.isPresent()) {
+			chargeMaxCurrent = IntUtils.minInteger(chargeMaxCurrent, overChargeCurrentLimiter.get().getMaxCurrent());
+		}
+		if (deepDischargeCurrentLimiter.isPresent()) {
+			dischargeMaxCurrent = IntUtils.minInteger(dischargeMaxCurrent, deepDischargeCurrentLimiter.get().getMaxCurrent());
+		}
 		final var voltage = this.battery.getRackVoltageChannel().getNextValue().get();
 		if (voltage == null || chargeMaxCurrent == null || dischargeMaxCurrent == null) {
 			return;
@@ -167,17 +186,23 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 	}
 
 	private float calculateMaxAllowedChargePower(float chargePower, Instant thisCalculate) {
+		if (this.maxPowerIncreasePercentage == null) {
+			return chargePower;
+		}
 		var maxIncreaseFactor = this.maxPowerIncreasePercentage.get() / 100.F;
 		var maxIncrease = max(this.parent.getPowerPrecision(),
-				this.inverter.getChargeMaxPower() * maxIncreaseFactor);
+				this.inverter.getMaxActivePower().get() * maxIncreaseFactor);
 
 		return calculateMaxIncreasePower(this.lastAllowedChargePower, chargePower, maxIncrease, this.lastCalculate, thisCalculate);
 	}
 
 	private float calculateMaxAllowedDischargePower(float dischargePower, Instant thisCalculate) {
+		if (this.maxPowerIncreasePercentage == null) {
+			return dischargePower;
+		}
 		var maxIncreaseFactor = this.maxPowerIncreasePercentage.get() / 100.F;
 		var maxIncrease = max(this.parent.getPowerPrecision(),
-				this.inverter.getDischargeMaxPower() * maxIncreaseFactor);
+				this.inverter.getMaxActivePower().get() * maxIncreaseFactor);
 
 		return calculateMaxIncreasePower(this.lastAllowedDischargePower, dischargePower, maxIncrease, this.lastCalculate, thisCalculate);
 	}
@@ -210,25 +235,27 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 		if (dischargeMaxCurrent == null || chargeMaxCurrent == null || !current.isDefined()) {
 			return;
 		}
-		if (dischargeMaxCurrent >= 0 || chargeMaxCurrent >= 0) {
-			this.lastProtectionEntry = null;
-			this.parent._setDeepDischargeProtection(false);
-			this.parent._setOverChargeProtection(false);
-			return;
-		}
+		if (this.parent instanceof EnergyStorageProtection protection) {
+			if (dischargeMaxCurrent >= 0 || chargeMaxCurrent >= 0) {
+				this.lastProtectionEntry = null;
+				protection._setDeepDischargeProtection(false);
+				protection._setOverChargeProtection(false);
+				return;
+			}
 
-		if (this.lastProtectionEntry == null) {
-			this.lastProtectionEntry = Instant.now(clockProvider.getClock());
-		}
-		if (dischargeMaxCurrent < 0
-				&& current.get() >= 0
-				&& this.hasProtectionExtremeTimeout(Instant.now(clockProvider.getClock()))) {
-			this.parent._setDeepDischargeProtection(true);
-		}
-		if (chargeMaxCurrent < 0
-				&& current.get() <= 0
-				&& this.hasProtectionExtremeTimeout(Instant.now(clockProvider.getClock()))) {
-			this.parent._setOverChargeProtection(true);
+			if (this.lastProtectionEntry == null) {
+				this.lastProtectionEntry = Instant.now(clockProvider.getClock());
+			}
+			if (dischargeMaxCurrent < 0
+					&& current.get() >= 0
+					&& this.hasProtectionExtremeTimeout(Instant.now(clockProvider.getClock()))) {
+				protection._setDeepDischargeProtection(true);
+			}
+			if (chargeMaxCurrent < 0
+					&& current.get() <= 0
+					&& this.hasProtectionExtremeTimeout(Instant.now(clockProvider.getClock()))) {
+				protection._setOverChargeProtection(true);
+			}
 		}
 	}
 

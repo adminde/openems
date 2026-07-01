@@ -33,6 +33,7 @@ import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.battery.api.Battery;
 import io.openems.edge.batteryinverter.api.BatteryInverterConstraint;
+import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
@@ -73,7 +74,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 	EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
 })
 public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implements
-		HyperCubeInverter, PowerConversionSystem, SymmetricBatteryInverter,
+		HyperCubeInverter, PowerConversionSystem, ManagedSymmetricBatteryInverter, SymmetricBatteryInverter,
 		SymmetricComponent, OpenemsComponent, ModbusComponent, ModbusSlave,
 		TimedataProvider, EventHandler {
 
@@ -112,8 +113,12 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 				config.modbusUnitId(), this.cm, "Modbus", config.modbus_id())) {
 			return;
 		}
+		this._setMaxActivePower(
+				HyperCubeInverter.MAX_ACTIVE_POWER);
+		this._setMaxReactivePower((int) Math.floor(
+				HyperCubeInverter.MAX_ACTIVE_POWER * HyperCubeInverter.REACTIVE_POWER_FACTOR));
 		this._setMaxApparentPower((int) Math.floor(
-				HyperCubeInverter.MAX_CHARGE_POWER * HyperCubeInverter.APPARENT_POWER_FACTOR));
+				HyperCubeInverter.MAX_ACTIVE_POWER * HyperCubeInverter.APPARENT_POWER_FACTOR));
 
 		// Calculate the Phase Voltages from Phase to Phase Voltages
 		SymmetricComponent.calculatePhaseVoltages(this);
@@ -176,19 +181,17 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 	public BatteryInverterConstraint[] getStaticConstraints() throws OpenemsNamedException {
 		var constraints = new ArrayList<BatteryInverterConstraint>();
 
-		var maxActivePower = this.getDischargeMaxPower();
-		var minActivePower = -1 * this.getChargeMaxPower();
+		var maxActivePower = this.getMaxActivePower().get();
 		constraints.add(new BatteryInverterConstraint("HyperCube II maximum Active Power",
 				ALL, ACTIVE, LESS_OR_EQUALS, maxActivePower));
 		constraints.add(new BatteryInverterConstraint("HyperCube II minimum Active Power",
-				ALL, ACTIVE, GREATER_OR_EQUALS, minActivePower));
+				ALL, ACTIVE, GREATER_OR_EQUALS, maxActivePower * -1));
 
-		var maxReactivePower = (int) Math.floor(maxActivePower * HyperCubeInverter.REACTIVE_POWER_FACTOR);
-		var minReactivePower = (int) Math.ceil(minActivePower * HyperCubeInverter.REACTIVE_POWER_FACTOR);
+		var maxReactivePower = this.getMaxActivePower().get();
 		constraints.add(new BatteryInverterConstraint("HyperCube II maximum Reactive Power",
 				ALL, REACTIVE, LESS_OR_EQUALS, maxReactivePower));
 		constraints.add(new BatteryInverterConstraint("HyperCube II minimum Reactive Power",
-				ALL, REACTIVE, GREATER_OR_EQUALS, minReactivePower));
+				ALL, REACTIVE, GREATER_OR_EQUALS, maxReactivePower * -1));
 
 		return constraints.toArray(new BatteryInverterConstraint[constraints.size()]);
 	}
@@ -222,7 +225,7 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 								new SignedWordElement(3011), SCALE_FACTOR_2),
 						m(PowerConversionSystem.ChannelId.DC_CURRENT,
 								new SignedWordElement(3012), SCALE_FACTOR_2),
-						m(PowerConversionSystem.ChannelId.DC_POWER,
+						m(HybridManagedSymmetricBatteryInverter.ChannelId.DC_DISCHARGE_POWER,
 								new SignedWordElement(3013), SCALE_FACTOR_2)),
 
 				new FC4ReadInputRegistersTask(3014, Priority.LOW,

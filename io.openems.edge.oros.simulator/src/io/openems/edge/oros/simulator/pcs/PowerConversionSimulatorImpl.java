@@ -3,6 +3,7 @@ package io.openems.edge.oros.simulator.pcs;
 import static io.openems.edge.common.channel.ChannelUtils.setValue;
 import static io.openems.edge.common.type.Phase.SingleOrAllPhase.ALL;
 import static io.openems.edge.ess.power.api.Pwr.ACTIVE;
+import static io.openems.edge.ess.power.api.Pwr.REACTIVE;
 import static io.openems.edge.ess.power.api.Relationship.GREATER_OR_EQUALS;
 import static io.openems.edge.ess.power.api.Relationship.LESS_OR_EQUALS;
 import static org.osgi.service.component.annotations.ConfigurationPolicy.REQUIRE;
@@ -46,9 +47,6 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent
 		implements PowerConversionSimulator, PowerConversionSystem, ManagedSymmetricBatteryInverter,
 		SymmetricBatteryInverter, SymmetricComponent, OpenemsComponent, ModbusSlave, TimedataProvider {
 
-	/** Efficiency factor (%) used for AC/DC conversion. */
-	public static final float EFFICIENCY_FACTOR = 98F;
-
 	public static final float POWER_DERATING_ZONE = 5F;
 
 	private final CalculateEnergyFromPower calculateChargeEnergy = new CalculateEnergyFromPower(this,
@@ -79,7 +77,12 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent
 		this.config = config;
 
 		setValue(this, SymmetricBatteryInverter.ChannelId.GRID_MODE, GridMode.ON_GRID);
-		setValue(this, SymmetricBatteryInverter.ChannelId.MAX_APPARENT_POWER, config.maxApparentPower());
+		this._setMaxActivePower(
+				config.maxActivePower());
+		this._setMaxReactivePower((int) Math.floor(
+				config.maxActivePower() * PowerConversionSimulator.REACTIVE_POWER_FACTOR));
+		this._setMaxApparentPower((int) Math.floor(
+				config.maxActivePower() * PowerConversionSimulator.APPARENT_POWER_FACTOR));
 		this._setStartStop(StartStop.START);
 	}
 
@@ -103,8 +106,9 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent
 		// RACK_SOC channel is in [0.1 %] (per-mille) -> divide by 10 to get percent.
 		var soc = bms.getRackSocChannel().value().get() / 10F;
 
-		int maxChargePower = calculateAllowedChargePower(soc, this.config.maxChargePower());
-		int maxDischargePower = calculateAllowedDischargePower(soc, this.config.maxDischargePower());
+		int maxActivePower = config.maxActivePower();
+		int maxChargePower = calculateAllowedChargePower(soc, maxActivePower);
+		int maxDischargePower = calculateAllowedDischargePower(soc, maxActivePower);
 		if (soc >= 100F && activePower < 0) {
 			activePower = 0;
 			maxChargePower = 0;
@@ -127,7 +131,7 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent
 		int dcCurrentMa = (int) ((long) activePower * 1_000_000L / dcVoltage);
 		this._setDcVoltage(dcVoltage);
 		this._setDcCurrent(dcCurrentMa);
-		this._setDcPower(activePower);
+		this._setDcDischargePower(activePower);
 
 		setValue(this, SymmetricBatteryInverter.ChannelId.ACTIVE_POWER, activePower);
 		setValue(this, SymmetricBatteryInverter.ChannelId.REACTIVE_POWER, reactivePower);
@@ -193,16 +197,6 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent
 	}
 
 	@Override
-	public int getChargeMaxPower() {
-		return this.config.maxChargePower();
-	}
-
-	@Override
-	public int getDischargeMaxPower() {
-		return this.config.maxDischargePower();
-	}
-
-	@Override
 	public int getPowerPrecision() {
 		return 1;
 	}
@@ -211,12 +205,17 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent
 	public BatteryInverterConstraint[] getStaticConstraints() throws OpenemsNamedException {
 		var constraints = new ArrayList<BatteryInverterConstraint>();
 
-		var maxActivePower = this.getDischargeMaxPower();
-		var minActivePower = -1 * this.getChargeMaxPower();
-		constraints.add(new BatteryInverterConstraint("HyperCube II maximum Active Power",
+		var maxActivePower = this.getMaxActivePower().get();
+		constraints.add(new BatteryInverterConstraint("PCS Simulator maximum Active Power",
 				ALL, ACTIVE, LESS_OR_EQUALS, maxActivePower));
-		constraints.add(new BatteryInverterConstraint("HyperCube II minimum Active Power",
-				ALL, ACTIVE, GREATER_OR_EQUALS, minActivePower));
+		constraints.add(new BatteryInverterConstraint("PCS Simulator minimum Active Power",
+				ALL, ACTIVE, GREATER_OR_EQUALS, maxActivePower * -1));
+
+		var maxReactivePower = this.getMaxActivePower().get();
+		constraints.add(new BatteryInverterConstraint("PCS Simulator maximum Reactive Power",
+				ALL, REACTIVE, LESS_OR_EQUALS, maxReactivePower));
+		constraints.add(new BatteryInverterConstraint("PCS Simulator minimum Reactive Power",
+				ALL, REACTIVE, GREATER_OR_EQUALS, maxReactivePower * -1));
 
 		return constraints.toArray(new BatteryInverterConstraint[constraints.size()]);
 	}

@@ -4,17 +4,29 @@ import static io.openems.common.utils.IntUtils.maxInteger;
 import static io.openems.edge.common.type.TypeUtils.subtract;
 import static java.lang.Math.max;
 
+import java.util.Optional;
+
 import io.openems.edge.common.filter.PT1Filter;
 import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 import io.openems.edge.oros.bms.api.BatteryProtection;
+import io.openems.edge.oros.ess.api.EnergyStorageProtection;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 
 public class DeepDischargeCurrentLimiter extends CurrentLimiter {
 
-	public DeepDischargeCurrentLimiter(EnergyStorageSystem parent, 
+	public static Optional<DeepDischargeCurrentLimiter> of(EnergyStorageSystem parent, 
 			PowerConversionSystem inverter, BatteryManagementSystem battery) {
-		super(inverter, battery, parent.getDeepDischargeProtectionCurrentChannel());
+
+		if (parent instanceof EnergyStorageProtection protection) {
+			return Optional.of(new DeepDischargeCurrentLimiter(protection, inverter, battery));
+		}
+		return Optional.empty();
+	}
+
+	public DeepDischargeCurrentLimiter(EnergyStorageProtection protection, 
+			PowerConversionSystem inverter, BatteryManagementSystem battery) {
+		super(inverter, battery, protection.getDeepDischargeProtectionCurrentChannel());
 	}
 
 	protected VoltageLimitValues getLimitValues() {

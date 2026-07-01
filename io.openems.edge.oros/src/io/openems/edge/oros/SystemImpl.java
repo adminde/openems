@@ -518,13 +518,6 @@ public class SystemImpl extends AbstractOpenemsComponent implements System,
 		return this.config.openMeteoApiKey();
 	}
 
-	@Override
-	public ModbusSlaveTable getModbusSlaveTable(AccessMode accessMode) {
-		return new ModbusSlaveTable(
-				OpenemsComponent.getModbusSlaveNatureTable(accessMode),
-				System.getModbusSlaveNatureTable(accessMode));
-	}
-
 	/**
 	 * Helper method for JUnit tests. Tests if the given {@link OpenemsEdgeOem}
 	 * provides the same Website-URLs as {@link SystemImpl} - (i.e. all are

@@ -25,9 +25,6 @@ public @interface Config {
 	@AttributeDefinition(name = "Read-Only mode", description = "Block ACTIVE and REACTIVE Power setpoints.")
 	boolean readOnly() default false;
 
-	@AttributeDefinition(name = "Maximum power increase in Percent [%]", description = "Maximum power the system is allowed to ramp up per cycle.")
-	float maxPowerIncreasePercentage() default 100.F;
-
 	@AttributeDefinition(name = "Modbus-ID", description = "ID of Modbus bridge.")
 	String modbus_id() default "modbus0";
 

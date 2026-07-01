@@ -17,6 +17,7 @@ import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.modbusslave.ModbusSlaveNatureTable;
+import io.openems.edge.common.modbusslave.ModbusSlaveTable;
 import io.openems.edge.common.modbusslave.ModbusType;
 import io.openems.edge.common.sum.GridMode;
 
@@ -494,34 +495,49 @@ public interface System extends OpenemsComponent, ModbusSlave {
 		return this.getGridLeadingReactiveEnergyChannel().value();
 	}
 
-	/**
-	 * Used for Modbus/TCP Api Controller. Provides a Modbus table for the Channels
-	 * of this Component.
-	 *
-	 * @param accessMode filters the Modbus-Records that should be shown
-	 * @return the {@link ModbusSlaveNatureTable}
-	 */
-	public static ModbusSlaveNatureTable getModbusSlaveNatureTable(AccessMode accessMode) {
-		return ModbusSlaveNatureTable.of(System.class, accessMode, 920)
-				.channel(0, System.ChannelId.GRID_MODE, ModbusType.ENUM16)
-				.channel(1, System.ChannelId.GRID_MODE_OFF_GRID_TIME, ModbusType.UINT16)
-				.int16Reserved(2, 99)
-				.channel(100, System.ChannelId.GRID_ACTIVE_POWER, ModbusType.INT32)
-				.channel(102, System.ChannelId.GRID_ACTIVE_POWER_L1, ModbusType.INT32)
-				.channel(104, System.ChannelId.GRID_ACTIVE_POWER_L2, ModbusType.INT32)
-				.channel(106, System.ChannelId.GRID_ACTIVE_POWER_L3, ModbusType.INT32)
-				.int16Reserved(108, 119)
-				.channel(120, System.ChannelId.GRID_REACTIVE_POWER, ModbusType.INT32)
-				.channel(122, System.ChannelId.GRID_REACTIVE_POWER_L1, ModbusType.INT32)
-				.channel(124, System.ChannelId.GRID_REACTIVE_POWER_L2, ModbusType.INT32)
-				.channel(126, System.ChannelId.GRID_REACTIVE_POWER_L3, ModbusType.INT32)
-				.int16Reserved(128, 199)
-				.channel(200, System.ChannelId.GRID_IMPORT_ACTIVE_ENERGY, ModbusType.UINT64)
-				.channel(204, System.ChannelId.GRID_EXPORT_ACTIVE_ENERGY, ModbusType.UINT64)
-				.int16Reserved(208, 219)
-				.channel(220, System.ChannelId.GRID_LAGGING_REACTIVE_ENERGY, ModbusType.UINT64)
-				.channel(224, System.ChannelId.GRID_LEADING_REACTIVE_ENERGY, ModbusType.UINT64)
-				.build();
+	@Override
+	public default ModbusSlaveTable getModbusSlaveTable(AccessMode accessMode) {
+		return new ModbusSlaveTable(
+				Status.getModbusSlaveNatureTable(accessMode),
+				Data.getModbusSlaveNatureTable(accessMode)
+		);
+	}
+
+	public static class Status {
+		public static ModbusSlaveNatureTable getModbusSlaveNatureTable(AccessMode accessMode) {
+			return ModbusSlaveNatureTable.of(Status.class, accessMode, 80)
+					.channel(0, OpenemsComponent.ChannelId.STATE, ModbusType.ENUM16)
+					.channel(1, System.ChannelId.GRID_MODE, ModbusType.ENUM16)
+					.channel(2, System.ChannelId.GRID_MODE_OFF_GRID_TIME, ModbusType.UINT16)
+					.build();
+		}
+	}
+
+	public static class Data {
+		public static ModbusSlaveNatureTable getModbusSlaveNatureTable(AccessMode accessMode) {
+			return ModbusSlaveNatureTable.of(Data.class, accessMode, 720)
+					.int16Reserved(0, 7)
+
+					.channel(8, System.ChannelId.GRID_ACTIVE_POWER, ModbusType.INT32)
+					.channel(10, System.ChannelId.GRID_ACTIVE_POWER_L1, ModbusType.INT32)
+					.channel(12, System.ChannelId.GRID_ACTIVE_POWER_L2, ModbusType.INT32)
+					.channel(14, System.ChannelId.GRID_ACTIVE_POWER_L3, ModbusType.INT32)
+					.int16Reserved(16, 17)
+
+					.channel(18, System.ChannelId.GRID_REACTIVE_POWER, ModbusType.INT32)
+					.channel(20, System.ChannelId.GRID_REACTIVE_POWER_L1, ModbusType.INT32)
+					.channel(22, System.ChannelId.GRID_REACTIVE_POWER_L2, ModbusType.INT32)
+					.channel(24, System.ChannelId.GRID_REACTIVE_POWER_L3, ModbusType.INT32)
+					.int16Reserved(26, 97)
+
+					.channel(98, System.ChannelId.GRID_IMPORT_ACTIVE_ENERGY, ModbusType.UINT64)
+					.channel(102, System.ChannelId.GRID_EXPORT_ACTIVE_ENERGY, ModbusType.UINT64)
+					.int16Reserved(106, 117)
+
+					.channel(118, System.ChannelId.GRID_LAGGING_REACTIVE_ENERGY, ModbusType.UINT64)
+					.channel(122, System.ChannelId.GRID_LEADING_REACTIVE_ENERGY, ModbusType.UINT64)
+					.build();
+		}
 	}
 
 }

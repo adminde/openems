@@ -5,17 +5,29 @@ import static io.openems.edge.common.type.TypeUtils.multiply;
 import static io.openems.edge.common.type.TypeUtils.subtract;
 import static java.lang.Math.max;
 
+import java.util.Optional;
+
 import io.openems.edge.common.filter.PT1Filter;
 import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 import io.openems.edge.oros.bms.api.BatteryProtection;
+import io.openems.edge.oros.ess.api.EnergyStorageProtection;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 
 public class OverChargeCurrentLimiter extends CurrentLimiter {
 
-	public OverChargeCurrentLimiter(EnergyStorageSystem parent,
+	public static Optional<OverChargeCurrentLimiter> of(EnergyStorageSystem parent, 
 			PowerConversionSystem inverter, BatteryManagementSystem battery) {
-		super(inverter, battery, parent.getOverChargeProtectionCurrentChannel());
+
+		if (parent instanceof EnergyStorageProtection protection) {
+			return Optional.of(new OverChargeCurrentLimiter(protection, inverter, battery));
+		}
+		return Optional.empty();
+	}
+
+	public OverChargeCurrentLimiter(EnergyStorageProtection protection, 
+			PowerConversionSystem inverter, BatteryManagementSystem battery) {
+		super(inverter, battery, protection.getOverChargeProtectionCurrentChannel());
 	}
 
 	protected VoltageLimitValues getLimitValues() {

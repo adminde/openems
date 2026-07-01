@@ -1,5 +1,8 @@
 package io.openems.edge.oros.pcs.api;
 
+import static io.openems.common.channel.PersistencePriority.HIGH;
+import static io.openems.common.types.OpenemsType.INTEGER;
+
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
@@ -22,14 +25,41 @@ public interface PowerConversionSystem extends
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 
+		/**
+		 * Holds the currently maximum possible active power. This value is commonly
+		 * defined by the inverter limitations.
+		 *
+		 * <ul>
+		 * <li>Interface: SymmetricBatteryInverter
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: zero or positive value
+		 * </ul>
+		 */
+		MAX_ACTIVE_POWER(Doc.of(INTEGER)
+				.unit(Unit.WATT)
+				.persistencePriority(HIGH)),
+
+		/**
+		 * Holds the currently maximum possible reactive power. This value is commonly
+		 * defined by the inverter limitations.
+		 *
+		 * <ul>
+		 * <li>Interface: SymmetricBatteryInverter
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: zero or positive value
+		 * </ul>
+		 */
+		MAX_REACTIVE_POWER(Doc.of(INTEGER)
+				.unit(Unit.VOLT_AMPERE_REACTIVE)
+				.persistencePriority(HIGH)),
+
 		DC_VOLTAGE(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.MILLIVOLT)
 				.persistencePriority(PersistencePriority.HIGH)),
 		DC_CURRENT(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.MILLIAMPERE)
-				.persistencePriority(PersistencePriority.HIGH)),
-		DC_POWER(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.WATT)
 				.persistencePriority(PersistencePriority.HIGH)),
 
 		AIR_TEMPERATURE(Doc.of(OpenemsType.INTEGER)
@@ -58,20 +88,82 @@ public interface PowerConversionSystem extends
 	public float getEfficiencyFactor();
 
 	/**
-	 * Gets the nominal maximum active charge power of this inverter in [W] (positive value).
-	 * Used by to scale the ramp for {@code AllowedChargePower}.
+	 * Gets the Channel for {@link ChannelId#MAX_ACTIVE_POWER}.
 	 *
-	 * @return max charge power in [W]
+	 * @return the Channel
 	 */
-	public int getChargeMaxPower();
+	public default IntegerReadChannel getMaxActivePowerChannel() {
+		return this.channel(ChannelId.MAX_ACTIVE_POWER);
+	}
 
 	/**
-	 * Gets the nominal maximum discharge power of this inverter in [W] (positive value).
-	 * Used to scale the ramp for {@code AllowedDischargePower}.
+	 * Gets the Maximum Active Power in [W], range "&gt;= 0". See
+	 * {@link ChannelId#MAX_ACTIVE_POWER}.
 	 *
-	 * @return max discharge power in [W]
+	 * @return the Channel {@link Value}
 	 */
-	public int getDischargeMaxPower();
+	public default Value<Integer> getMaxActivePower() {
+		return this.getMaxActivePowerChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#MAX_ACTIVE_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setMaxActivePower(Integer value) {
+		this.getMaxActivePowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#MAX_ACTIVE_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setMaxActivePower(int value) {
+		this.getMaxActivePowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#MAX_REACTIVE_POWER}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getMaxReactivePowerChannel() {
+		return this.channel(ChannelId.MAX_REACTIVE_POWER);
+	}
+
+	/**
+	 * Gets the Maximum Reactive Power in [var], range "&gt;= 0". See
+	 * {@link ChannelId#MAX_REACTIVE_POWER}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getMaxReactivePower() {
+		return this.getMaxReactivePowerChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#MAX_REACTIVE_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setMaxReactivePower(Integer value) {
+		this.getMaxReactivePowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#MAX_REACTIVE_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setMaxReactivePower(int value) {
+		this.getMaxReactivePowerChannel().setNextValue(value);
+	}
 
 	/**
 	 * Gets the Channel for {@link ChannelId#DC_VOLTAGE}.
@@ -148,41 +240,11 @@ public interface PowerConversionSystem extends
 	}
 
 	/**
-	 * Gets the Channel for {@link ChannelId#DC_POWER}.
+	 * Gets the DC Power in [W].
 	 *
-	 * @return the Channel
+	 * @return the DC power
 	 */
-	public default IntegerReadChannel getDcPowerChannel() {
-		return this.channel(ChannelId.DC_POWER);
-	}
-
-	/**
-	 * Gets the DC Power in [W]. See
-	 * {@link ChannelId#DC_POWER}.
-	 *
-	 * @return the Channel {@link Value}
-	 */
-	public default Value<Integer> getDcPower() {
-		return this.getDcPowerChannel().value();
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on {@link ChannelId#DC_POWER} Channel.
-	 *
-	 * @param value the next value in [W]
-	 */
-	public default void _setDcPower(Integer value) {
-		this.getDcPowerChannel().setNextValue(value);
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on {@link ChannelId#DC_POWER} Channel.
-	 *
-	 * @param value the next value in [W]
-	 */
-	public default void _setDcPower(int value) {
-		this.getDcPowerChannel().setNextValue(value);
-	}
+	public Integer getDcPower();
 
 	/**
 	 * Gets the Channel for {@link ChannelId#AIR_TEMPERATURE}.
