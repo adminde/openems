@@ -7,10 +7,10 @@
       [converter]="Utils.CONVERT_TO_PERCENT" [value]="forceChargeSoc"></oe-flat-widget-line>
     <ion-item lines="none" class="ion-no-padding" style="--inner-padding-end: 0px; --padding-end: 0px;">
       <ion-label>{{ 'EDGE.INDEX.WIDGETS.LIMIT_TOTAL_DISCHARGE.MIN_SOC' | translate }}</ion-label>
-      <ion-label slot="end">{{ soc | unitvalue:'%' }}</ion-label>
+      <ion-label slot="end">{{ minSocSlider | unitvalue:'%' }}</ion-label>
     </ion-item>
     <ion-range [(ngModel)]="minSocSlider" (ionInput)="isSliderActive = true" (ionChange)="onMinSocChange($event.detail.value)"
-      debounce="500" pin min="0" max="100" color="dark" style="padding-top: 0px;">
+      (click)="$event.stopPropagation()" debounce="500" pin min="0" max="100" color="dark" style="padding-top: 0px;">
       <ion-label slot="start" color="medium">{{ 0 | unitvalue:'%' }}</ion-label>
       <ion-label slot="end" color="medium">{{ 100 | unitvalue:'%' }}</ion-label>
     </ion-range>
