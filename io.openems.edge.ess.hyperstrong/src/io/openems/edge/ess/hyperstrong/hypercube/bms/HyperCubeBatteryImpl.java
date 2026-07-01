@@ -314,7 +314,7 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 		tasks.addAll(defineModbusUnsignedWordInputRegistersTasks(10057, 260,
 				this.addModbusAnalyticsChannel("CELL_VOLTAGE", "%s_%03d", Unit.MILLIVOLT),
 				this::m));
-		tasks.addAll(defineModbusSignedWordInputRegistersTasks(10490, 210,
+		tasks.addAll(defineModbusSignedWordInputRegistersTasks(10490, 60,
 				this.addModbusAnalyticsChannel("CELL_TEMPERATURE", "%s_%03d", Unit.DEZIDEGREE_CELSIUS),
 				this::m));
 
@@ -323,7 +323,7 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 
 	private Task[] defineModbusConnectorAnalyticsTasks() { //, HyperCubeModel model) {
 		List<Task> tasks = new ArrayList<Task>(
-				defineModbusSignedWordInputRegistersTasks(10700, 72,
+				defineModbusSignedWordInputRegistersTasks(10700, 20,
 						this.addModbusAnalyticsChannel("CONNECTOR_TEMPERATURE", "%s_%02d", Unit.DEZIDEGREE_CELSIUS),
 						this::m)
 		);
@@ -346,7 +346,7 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 
 	private Task[] defineModbusBusBarAnalyticsTasks() { //, HyperCubeModel model) {
 		List<Task> tasks = new ArrayList<Task>(
-				defineModbusSignedWordInputRegistersTasks(10781, 100,
+				defineModbusSignedWordInputRegistersTasks(10781, 20,
 						this.addModbusAnalyticsChannel("BUSBAR_TEMPERATURE", "%s_%03d", Unit.DEZIDEGREE_CELSIUS),
 						this::m)
 		);
