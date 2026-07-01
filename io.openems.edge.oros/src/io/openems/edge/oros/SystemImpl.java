@@ -14,7 +14,6 @@ import org.osgi.service.metatype.annotations.Designate;
 
 import com.google.common.collect.ImmutableMap;
 
-import io.openems.common.channel.AccessMode;
 import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.oem.AppLink;
 import io.openems.common.oem.OpenemsEdgeOem;
@@ -23,7 +22,6 @@ import io.openems.edge.common.component.AbstractOpenemsComponent;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.modbusslave.ModbusSlave;
-import io.openems.edge.common.modbusslave.ModbusSlaveTable;
 import io.openems.edge.common.sum.Sum;
 
 @Designate(ocd = Config.class, factory = false)
@@ -43,7 +41,7 @@ public class SystemImpl extends AbstractOpenemsComponent implements System,
 	public static final String OROS_ENERGY_FULL_NAME = "OROS Energy Europe GmbH";
 
 	public static final String PACKAGE = "openems";
-	public static final String VERSION = "2024.5.1";  // TODO: Use versioneer or something similar
+	public static final String VERSION = "2026.7.0";  // TODO: Use versioneer or something similar
 
 	private static final List<Language> REQUIRED_LANGUAGES = List.of(
 			Language.DE,
@@ -510,12 +508,14 @@ public class SystemImpl extends AbstractOpenemsComponent implements System,
 
 	@Override
 	public String getOpenCageApiKey() {
-		return this.config.openCageApiKey();
+		var key = this.config.openCageApiKey();
+		return key == null || key.isBlank() ? null : key;
 	}
 
 	@Override
 	public String getOpenMeteoApiKey() {
-		return this.config.openMeteoApiKey();
+		var key = this.config.openMeteoApiKey();
+		return key == null || key.isBlank() ? null : key;
 	}
 
 	/**
