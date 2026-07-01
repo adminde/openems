@@ -31,7 +31,7 @@ import io.openems.edge.pvinverter.api.ManagedSymmetricPvInverter;
 		configurationPolicy = ConfigurationPolicy.REQUIRE //
 )
 public class Edge2EdgeWebsocketPvInverterImpl extends AbstractEdge2EdgeWebsocket implements
-		ManagedSymmetricPvInverter, ElectricityMeter, Edge2EdgePvInverter, Edge2EdgeWebsocket, OpenemsComponent {
+		ManagedSymmetricPvInverter, ElectricityMeter, Edge2EdgeWebsocketPvInverter, Edge2EdgeWebsocket, OpenemsComponent {
 
 	@Reference
 	private ConfigurationAdmin cm;
@@ -68,7 +68,7 @@ public class Edge2EdgeWebsocketPvInverterImpl extends AbstractEdge2EdgeWebsocket
 				ManagedSymmetricPvInverter.ChannelId.values(),
 				StartStoppable.ChannelId.values(), //
 				Edge2EdgeWebsocket.ChannelId.values(), //
-				Edge2EdgePvInverter.ChannelId.values() //
+				Edge2EdgeWebsocketPvInverter.ChannelId.values() //
 		);
 		this._setMaxApparentPower(Integer.MAX_VALUE); // has no effect, as long as AllowedCharge/DischargePower are null
 

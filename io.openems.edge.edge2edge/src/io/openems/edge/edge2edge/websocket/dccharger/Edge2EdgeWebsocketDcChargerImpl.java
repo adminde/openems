@@ -25,7 +25,7 @@ import io.openems.edge.ess.dccharger.api.EssDcCharger;
 		configurationPolicy = ConfigurationPolicy.REQUIRE //
 )
 public class Edge2EdgeWebsocketDcChargerImpl extends AbstractEdge2EdgeWebsocket implements
-		EssDcCharger, Edge2EdgeDcCharger, Edge2EdgeWebsocket, OpenemsComponent {
+		EssDcCharger, Edge2EdgeWebsocketDcCharger, Edge2EdgeWebsocket, OpenemsComponent {
 
 	@Reference
 	private ConfigurationAdmin cm;
@@ -57,7 +57,7 @@ public class Edge2EdgeWebsocketDcChargerImpl extends AbstractEdge2EdgeWebsocket 
 		super(//
 				OpenemsComponent.ChannelId.values(), //
 				EssDcCharger.ChannelId.values(), //
-				Edge2EdgeDcCharger.ChannelId.values(), //
+				Edge2EdgeWebsocketDcCharger.ChannelId.values(), //
 				Edge2EdgeWebsocket.ChannelId.values() //
 		);
 	}

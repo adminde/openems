@@ -26,7 +26,7 @@ import io.openems.edge.meter.api.ElectricityMeter;
 		configurationPolicy = ConfigurationPolicy.REQUIRE //
 )
 public class Edge2EdgeWebsocketMeterImpl extends AbstractEdge2EdgeWebsocket
-		implements ElectricityMeter, Edge2EdgeMeter, Edge2EdgeWebsocket, OpenemsComponent {
+		implements ElectricityMeter, Edge2EdgeWebsocketMeter, Edge2EdgeWebsocket, OpenemsComponent {
 
 	@Reference
 	private ConfigurationAdmin cm;
@@ -60,7 +60,7 @@ public class Edge2EdgeWebsocketMeterImpl extends AbstractEdge2EdgeWebsocket
 		super(//
 				OpenemsComponent.ChannelId.values(), //
 				ElectricityMeter.ChannelId.values(), //
-				Edge2EdgeMeter.ChannelId.values(), //
+				Edge2EdgeWebsocketMeter.ChannelId.values(), //
 				Edge2EdgeWebsocket.ChannelId.values() //
 		);
 	}
