@@ -354,7 +354,9 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 							decodeAlarm(31, value, this.channel(AlarmChannelId.HIGH_SOFT_START_RESISTOR_TEMPERATURE_FAULT));
 						}),
 						defineModbusAlarmRegister(this, 10, 3037, this::addModbusAlarmChannel),
-						m(HyperCubeInverter.ChannelId.PCS_POWER_ON_STATUS, new UnsignedWordElement(3039)),
+						m(new BitsWordElement(3039, this)
+								.bit(1, HyperCubeInverter.ChannelId.PCS_POWER_ON_STATUS)
+						),
 						m(new BitsWordElement(3040, this)
 								.bit(0, HyperCubeInverter.ChannelId.COMMUNICATION_ABNORMAL)
 								.bit(1, HyperCubeInverter.ChannelId.COMMUNICATION_CONNECTED)

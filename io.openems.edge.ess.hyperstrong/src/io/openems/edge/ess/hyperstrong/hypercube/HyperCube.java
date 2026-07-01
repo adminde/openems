@@ -137,7 +137,6 @@ public interface HyperCube extends EnergyStorageSystem,
 		// Alarm Value 6
 		QS_FUSE_FAULT(Doc.of(Level.FAULT)),
 		QF_TRIP_FAULT(Doc.of(Level.FAULT)),
-		THERMAL_MANAGEMENT_SYSTEM_ALARM(Doc.of(Level.FAULT)),
 
 		// Alarm Value 7
 		PCS_STARTUP_FAULT(Doc.of(Level.FAULT)),
