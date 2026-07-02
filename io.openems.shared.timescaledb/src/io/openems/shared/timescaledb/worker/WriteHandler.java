@@ -1,4 +1,4 @@
-package io.openems.shared.timescaledb;
+package io.openems.shared.timescaledb.worker;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -20,10 +20,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import io.openems.shared.timescaledb.DataPoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.zaxxer.hikari.HikariDataSource;
+
+import io.openems.shared.timescaledb.schema.ChannelDefinition;
+import io.openems.shared.timescaledb.schema.ChannelManager;
 
 /**
  * Handles asynchronous, multi-threaded batched inserts to TimescaleDB.
@@ -170,12 +174,9 @@ public class WriteHandler {
 							}
 						}
 					}
-				} else {
-
-					if (!this.retryFlush(buffer)) {
-						this.log.error("Dropping {} points after {} failed flush attempts (Data Error)",
-								buffer.size(), MAX_FLUSH_RETRIES, e);
-					}
+				} else if (!this.retryFlush(buffer)) {
+					this.log.error("Dropping {} points after {} failed flush attempts (Data Error)",
+							buffer.size(), MAX_FLUSH_RETRIES, e);
 				}
 				buffer.clear();
 			}

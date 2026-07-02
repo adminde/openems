@@ -1,7 +1,6 @@
-package io.openems.shared.timescaledb;
+package io.openems.shared.timescaledb.worker;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -21,6 +20,9 @@ import com.google.gson.JsonElement;
 import com.zaxxer.hikari.HikariDataSource;
 
 import io.openems.common.types.ChannelAddress;
+import io.openems.shared.timescaledb.schema.ChannelDefinition;
+import io.openems.shared.timescaledb.schema.ChannelManager;
+import io.openems.shared.timescaledb.schema.Schema;
 
 /**
  * Handles read queries for TimescaleDB, including historic data, energy totals, and latest values.
@@ -42,7 +44,7 @@ public class ReadHandler {
 	 *                                   fall back to raw tables
 	 */
 	public ReadHandler(HikariDataSource dataSource, ChannelManager channelManager,
-			boolean minutelyAggregateAvailable) {
+	                   boolean minutelyAggregateAvailable) {
 		this.dataSource = dataSource;
 		this.channelManager = channelManager;
 		this.minutelyAggregateAvailable = minutelyAggregateAvailable;
@@ -82,7 +84,7 @@ public class ReadHandler {
 	}
 
 	/**
-	 * Returns time-series data bucketed by the requested resolution.
+	 * Returns time-series data, bucketed by the requested resolution.
 	 *
 	 * <p>
 	 * For each requested channel, picks the best source view and runs a single
@@ -116,22 +118,16 @@ public class ReadHandler {
 				String view = this.pickSource(info.dataType(), info.core(), bucketSecs, from);
 				byView.computeIfAbsent(view, k -> new ArrayList<>()).add(new ChannelAddr(info.channelId(), addr));
 			}
-
-			
 			for (var entry : byView.entrySet()) {
 				String view = entry.getKey();
 				List<ChannelAddr> channelAddrs = entry.getValue();
 				UUID[] channelIds = channelAddrs.stream().map(ChannelAddr::channelId).toArray(UUID[]::new);
 
-				
 				String timeCol = view.startsWith("agg_") ? "bucket" : "time";
 				String aggExpr = view.startsWith("agg_") ? "AVG(avg_val)" : "AVG(value)";
-
 				if (view.contains("string")) {
-					
 					aggExpr = view.startsWith("agg_") ? "last(last_val, bucket)" : "last(value, time)";
 				}
-
 				String sql = "SELECT time_bucket(?::interval, " + timeCol + ") AS b, channel_id, "
 						+ aggExpr + " AS v FROM " + view + " "
 						+ "WHERE channel_id = ANY(?) AND " + timeCol + " >= ? AND " + timeCol + " < ? "
@@ -169,7 +165,7 @@ public class ReadHandler {
 	 * the entire [from, to) window.
 	 *
 	 * <p>
-	 * Always queries raw tables to preserve precision — energy totals must not
+	 * Always queries raw tables to preserve precision. Energy totals must not
 	 * be smoothed by aggregates.
 	 * 
 	 * @param edgeName The Edge identifier
@@ -191,10 +187,10 @@ public class ReadHandler {
 					result.put(addr, com.google.gson.JsonNull.INSTANCE);
 					continue;
 				}
-				String table = "data_" + dataTypeFolder(info.dataType());
 
 				// Sum positive deltas, treating any downward jump as a counter reset
 				// where the post-reset value itself counts as accumulation.
+				String table = "data_" + dataTypeFolder(info.dataType());
 				String sql = """
 						WITH ordered AS (
 						    SELECT value, LAG(value) OVER (ORDER BY time) AS prev
@@ -257,8 +253,6 @@ public class ReadHandler {
 					continue;
 				}
 				String table = "data_" + dataTypeFolder(info.dataType());
-
-
 				String sql = """
 						WITH per_bucket AS (
 						    SELECT time_bucket(?::interval, time) AS b,
@@ -444,14 +438,14 @@ public class ReadHandler {
 		if (core) {
 			// Daily tier.
 			if (bucketSeconds >= 86400) {
-				return reachesBefore(from, SchemaHandler.AGG_1D_CORE_DAYS)
+				return reachesBefore(from, Schema.AGG_1D_CORE_DAYS)
 						? "agg_1d_" + typePart          // shared, kept forever
 						: "agg_1d_core_" + typePart;
 			}
 			// 15-minute tier — also where a sub-15m request lands once it predates
 			// the 1-minute retention (no 1-minute data exists that far back).
-			if (bucketSeconds >= 900 || reachesBefore(from, SchemaHandler.AGG_1M_CORE_DAYS)) {
-				return reachesBefore(from, SchemaHandler.AGG_15M_CORE_DAYS)
+			if (bucketSeconds >= 900 || reachesBefore(from, Schema.AGG_1M_CORE_DAYS)) {
+				return reachesBefore(from, Schema.AGG_15M_CORE_DAYS)
 						? "agg_15m_" + typePart         // shared, kept forever
 						: "agg_15m_core_" + typePart;
 			}

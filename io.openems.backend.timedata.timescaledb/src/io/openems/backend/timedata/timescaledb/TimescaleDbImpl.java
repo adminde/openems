@@ -3,8 +3,6 @@ package io.openems.backend.timedata.timescaledb;
 import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -39,9 +37,8 @@ import io.openems.common.types.ChannelAddress;
 import io.openems.common.types.EdgeConfig;
 import io.openems.common.types.OpenemsType;
 import io.openems.shared.timescaledb.DataPoint;
-import io.openems.shared.timescaledb.TimescaleDbConfig.Deployment;
-import io.openems.shared.timescaledb.Priorities;
-import io.openems.shared.timescaledb.TimescaleDbConfig;
+import io.openems.shared.timescaledb.Utils;
+import io.openems.shared.timescaledb.Tenancy;
 import io.openems.shared.timescaledb.TimescaleDbHandler;
 
 @Designate(ocd = Config.class, factory = true)
@@ -50,9 +47,9 @@ import io.openems.shared.timescaledb.TimescaleDbHandler;
 		configurationPolicy = ConfigurationPolicy.REQUIRE,
 		immediate = true
 )
-public class TimescaledbImpl extends AbstractOpenemsBackendComponent implements Timedata {
+public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements Timedata {
 
-	private final Logger log = LoggerFactory.getLogger(TimescaledbImpl.class);
+	private final Logger log = LoggerFactory.getLogger(TimescaleDbImpl.class);
 
 
 	private static final int INIT_RETRY_SECONDS = 10;
@@ -66,7 +63,7 @@ public class TimescaledbImpl extends AbstractOpenemsBackendComponent implements 
 	@Reference
 	private volatile Metadata metadata;
 
-	public TimescaledbImpl() {
+	public TimescaleDbImpl() {
 		super("Timedata.TimescaleDB");
 	}
 
@@ -90,12 +87,14 @@ public class TimescaledbImpl extends AbstractOpenemsBackendComponent implements 
 		}
 		TimescaleDbHandler handler;
 		try {
-			handler = new TimescaleDbHandler(new TimescaleDbConfig(
-					config.host(), config.port(), config.database(), config.username(), config.password(),
-					config.poolSize(), config.rawRetentionDays(), config.rawCompressionDays(),
-					true, // Backend builds the 1-minute aggregate
-					config.writeWorkers(),
-					Deployment.BACKEND));
+			handler = new TimescaleDbHandler(Tenancy.MULTI, config.host(), config.username(), config.password()) //
+					.database(config.database()) //
+					.port(config.port()) //
+					.poolSize(config.poolSize()) //
+					.writeWorkers(config.writeWorkers()) //
+					.rawRetentionDays(config.rawRetentionDays()) //
+					.rawCompressionDays(config.rawCompressionDays()) //
+					.connect();
 		} catch (SQLException | RuntimeException e) {
 			this.logError(this.log, "TimescaleDB initialization failed; retrying in "
 					+ INIT_RETRY_SECONDS + "s: " + e.getMessage());
@@ -197,7 +196,7 @@ public class TimescaledbImpl extends AbstractOpenemsBackendComponent implements 
 							componentType = component.getFactoryId();
 							ch = component.getChannels().get(channelId);
 							if (ch != null) {
-								core = Priorities.isCore(ch.getDetail().getPersistencePriority());
+								core = Utils.isCore(ch.getDetail().getPersistencePriority());
 							}
 						}
 					}

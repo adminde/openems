@@ -1,4 +1,4 @@
-package io.openems.shared.timescaledb;
+package io.openems.shared.timescaledb.schema;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -6,19 +6,22 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import io.openems.common.types.ChannelAddress;
+import io.openems.shared.timescaledb.DataPoint;
+import io.openems.shared.timescaledb.schema.tenancy.MultiTenantChannelManager;
+import io.openems.shared.timescaledb.schema.tenancy.SingleTenantChannelManager;
 
 /**
  * Manages the in-memory cache of Channel metadata to avoid costly Database
  * JOINs.
  *
  * <p>
- * This base class holds the deployment-agnostic caching logic. The actual SQL
- * differs between deployments and is provided by subclasses:
+ * This base class holds the tenancy-agnostic caching logic. The actual SQL
+ * differs between the tenancy variants and is provided by subclasses:
  * <ul>
- * <li>{@link BackendChannelManager} resolves through the {@code edge} dimension
- * table, so one Backend database can hold many edges.
- * <li>{@link EdgeChannelManager} omits the {@code edge} table entirely — the
- * local Edge database stores data for exactly one edge, so the edge name is
+ * <li>{@link MultiTenantChannelManager} resolves through the {@code edge}
+ * dimension table, so one database can hold many edges.
+ * <li>{@link SingleTenantChannelManager} omits the {@code edge} table entirely
+ * — the database stores data for exactly one edge, so the edge name is
  * ignored.
  * </ul>
  */
@@ -37,8 +40,8 @@ public abstract class ChannelManager {
 	 * been written.
 	 *
 	 * @param con      An open JDBC connection
-	 * @param edgeName The edge identifier, e.g. "edge0" (ignored by single-edge
-	 *                 deployments)
+	 * @param edgeName The edge identifier, e.g. "edge0" (ignored by the
+	 *                 single-tenant variant)
 	 * @param addr     OpenEMS channel address (componentId/channelName)
 	 * @return The resolved channel info or {@code null} if unknown
 	 * @throws SQLException on database error
@@ -57,11 +60,11 @@ public abstract class ChannelManager {
 	}
 
 	/**
-	 * Deployment-specific read-path lookup. No caching — the base class handles
+	 * Tenancy-specific read-path lookup. No caching — the base class handles
 	 * that.
 	 *
 	 * @param con      An open JDBC connection
-	 * @param edgeName The edge identifier (ignored by single-edge deployments)
+	 * @param edgeName The edge identifier (ignored by the single-tenant variant)
 	 * @param addr     OpenEMS channel address
 	 * @return the resolved {@link ChannelDefinition} or {@code null} if unknown
 	 * @throws SQLException on database error
@@ -93,7 +96,7 @@ public abstract class ChannelManager {
 	}
 
 	/**
-	 * Deployment-specific write-path resolve (get-or-create). No caching — the base
+	 * Tenancy-specific write-path resolve (get-or-create). No caching — the base
 	 * class handles that.
 	 *
 	 * @param con An open JDBC connection
@@ -117,7 +120,14 @@ public abstract class ChannelManager {
 		return cached != null && !needsReresolve(cached, p) ? cached : null;
 	}
 
-	static String channelKey(DataPoint p) {
+	/**
+	 * Builds the cache key ("edgeName/componentName/channelName") for a
+	 * {@link DataPoint}. Also used by the write path to group points per channel.
+	 *
+	 * @param p The DataPoint
+	 * @return the cache key
+	 */
+	public static String channelKey(DataPoint p) {
 		return p.edgeName() + "/" + p.componentAlias() + "/" + p.channelName();
 	}
 

@@ -48,28 +48,28 @@ Three cooperating bundles:
 
 ### Edge vs Backend schema
 
-Both deployments share one schema *except* for the edge dimension. `SchemaHandler`
-and `ChannelManager` are abstract bases holding everything common — the
-`channel_def`/`channel` tables, hypertables, aggregates, policies, and all the
-caching/resolution logic — and each deployment supplies only the two parts that
-differ:
+Both tenancy variants share one schema *except* for the edge dimension.
+`Schema` and `ChannelManager` are abstract bases holding everything
+common — the `channel_def`/`channel` tables, hypertables, aggregates, policies,
+and all the caching/resolution logic — and each variant supplies only the two
+parts that differ:
 
-| | Backend (`Backend*`) | Edge (`Edge*`) |
+| | Multi-tenant (`MultiTenant*`, Backend) | Single-tenant (`SingleTenant*`, Edge) |
 |---|---|---|
 | `edge` dimension table | yes — one DB holds many edges | none — a single local edge |
 | `component` uniqueness | `(edge_id, name)` | `name` |
 | `get_or_create_channel_id(...)` | takes an edge name; upserts the edge | no edge argument |
 
-`TimescaleDbConfig.deployment` (`Deployment.EDGE` / `Deployment.BACKEND`) selects
-the pair, and `TimescaleDbHandler` instantiates the matching `SchemaHandler` +
-`ChannelManager` at construction. The read/write handlers, `DataPoint`, and the
-rest of the API are deployment-agnostic — on the Edge the `edgeName` simply
-flows through and is ignored.
+The `Tenancy` passed to the `TimescaleDbHandler` constructor
+(`Tenancy.SINGLE_TENANT` / `Tenancy.MULTI_TENANT`) selects the pair, and
+`connect()` instantiates the matching `Schema` + `ChannelManager`. The
+read/write handlers, `DataPoint`, and the rest of the API are tenancy-agnostic
+— in single-tenant mode the `edgeName` simply flows through and is ignored.
 
 Channel registration is a small "conductor" stored procedure
 (`get_or_create_channel_id`) that calls modular PL/pgSQL helpers
 (`get_or_create_component`, `get_or_create_channel_def`, `get_or_create_channel`,
-plus `get_or_create_edge` on the Backend). A single server-side call stays atomic
+plus `get_or_create_edge` in the multi-tenant variant). A single server-side call stays atomic
 with no extra round trips.
 
 ### Fast Lane vs Slow Lane
@@ -157,10 +157,11 @@ Enable the component matching your deployment mode in the Felix Web Console:
 | `noOfCycles` | OpenEMS cycles between each DB flush. |
 | `persistencePriority` | Minimum channel priority to store (`HIGH` = critical only … `LOW` = everything). |
 
-> **Not a console field:** the deployment type (`Deployment.EDGE` /
-> `Deployment.BACKEND`) is fixed in code by whichever bundle activates the
-> handler. It selects the schema/resolver variant **and** whether the 1-minute
-> aggregate is built (`true` for the Backend, `false` for the Edge).
+> **Not a console field:** the tenancy (`Tenancy.SINGLE_TENANT` /
+> `Tenancy.MULTI_TENANT`) is fixed in code by whichever bundle activates the
+> handler (Edge → single-tenant, Backend → multi-tenant). It selects the
+> schema/resolver variant **and** whether the 1-minute aggregate is built
+> (`true` for the Backend, `false` for the Edge).
 
 ### 3. Verify
 
@@ -193,7 +194,15 @@ Once a `TimescaleDbHandler` is constructed (done for you by the Edge or Backend
 bundle's `activate(...)`), the surface is small:
 
 ```java
-TimescaleDbHandler db = new TimescaleDbHandler(config);
+TimescaleDbHandler db = new TimescaleDbHandler(Tenancy.SINGLE_TENANT, host, username, password)
+        .database("data")            // optional — defaults shown in parentheses ("data")
+        .port(5432)                  // (5432)
+        .poolSize(10)                // (10)
+        .writeWorkers(4)             // (4)
+        .rawRetentionDays(30)        // (30)
+        .rawCompressionDays(7)       // (7)
+        .minutelyAggregate(false)    // (derived from tenancy: MULTI_TENANT → true)
+        .connect();                  // opens the pool, applies the schema, starts the workers
 
 // Write — returns near-immediately; JDBC happens on worker threads
 db.writeBatch(points);
@@ -219,20 +228,23 @@ averaging aggregates.
 ```
 io.openems.shared.timescaledb/
 ├── README.md                ← you are here
-└── src/io/openems/shared/timescaledb/
-    ├── TimescaleDbConfig.java       connection + tuning parameters; nested Deployment enum (EDGE/BACKEND)
-    ├── TimescaleDbHandler.java      facade — entry point; picks the variant pair from config.deployment()
-    ├── SchemaHandler.java           abstract DDL base: shared tables, hypertables, aggregates, policies, retention constants
-    ├── BackendSchemaHandler.java    multi-edge schema: edge dimension + edge_id FK + edge-aware stored functions
-    ├── EdgeSchemaHandler.java       single-edge schema: no edge table; component keyed by name
-    ├── Priorities.java              PersistencePriority → core (Fast Lane) flag
-    ├── ChannelManager.java          abstract names → channel_id UUID resolver, with cache
-    ├── BackendChannelManager.java   multi-edge lookup/resolve (joins through edge)
-    ├── EdgeChannelManager.java      single-edge lookup/resolve (no edge join; edge name ignored)
-    ├── WriteHandler.java            async batched writes + queue monitor
-    ├── ReadHandler.java             read queries + resolution/retention routing
-    ├── DataPoint.java               one channel sample in transit
-    └── ChannelDefinition.java       resolved channel metadata
+└── src/io/openems/shared/timescaledb/          (exported package = public API)
+    ├── Tenancy.java                            SINGLE_TENANT / MULTI_TENANT — selects the schema/resolver variant pair
+    ├── TimescaleDbHandler.java                 facade — entry point; required params in constructor, optional fluent setters, connect()
+    ├── Utils.java                              PersistencePriority → core (Fast Lane) flag
+    ├── DataPoint.java                          one channel sample in transit
+    ├── schema/                                 (private package)
+    │   ├── Schema.java                         abstract DDL base: shared tables, hypertables, aggregates, policies, retention constants
+    │   ├── ChannelManager.java                 abstract names → channel_id UUID resolver, with cache
+    │   ├── ChannelDefinition.java              resolved channel metadata
+    │   └── tenancy/                            (private package)
+    │       ├── SingleTenantSchemaHandler.java  single-tenant schema: no edge table; component keyed by name
+    │       ├── MultiTenantSchemaHandler.java   multi-tenant schema: edge dimension + edge_id FK + edge-aware stored functions
+    │       ├── SingleTenantChannelManager.java single-tenant lookup/resolve (no edge join; edge name ignored)
+    │       └── MultiTenantChannelManager.java  multi-tenant lookup/resolve (joins through edge)
+    └── worker/                                 (private package)
+        ├── WriteHandler.java                   async batched writes + queue monitor
+        └── ReadHandler.java                    read queries + resolution/retention routing
 ```
 
 ---

@@ -26,9 +26,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 
 import io.openems.shared.timescaledb.DataPoint;
-import io.openems.shared.timescaledb.TimescaleDbConfig.Deployment;
-import io.openems.shared.timescaledb.Priorities;
-import io.openems.shared.timescaledb.TimescaleDbConfig;
+import io.openems.shared.timescaledb.Utils;
+import io.openems.shared.timescaledb.Tenancy;
 import io.openems.shared.timescaledb.TimescaleDbHandler;
 
 import io.openems.common.channel.AccessMode;
@@ -46,18 +45,18 @@ import io.openems.edge.timedata.api.Timeranges;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(//
-		name = "Timedata.Timescaledb", //
+		name = "Timedata.TimescaleDB", //
 		immediate = true, //
 		configurationPolicy = ConfigurationPolicy.REQUIRE, //
 		property = { //
 				"event.topics=" + EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE //
 		})
-public class TimescaledbImpl extends AbstractOpenemsComponent
-		implements Timedata, OpenemsComponent, EventHandler {
+public class TimescaleDbImpl extends AbstractOpenemsComponent
+		implements TimescaleDb, Timedata, OpenemsComponent, EventHandler {
 
 	private static final int BUFFER_MAX_SIZE = 5000;
 
-	private final Logger log = LoggerFactory.getLogger(TimescaledbImpl.class);
+	private final Logger log = LoggerFactory.getLogger(TimescaleDbImpl.class);
 	private final List<DataPoint> buffer = new ArrayList<>();
 
 	@Reference
@@ -70,7 +69,7 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 	private int cycleCount = 0;
 	private TimescaleDbHandler dbHandler;
 
-	public TimescaledbImpl() {
+	public TimescaleDbImpl() {
 		super(//
 				OpenemsComponent.ChannelId.values(), //
 				Timedata.ChannelId.values() //
@@ -82,13 +81,15 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 		super.activate(context, config.id(), config.alias(), config.enabled());
 		this.config = config;
 		try {
-			this.dbHandler = new TimescaleDbHandler(new TimescaleDbConfig(
-					config.host(), config.port(), config.database(), config.username(), config.password(), config.poolSize(),
-					config.rawRetentionDays(), config.rawCompressionDays(),
-					false,
-					config.writeWorkers(),
-					Deployment.EDGE
-			));
+			this.dbHandler = new TimescaleDbHandler(Tenancy.SINGLE, //
+					config.host(), config.username(), config.password()) //
+					.database(config.database()) //
+					.port(config.port()) //
+					.poolSize(config.poolSize()) //
+					.writeWorkers(config.writeWorkers()) //
+					.rawRetentionDays(config.retentionDays()) //
+					.rawCompressionDays(config.compressionDays()) //
+					.connect();
 			this.log.info("TimescaleDB connected and schema applied");
 		} catch (SQLException e) {
 			this.log.error("Failed to connect to TimescaleDB: " + e.getMessage(), e);
@@ -125,8 +126,6 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 
 	private void collectChannelValues(long timestamp) {
 		var minPriority = this.config.persistencePriority();
-		var edgeName = this.config.edgeName();
-
 		this.componentManager.getEnabledComponents().stream()
 				.forEach(component -> {
 					var componentAlias = component.id();
@@ -145,7 +144,7 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 								var raw = valueOpt.get();
 								String dataType;
 								Object value;
-								boolean core = Priorities.isCore(channel.channelDoc().getLocalPersistencePriority());
+								boolean core = Utils.isCore(channel.channelDoc().getLocalPersistencePriority());
 
 								switch (channel.getType()) {
 								case BOOLEAN -> {
@@ -184,7 +183,7 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 								var unit = channel.channelDoc().getUnit().symbol;
 								synchronized (this.buffer) {
 									this.buffer.add(new DataPoint(
-											timestamp, edgeName, componentAlias, componentType,
+											timestamp, null, componentAlias, componentType,
 											channel.channelId().id(), dataType, core, unit, value));
 								}
 							});
@@ -207,7 +206,6 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 		}
 	}
 
-
 	@Override
 	public CompletableFuture<Optional<Object>> getLatestValue(ChannelAddress channelAddress) {
 		return CompletableFuture.supplyAsync(() -> {
@@ -215,7 +213,7 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 				return Optional.empty();
 			}
 			try {
-				return this.dbHandler.queryLatestValue(this.config.edgeName(), channelAddress);
+				return this.dbHandler.queryLatestValue(null, channelAddress);
 			} catch (SQLException e) {
 				this.log.error("getLatestValue failed: " + e.getMessage(), e);
 				return Optional.empty();
@@ -239,15 +237,13 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 	 */
 	@Override
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricData(
-			String edgeId, ZonedDateTime fromDate, ZonedDateTime toDate,
-			Set<ChannelAddress> channels, Resolution resolution) throws OpenemsNamedException {
-
+			ZonedDateTime fromDate, ZonedDateTime toDate, Set<ChannelAddress> channels, Resolution resolution)
+			throws OpenemsNamedException {
 		if (this.dbHandler == null) {
 			return new TreeMap<>();
 		}
-		var edge = edgeId != null ? edgeId : this.config.edgeName();
 		try {
-			return this.dbHandler.queryHistoricData(edge, fromDate, toDate, channels, resolution.toSeconds());
+			return this.dbHandler.queryHistoricData(null, fromDate, toDate, channels, resolution.toSeconds());
 		} catch (SQLException e) {
 			throw new OpenemsException("queryHistoricData failed: " + e.getMessage(), e);
 		}
@@ -255,34 +251,29 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 
 	@Override
 	public SortedMap<ChannelAddress, JsonElement> queryHistoricEnergy(
-			String edgeId, ZonedDateTime fromDate, ZonedDateTime toDate,
-			Set<ChannelAddress> channels) throws OpenemsNamedException {
-
+			ZonedDateTime fromDate, ZonedDateTime toDate, Set<ChannelAddress> channels)
+			throws OpenemsNamedException {
 		if (this.dbHandler == null) {
 			var empty = new TreeMap<ChannelAddress, JsonElement>();
 			channels.forEach(c -> empty.put(c, JsonNull.INSTANCE));
 			return empty;
 		}
-		var edge = edgeId != null ? edgeId : this.config.edgeName();
 		try {
-			return this.dbHandler.queryHistoricEnergy(edge, fromDate, toDate, channels);
+			return this.dbHandler.queryHistoricEnergy(null, fromDate, toDate, channels);
 		} catch (SQLException e) {
 			throw new OpenemsException("queryHistoricEnergy failed: " + e.getMessage(), e);
 		}
 	}
 
-
 	@Override
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricEnergyPerPeriod(
-			String edgeId, ZonedDateTime fromDate, ZonedDateTime toDate,
-			Set<ChannelAddress> channels, Resolution resolution) throws OpenemsNamedException {
-
+			ZonedDateTime fromDate, ZonedDateTime toDate, Set<ChannelAddress> channels, Resolution resolution)
+			throws OpenemsNamedException {
 		if (this.dbHandler == null) {
 			return new TreeMap<>();
 		}
-		var edge = edgeId != null ? edgeId : this.config.edgeName();
 		try {
-			return this.dbHandler.queryHistoricEnergyPerPeriod(edge, fromDate, toDate, channels, resolution.toSeconds());
+			return this.dbHandler.queryHistoricEnergyPerPeriod(null, fromDate, toDate, channels, resolution.toSeconds());
 		} catch (SQLException e) {
 			throw new OpenemsException("queryHistoricEnergyPerPeriod failed: " + e.getMessage(), e);
 		}
@@ -298,7 +289,7 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 		}
 		try {
 			for (long ts : this.dbHandler.getResendTimestamps(
-					this.config.edgeName(), notSendChannel, lastResendTimestamp)) {
+					null, notSendChannel, lastResendTimestamp)) {
 				timeranges.insert(ts);
 			}
 			return timeranges;
@@ -315,7 +306,7 @@ public class TimescaledbImpl extends AbstractOpenemsComponent
 			return new TreeMap<>();
 		}
 		try {
-			return this.dbHandler.queryResendData(this.config.edgeName(), fromDate, toDate, channels);
+			return this.dbHandler.queryResendData(null, fromDate, toDate, channels);
 		} catch (SQLException e) {
 			throw new OpenemsException("queryResendData failed: " + e.getMessage(), e);
 		}

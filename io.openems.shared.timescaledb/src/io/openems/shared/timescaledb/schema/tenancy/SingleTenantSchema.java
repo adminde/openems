@@ -1,74 +1,43 @@
-package io.openems.shared.timescaledb;
+package io.openems.shared.timescaledb.schema.tenancy;
 
 import java.sql.SQLException;
 import java.sql.Statement;
 
 import com.zaxxer.hikari.HikariDataSource;
+import io.openems.shared.timescaledb.schema.Schema;
 
 /**
- * Multi-edge {@link SchemaHandler}: keeps the {@code edge} dimension table and
- * an {@code edge_id} foreign key on {@code component}, so one Backend database
- * can hold data for many edges.
+ * Single-tenant {@link Schema}: the database stores data for exactly
+ * one edge (e.g. the local database on an edge device).
  */
-public class BackendSchemaHandler extends SchemaHandler {
+public class SingleTenantSchema extends Schema {
 
-	public BackendSchemaHandler(HikariDataSource dataSource, int rawRetentionDays, int rawCompressionDays,
-			boolean createMinutelyAggregate) {
+	public SingleTenantSchema(HikariDataSource dataSource, int rawRetentionDays, int rawCompressionDays,
+	                          boolean createMinutelyAggregate) {
 		super(dataSource, rawRetentionDays, rawCompressionDays, createMinutelyAggregate);
 	}
 
 	@Override
 	protected void createDimensionTables(Statement st) throws SQLException {
-		st.execute("""
-				CREATE TABLE IF NOT EXISTS edge (
-				    id         UUID        DEFAULT uuid_generate_v7() PRIMARY KEY,
-				    name       VARCHAR NOT NULL UNIQUE,
-				    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-				)""");
-
+		// Single-edge deployment: no `edge` dimension; component name is unique.
 		st.execute("""
 				CREATE TABLE IF NOT EXISTS component (
 				    id         UUID        DEFAULT uuid_generate_v7() PRIMARY KEY,
-				    edge_id    UUID        NOT NULL REFERENCES edge(id) ON DELETE CASCADE,
-				    name       VARCHAR NOT NULL,
+				    name       VARCHAR NOT NULL UNIQUE,
 				    type       VARCHAR,
-				    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-				    UNIQUE (edge_id, name)
+				    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 				)""");
-
-		st.execute("CREATE INDEX IF NOT EXISTS idx_component_edge_id ON component (edge_id)");
 	}
 
 	@Override
 	protected void createGetOrCreateFunction(Statement st) throws SQLException {
 		// DROP first so the RETURNS TABLE signature can evolve across versions
 		// (CREATE OR REPLACE alone cannot change a function's return type).
-		// Helper: Edge
-		st.execute("DROP FUNCTION IF EXISTS get_or_create_edge(VARCHAR)");
-		st.execute("""
-				CREATE OR REPLACE FUNCTION get_or_create_edge(
-				    input_edge_name VARCHAR,
-				    OUT out_id UUID
-				)
-				LANGUAGE plpgsql AS $$
-				BEGIN
-				    SELECT id INTO out_id FROM edge WHERE name = input_edge_name;
-				    IF out_id IS NULL THEN
-				        INSERT INTO edge (name) VALUES (input_edge_name)
-				            ON CONFLICT (name) DO NOTHING
-				            RETURNING id INTO out_id;
-				        IF out_id IS NULL THEN
-				            SELECT id INTO out_id FROM edge WHERE name = input_edge_name;
-				        END IF;
-				    END IF;
-				END;
-				$$""");
 
 		// Helper: Component
-		st.execute("DROP FUNCTION IF EXISTS get_or_create_component(UUID, VARCHAR, VARCHAR)");
+		st.execute("DROP FUNCTION IF EXISTS get_or_create_component(VARCHAR, VARCHAR)");
 		st.execute("""
 				CREATE OR REPLACE FUNCTION get_or_create_component(
-				    input_edge_id UUID,
 				    input_component_name VARCHAR,
 				    input_component_type VARCHAR,
 				    OUT out_id UUID
@@ -78,15 +47,15 @@ public class BackendSchemaHandler extends SchemaHandler {
 				    found_type VARCHAR;
 				BEGIN
 				    SELECT id, type INTO out_id, found_type FROM component
-				        WHERE edge_id = input_edge_id AND name = input_component_name;
+				        WHERE name = input_component_name;
 				    IF out_id IS NULL THEN
-				        INSERT INTO component (edge_id, name, type)
-				            VALUES (input_edge_id, input_component_name, input_component_type)
-				            ON CONFLICT (edge_id, name) DO NOTHING
+				        INSERT INTO component (name, type)
+				            VALUES (input_component_name, input_component_type)
+				            ON CONFLICT (name) DO NOTHING
 				            RETURNING id INTO out_id;
 				        IF out_id IS NULL THEN
 				            SELECT id, type INTO out_id, found_type FROM component
-				                WHERE edge_id = input_edge_id AND name = input_component_name;
+				                WHERE name = input_component_name;
 				        END IF;
 				    ELSIF found_type IS DISTINCT FROM input_component_type AND input_component_type <> 'backend' THEN
 				        UPDATE component SET type = input_component_type WHERE id = out_id;
@@ -148,7 +117,6 @@ public class BackendSchemaHandler extends SchemaHandler {
 				                WHERE component_id = input_component_id AND channel_def_id = input_channel_def_id;
 				        END IF;
 				    END IF;
-
 				    IF input_core AND NOT out_core THEN
 				        UPDATE channel SET core = true WHERE id = out_id;
 				        out_core := true;
@@ -158,10 +126,9 @@ public class BackendSchemaHandler extends SchemaHandler {
 
 		// Conductor Function
 		st.execute("DROP FUNCTION IF EXISTS get_or_create_channel_id"
-				+ "(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BOOLEAN, VARCHAR)");
+				+ "(VARCHAR, VARCHAR, VARCHAR, VARCHAR, BOOLEAN, VARCHAR)");
 		st.execute("""
 				CREATE OR REPLACE FUNCTION get_or_create_channel_id(
-				    input_edge_name       VARCHAR,
 				    input_component_name  VARCHAR,
 				    input_component_type  VARCHAR,
 				    input_channel_name    VARCHAR,
@@ -172,29 +139,23 @@ public class BackendSchemaHandler extends SchemaHandler {
 				RETURNS TABLE (out_channel_id UUID, out_type VARCHAR, out_core BOOLEAN)
 				LANGUAGE plpgsql AS $$
 				DECLARE
-				    local_edge_id        UUID;
 				    local_component_id   UUID;
 				    local_channel_def_id UUID;
 				    local_type           VARCHAR;
 				    local_channel_id     UUID;
 				    local_core           BOOLEAN;
 				BEGIN
-				    SELECT out_id INTO local_edge_id FROM get_or_create_edge(input_edge_name);
-				    SELECT out_id INTO local_component_id FROM get_or_create_component(local_edge_id, input_component_name, input_component_type);
-				    
+				    SELECT out_id INTO local_component_id FROM get_or_create_component(input_component_name, input_component_type);
 				    SELECT def_id, def_type INTO local_channel_def_id, local_type 
 				        FROM get_or_create_channel_def(input_channel_name, input_type, input_unit)
 				             AS def(def_id, def_type);
-
 				    IF local_type IS DISTINCT FROM input_type THEN
 				        RAISE WARNING 'channel_def % type mismatch: stored=%, incoming=% (keeping stored)',
 				            input_channel_name, local_type, input_type;
 				    END IF;
-
 				    SELECT ch_id, ch_core INTO local_channel_id, local_core 
 				        FROM get_or_create_channel(local_component_id, local_channel_def_id, input_core)
 				             AS ch(ch_id, ch_core);
-
 				    RETURN QUERY SELECT local_channel_id, local_type, local_core;
 				END;
 				$$""");

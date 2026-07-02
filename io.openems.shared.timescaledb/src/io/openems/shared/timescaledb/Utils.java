@@ -12,9 +12,9 @@ import io.openems.common.channel.PersistencePriority;
  * Backend write paths use this single helper so they always agree on which lane
  * a channel belongs to.
  */
-public final class Priorities {
+public final class Utils {
 
-	private Priorities() {
+	private Utils() {
 	}
 
 	/**

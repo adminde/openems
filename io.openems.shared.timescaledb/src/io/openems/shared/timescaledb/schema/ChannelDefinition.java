@@ -1,4 +1,4 @@
-package io.openems.shared.timescaledb;
+package io.openems.shared.timescaledb.schema;
 
 import java.util.UUID;
 

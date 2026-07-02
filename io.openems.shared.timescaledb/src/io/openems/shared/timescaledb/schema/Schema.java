@@ -1,23 +1,27 @@
-package io.openems.shared.timescaledb;
+package io.openems.shared.timescaledb.schema;
 
 import java.sql.SQLException;
 import java.sql.Statement;
 
 import com.zaxxer.hikari.HikariDataSource;
 
+import io.openems.shared.timescaledb.schema.tenancy.MultiTenantSchema;
+import io.openems.shared.timescaledb.schema.tenancy.SingleTenantSchema;
+
 /**
  * Handles the creation and initialization of the TimescaleDB database schema.
  *
  * <p>
- * This base class creates everything the Edge and Backend deployments share
- * (extensions, the {@code channel_def}/{@code channel} tables, hypertables,
- * compression, retention, continuous aggregates and their policies). The parts
- * that differ — the {@code edge} dimension and the {@code component} table, plus
- * the {@code get_or_create_channel_id} stored function — are deferred to
- * {@link #createDimensionTables} and {@link #createGetOrCreateFunction}, which
- * {@link EdgeSchemaHandler} and {@link BackendSchemaHandler} implement.
+ * This base class creates everything the single-tenant and multi-tenant
+ * variants share (extensions, the {@code channel_def}/{@code channel} tables,
+ * hypertables, compression, retention, continuous aggregates and their
+ * policies). The parts that differ — the {@code edge} dimension and the
+ * {@code component} table, plus the {@code get_or_create_channel_id} stored
+ * function — are deferred to {@link #createDimensionTables} and
+ * {@link #createGetOrCreateFunction}, which {@link SingleTenantSchema}
+ * and {@link MultiTenantSchema} implement.
  */
-public abstract class SchemaHandler {
+public abstract class Schema {
 
 	// Fast Lane (_core) continuous-aggregate retention horizons.
 	public static final int AGG_1M_CORE_DAYS = 90;
@@ -41,7 +45,7 @@ public abstract class SchemaHandler {
 	 *                                the 15-minute core aggregate reads raw data
 	 *                                directly instead of cascading from 1m.
 	 */
-	protected SchemaHandler(HikariDataSource dataSource, int rawRetentionDays, int rawCompressionDays,
+	protected Schema(HikariDataSource dataSource, int rawRetentionDays, int rawCompressionDays,
 			boolean createMinutelyAggregate) {
 		this.dataSource = dataSource;
 		this.rawRetentionDays = rawRetentionDays;
@@ -191,9 +195,10 @@ public abstract class SchemaHandler {
 	 * Creates the dimension tables that differ between deployments.
 	 *
 	 * <p>
-	 * The Backend creates an {@code edge} table plus an {@code edge_id} foreign key
-	 * on {@code component} (so one database can hold many edges); the Edge creates
-	 * the {@code component} table alone, keyed by component name.
+	 * The multi-tenant variant creates an {@code edge} table plus an
+	 * {@code edge_id} foreign key on {@code component} (so one database can hold
+	 * many edges); the single-tenant variant creates the {@code component} table
+	 * alone, keyed by component name.
 	 *
 	 * @param st an open JDBC {@link Statement}
 	 * @throws SQLException on database error
@@ -205,8 +210,8 @@ public abstract class SchemaHandler {
 	 * channel registration on the write path.
 	 *
 	 * <p>
-	 * The Backend variant takes an edge name as its first argument and upserts the
-	 * edge; the Edge variant omits it.
+	 * The multi-tenant variant takes an edge name as its first argument and
+	 * upserts the edge; the single-tenant variant omits it.
 	 *
 	 * @param st an open JDBC {@link Statement}
 	 * @throws SQLException on database error

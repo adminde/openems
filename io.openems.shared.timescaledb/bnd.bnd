@@ -5,6 +5,11 @@ Bundle-Version: 1.0.0.${tstamp}
 Export-Package: \
 	io.openems.shared.timescaledb
 
+-privatepackage: \
+	io.openems.shared.timescaledb.schema,\
+	io.openems.shared.timescaledb.schema.tenancy,\
+	io.openems.shared.timescaledb.worker
+
 -buildpath: \
 	${buildpath},\
 	com.google.gson,\

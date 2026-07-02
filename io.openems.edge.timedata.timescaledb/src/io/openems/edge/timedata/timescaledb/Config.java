@@ -9,7 +9,7 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 @interface Config {
 
 	@AttributeDefinition(name = "Component-ID")
-	String id() default "Timedata.Timescaledb0";
+	String id() default "timescaledb0";
 
 	@AttributeDefinition(name = "Alias")
 	String alias() default "";
@@ -23,14 +23,14 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "Port", description = "TimescaleDB port")
 	int port() default 5432;
 
-	@AttributeDefinition(name = "Raw Retention Days", description = "Days to keep raw high-res data before deletion")
-	int rawRetentionDays() default 30;
+	@AttributeDefinition(name = "Retention Days", description = "Days to keep raw high resolution data before deletion")
+	int retentionDays() default 30;
 
-	@AttributeDefinition(name = "Raw Compression Days", description = "Days to wait before compressing raw high-res data")
-	int rawCompressionDays() default 7;
+	@AttributeDefinition(name = "Compression Days", description = "Days to wait before compressing raw high resolution data")
+	int compressionDays() default 7;
 
 	@AttributeDefinition(name = "Database", description = "Database name")
-	String database() default "openems_edge";
+	String database() default "data";
 
 	@AttributeDefinition(name = "Username")
 	String username() default "postgres";
@@ -44,13 +44,10 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "Write Workers", description = "Number of background threads draining the write queue into the database. Keep below Pool Size so reads still get a connection.")
 	int writeWorkers() default 4;
 
-	@AttributeDefinition(name = "Edge Name", description = "Identifier for this edge in the database, e.g. edge-site-01")
-	String edgeName() default "edge0";
-
 	@AttributeDefinition(name = "No of Cycles", description = "How many OpenEMS cycles between each DB flush")
 	int noOfCycles() default 10;
 
-	@AttributeDefinition(name = "Persistence Priority", description = "Minimum channel persistence priority to store. HIGH stores only critical channels; LOW stores everything.")
+	@AttributeDefinition(name = "Persistence Priority", description = "Store only Channels with a Persistence Priority above this. Be aware that too many writes can wear-out your flash storage.")
 	io.openems.common.channel.PersistencePriority persistencePriority() default io.openems.common.channel.PersistencePriority.MEDIUM;
 
 	String webconsole_configurationFactory_nameHint() default "Timedata TimescaleDB [{id}]";
