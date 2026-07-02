@@ -63,7 +63,7 @@ import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.ess.api.EnergyStorageProtection;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.ess.core.AbstractModbusEss;
-import io.openems.edge.oros.ess.core.RuntimeChannels;
+import io.openems.edge.oros.ess.core.RuntimeComponent;
 import io.openems.edge.oros.ess.core.protection.PowerLimiter;
 import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 import io.openems.edge.timedata.api.Timedata;
@@ -81,7 +81,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 })
 public class RctCessImpl extends AbstractModbusEss implements RctCess,
 		EnergyStorageSystem, HybridEss, ManagedSymmetricEss, SymmetricEss, SymmetricComponent, 
-		EnergyStorageProtection, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave, RuntimeChannels, 
+		EnergyStorageProtection, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave, RuntimeComponent,
 		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler, StartStoppable {
 
 	private final Logger log = LoggerFactory.getLogger(RctCessImpl.class);
@@ -136,7 +136,7 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 				EnergyStorageSystem.ChannelId.values(),
 				EnergyStorageProtection.ChannelId.values(),
 				EssErrorAcknowledge.ChannelId.values(),
-				RuntimeChannels.ChannelId.values(),
+				RuntimeComponent.ChannelId.values(),
 				RctCess.ChannelId.values()
 		);
 	}

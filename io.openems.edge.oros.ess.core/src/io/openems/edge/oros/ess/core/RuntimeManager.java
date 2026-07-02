@@ -1,26 +1,26 @@
 package io.openems.edge.oros.ess.core;
 
-import static io.openems.edge.oros.ess.core.RuntimeChannels.ChannelId.CUMULATED_TIME_FAULT_STATE;
-import static io.openems.edge.oros.ess.core.RuntimeChannels.ChannelId.CUMULATED_TIME_INFO_STATE;
-import static io.openems.edge.oros.ess.core.RuntimeChannels.ChannelId.CUMULATED_TIME_OK_STATE;
-import static io.openems.edge.oros.ess.core.RuntimeChannels.ChannelId.CUMULATED_TIME_WARNING_STATE;
+import static io.openems.edge.oros.ess.core.RuntimeComponent.ChannelId.CUMULATED_TIME_FAULT_STATE;
+import static io.openems.edge.oros.ess.core.RuntimeComponent.ChannelId.CUMULATED_TIME_INFO_STATE;
+import static io.openems.edge.oros.ess.core.RuntimeComponent.ChannelId.CUMULATED_TIME_OK_STATE;
+import static io.openems.edge.oros.ess.core.RuntimeComponent.ChannelId.CUMULATED_TIME_WARNING_STATE;
 
 import io.openems.common.channel.Level;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateActiveTime;
 
 /**
- * Class which provides logic for {@link RuntimeChannels} interface. Adds a
+ * Class which provides logic for {@link RuntimeComponent} interface. Adds a
  * {@link CalculateActiveTime} variable for each {@link Level} of the component.
  */
-public class RuntimeChannelProvider {
+public class RuntimeManager {
 
 	private final CalculateActiveTime calculateOkStateTime;
 	private final CalculateActiveTime calculateInfoStateTime;
 	private final CalculateActiveTime calculateWarningStateTime;
 	private final CalculateActiveTime calculateFaultStateTime;
 
-	public RuntimeChannelProvider(TimedataProvider timedataProvider) {
+	public RuntimeManager(TimedataProvider timedataProvider) {
 		this.calculateOkStateTime = new CalculateActiveTime(timedataProvider, CUMULATED_TIME_OK_STATE);
 		this.calculateInfoStateTime = new CalculateActiveTime(timedataProvider, CUMULATED_TIME_INFO_STATE);
 		this.calculateWarningStateTime = new CalculateActiveTime(timedataProvider, CUMULATED_TIME_WARNING_STATE);

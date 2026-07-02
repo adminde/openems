@@ -206,10 +206,10 @@ public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 		HIGH_POWER_MODULE_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
 		HIGH_POWER_MODULE_TEMPERATURE_SEVERE_WARNING(Doc.of(Level.WARNING)),
 		HIGH_POWER_MODULE_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
-        // Reserved bits for backward compatibility
-        //HIGH_BUSBAR_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
-        //HIGH_BUSBAR_TEMPERATURE_SEVERE_WARNING(Doc.of(Level.WARNING)),
-        //HIGH_BUSBAR_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
+		// Reserved bits for backward compatibility
+		// HIGH_BUSBAR_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
+		// HIGH_BUSBAR_TEMPERATURE_SEVERE_WARNING(Doc.of(Level.WARNING)),
+		// HIGH_BUSBAR_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
 		HIGH_CONNECTOR_TEMPERATURE_WARNING(Doc.of(Level.WARNING)),
 		HIGH_CONNECTOR_TEMPERATURE_SEVERE_WARNING(Doc.of(Level.WARNING)),
 		HIGH_CONNECTOR_TEMPERATURE_FAULT(Doc.of(Level.FAULT)),
@@ -303,6 +303,13 @@ public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 		return this.getPrechargeVoltageChannel().value();
 	}
 
+	/**
+	 * Mirrors the precharge voltage into the Open-Circuit-Voltage channel: on every
+	 * update of the precharge voltage its value is written to the battery's
+	 * Open-Circuit-Voltage channel.
+	 *
+	 * @param battery the {@link HyperCubeBattery} whose channels are wired together
+	 */
 	public static void mirrorOpenCircuitVoltageFromPrecharge(HyperCubeBattery battery) {
 		final Consumer<Value<Integer>> accept = value -> {
 			if (value.isDefined()) {

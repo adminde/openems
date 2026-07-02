@@ -27,7 +27,7 @@ public interface HyperCube extends EnergyStorageSystem,
 		OpenemsComponent, ModbusComponent, ModbusSlave {
 
 	/**
-	 * How often the OEM EMS controller will check for a changed heartbeat value
+	 * How often the OEM EMS controller will check for a changed heartbeat value.
 	 */
 	public static final float MIN_HEARTBEAT_CYCLE = 0.5F;
 

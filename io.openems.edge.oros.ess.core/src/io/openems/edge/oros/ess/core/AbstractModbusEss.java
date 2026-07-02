@@ -48,11 +48,11 @@ import io.openems.edge.timedata.api.TimedataProvider;
  */
 public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent implements
 		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, EssErrorAcknowledge,
-		OpenemsComponent, ModbusComponent, ModbusSlave, ComponentJsonApi, RuntimeChannels, StartStoppable,
+		OpenemsComponent, ModbusComponent, ModbusSlave, ComponentJsonApi, RuntimeComponent, StartStoppable,
 		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler {
 
 	protected final ChannelManager channelManager;
-    protected final RuntimeChannelProvider runtimeChannelProvider;
+    protected final RuntimeManager runtimeManager;
 
 	protected final AtomicReference<StartStop> startStopTarget = new AtomicReference<>(StartStop.UNDEFINED);
 
@@ -61,7 +61,7 @@ public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent i
 	protected AbstractModbusEss(io.openems.edge.common.channel.ChannelId[] firstInitialChannelIds,
 									io.openems.edge.common.channel.ChannelId[]... furtherInitialChannelIds) {
 		super(firstInitialChannelIds, furtherInitialChannelIds);
-        this.runtimeChannelProvider = new RuntimeChannelProvider(this);
+        this.runtimeManager = new RuntimeManager(this);
         this.channelManager = new ChannelManager(this);
 	}
 
@@ -126,7 +126,7 @@ public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent i
 		}
 		if (event.getTopic().equals(EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE)) {
 			this.handleStateMachine();
-			this.runtimeChannelProvider.updateStateTime(this.getState());
+			this.runtimeManager.updateStateTime(this.getState());
 		}
 	}
 

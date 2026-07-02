@@ -25,7 +25,7 @@ public class ModbusUtils {
 
 	private static final int MAX_REGISTERS_PER_TASK = 100;
 
-	public static ElementToChannelConverter CONVERT_FLOAT = new ElementToChannelConverter(v -> {
+	public static final ElementToChannelConverter CONVERT_FLOAT = new ElementToChannelConverter(v -> {
 		if (v == null) {
 			return null;
 		}
@@ -83,6 +83,18 @@ public class ModbusUtils {
 		return defineModbusAlarmRegister(component, number, address, addChannel, null);
 	}
 
+	/**
+	 * Builds read tasks for {@code count} consecutive signed-word input registers,
+	 * creating a channel per register via {@code addChannel} and mapping it to a
+	 * {@link SignedWordElement} via {@code mapElement}.
+	 *
+	 * @param startAddress the Modbus start address of the first register
+	 * @param count        the number of consecutive registers to read
+	 * @param addChannel   creates the {@link ChannelId} for a 1-based channel number
+	 * @param mapElement   maps a {@link ChannelId} and its {@link ModbusElement} to
+	 *                     the final element
+	 * @return the list of read {@link Task}s covering the range
+	 */
 	public static List<Task> defineModbusSignedWordInputRegistersTasks(int startAddress, int count,
 			Function<Integer, ChannelId> addChannel,
 			BiFunction<ChannelId, ModbusElement, ModbusElement> mapElement) {
@@ -92,6 +104,19 @@ public class ModbusUtils {
 		});
 	}
 
+	/**
+	 * Variant of
+	 * {@link #defineModbusSignedWordInputRegistersTasks(int, int, Function, BiFunction)}
+	 * that additionally applies an {@link ElementToChannelConverter}.
+	 *
+	 * @param startAddress the Modbus start address of the first register
+	 * @param count        the number of consecutive registers to read
+	 * @param addChannel   creates the {@link ChannelId} for a 1-based channel number
+	 * @param converter    the converter passed to {@code mapElement}
+	 * @param mapElement   maps a {@link ChannelId}, its {@link ModbusElement} and the
+	 *                     {@link ElementToChannelConverter} to the final element
+	 * @return the list of read {@link Task}s covering the range
+	 */
 	public static List<Task> defineModbusSignedWordInputRegistersTasks(int startAddress, int count,
 			Function<Integer, ChannelId> addChannel, ElementToChannelConverter converter,
 			TriFunction<ChannelId, ModbusElement, ElementToChannelConverter, ModbusElement> mapElement) {
@@ -101,6 +126,18 @@ public class ModbusUtils {
 		});
 	}
 
+	/**
+	 * Builds read tasks for {@code count} consecutive unsigned-word input registers,
+	 * creating a channel per register via {@code addChannel} and mapping it to an
+	 * {@link UnsignedWordElement} via {@code mapElement}.
+	 *
+	 * @param startAddress the Modbus start address of the first register
+	 * @param count        the number of consecutive registers to read
+	 * @param addChannel   creates the {@link ChannelId} for a 1-based channel number
+	 * @param mapElement   maps a {@link ChannelId} and its {@link ModbusElement} to
+	 *                     the final element
+	 * @return the list of read {@link Task}s covering the range
+	 */
 	public static List<Task> defineModbusUnsignedWordInputRegistersTasks(int startAddress, int count,
 			Function<Integer, ChannelId> addChannel,
 			BiFunction<ChannelId, ModbusElement, ModbusElement> mapElement) {
@@ -110,6 +147,19 @@ public class ModbusUtils {
 		});
 	}
 
+	/**
+	 * Variant of
+	 * {@link #defineModbusUnsignedWordInputRegistersTasks(int, int, Function, BiFunction)}
+	 * that additionally applies an {@link ElementToChannelConverter}.
+	 *
+	 * @param startAddress the Modbus start address of the first register
+	 * @param count        the number of consecutive registers to read
+	 * @param addChannel   creates the {@link ChannelId} for a 1-based channel number
+	 * @param converter    the converter passed to {@code mapElement}
+	 * @param mapElement   maps a {@link ChannelId}, its {@link ModbusElement} and the
+	 *                     {@link ElementToChannelConverter} to the final element
+	 * @return the list of read {@link Task}s covering the range
+	 */
 	public static List<Task> defineModbusUnsignedWordInputRegistersTasks(int startAddress, int count,
 			Function<Integer, ChannelId> addChannel, ElementToChannelConverter converter,
 			TriFunction<ChannelId, ModbusElement, ElementToChannelConverter, ModbusElement> mapElement) {
@@ -119,6 +169,17 @@ public class ModbusUtils {
 		});
 	}
 
+	/**
+	 * Splits a contiguous block of {@code count} input registers starting at
+	 * {@code startAddress} into one or more {@link FC4ReadInputRegistersTask}s (at
+	 * most 100 registers each) and builds every element via {@code addElement}.
+	 *
+	 * @param startAddress the Modbus start address of the first register
+	 * @param count        the number of consecutive registers to read
+	 * @param addElement   builds a {@link ModbusElement} from the 1-based channel
+	 *                     number and the absolute register address
+	 * @return the list of read {@link Task}s covering the range
+	 */
 	public static List<Task> defineModbusInputArrayTasks(int startAddress, int count,
 			BiFunction<Integer, Integer, ModbusElement> addElement) {
 		List<Task> tasks = new ArrayList<Task>();

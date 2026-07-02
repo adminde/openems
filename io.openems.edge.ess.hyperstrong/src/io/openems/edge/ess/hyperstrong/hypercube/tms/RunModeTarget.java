@@ -1,18 +1,18 @@
-package io.openems.edge.ess.hyperstrong.thermal;
+package io.openems.edge.ess.hyperstrong.hypercube.tms;
 
 import io.openems.common.types.OptionsEnum;
 
-public enum RunMode implements OptionsEnum {
+public enum RunModeTarget implements OptionsEnum {
 	UNDEFINED(-1, "Undefined"),
-	CIRCULATING(0, "Circulating"),
+	STOP(0, "Stop"),
 	COOLING(1, "Cooling"),
 	HEATING(2, "Heating"),
-	STANDBY(10, "Standby");
+	CIRCULATING(3, "Circulating");
 
 	private final int value;
 	private final String name;
 
-	private RunMode(int value, String name) {
+	private RunModeTarget(int value, String name) {
 		this.value = value;
 		this.name = name;
 	}

@@ -1,7 +1,6 @@
 package io.openems.edge.ess.hyperstrong.hypercube;
 
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.INVERT;
-import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_1;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.chain;
@@ -15,6 +14,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
+import io.openems.edge.oros.ess.core.RuntimeComponent;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -61,14 +61,13 @@ import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.hyperstrong.statemachine.Context;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
-import io.openems.edge.ess.hyperstrong.thermal.ThermalManagementSystem;
+import io.openems.edge.ess.hyperstrong.hypercube.tms.ThermalManagementSystem;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.oros.bms.api.BatteryManagementProvider;
 import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.ess.core.AbstractModbusEss;
-import io.openems.edge.oros.ess.core.RuntimeChannels;
 import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 import io.openems.edge.timedata.api.Timedata;
@@ -86,9 +85,8 @@ import io.openems.edge.timedata.api.TimedataProvider;
 })
 public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, SymmetricComponent, 
-		EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave, RuntimeChannels,
-		ThermalManagementSystem, PowerConversionProvider, BatteryManagementProvider,
-		TimedataProvider, EventHandler, StartStoppable {
+		EssErrorAcknowledge, OpenemsComponent, RuntimeComponent, ModbusComponent, ModbusSlave,
+		PowerConversionProvider, BatteryManagementProvider, TimedataProvider, EventHandler, StartStoppable {
 
 	private final Logger log = LoggerFactory.getLogger(HyperCubeImpl.class);
 	private final StateMachine stateMachine = new StateMachine(State.UNDEFINED);
@@ -120,6 +118,9 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY)
 	private volatile BatteryManagementSystem bms;
 
+	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
+	private volatile ThermalManagementSystem tms;
+
 	@Override
 	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
 	protected void setModbus(BridgeModbus modbus) {
@@ -136,10 +137,9 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 				ManagedSymmetricEss.ChannelId.values(),
 				EnergyStorageSystem.ChannelId.values(),
 				EssErrorAcknowledge.ChannelId.values(),
-				RuntimeChannels.ChannelId.values(),
+				RuntimeComponent.ChannelId.values(),
 				HyperCube.ChannelId.values(),
-				HyperCube.AlarmChannelId.values(),
-				ThermalManagementSystem.ChannelId.values()
+				HyperCube.AlarmChannelId.values()
 		);
 	}
 
@@ -147,6 +147,9 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
 		if (super.activate(context, config.id(), config.alias(), config.enabled(), this.cm, 1,
 				config.modbus_id(), config.pcs_id(), config.bms_id(), config.startStop())) {
+			return;
+		}
+		if (OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "tms", config.tms_id())) {
 			return;
 		}
 		this.config = config;
@@ -200,7 +203,7 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 		}
 		var heartbeatTimestamp = Instant.now(clock);
 		if (heartbeatTimestamp.isAfter(this.heartbeatTimestamp.plus(this.heartbeatTimeout))) {
-			int heartbeat = heartbeatValue == 0 ? 1 : 0;
+			int heartbeat = this.heartbeatValue == 0 ? 1 : 0;
 			this.setHeartbeat(heartbeat);
 
 			this.heartbeatValue = heartbeat;
@@ -347,36 +350,6 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 				// 		new SignedWordElement(315), SCALE_FACTOR_3),
 				// m(HyperCube.ChannelId.SET_REACTIVE_POWER,
 				// 		new SignedWordElement(316), SCALE_FACTOR_3)),
-
-				new FC4ReadInputRegistersTask(50001, Priority.LOW,
-						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_SYSTEM_RUN_MODE,
-								new UnsignedWordElement(50001)),
-						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_SYSTEM_RETURN_TEMPERATURE,
-								new SignedWordElement(50002)),
-						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_SYSTEM_SUPPLY_TEMPERATURE,
-								new SignedWordElement(50003)),
-						m(new BitsWordElement(50004, this)
-								.bit(0, ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_COMMUNICATION_ABNORMAL)
-								.bit(1, ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_COMMUNICATION_CONNECTED)
-								.bit(2, ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_COMMUNICATION_ENABLED)
-								.bit(3, ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_COMMUNICATION_FAULT)
-						),
-						m(new BitsWordElement(50005, this)
-								.bit(0, ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_MAIN_CONTACTOR_STATE)
-								.bit(1, ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_COMPRESSOR_STATE)
-								.bit(2, ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_HEATING_STATE)
-						),
-						new DummyRegisterElement(50006, 50073),
-						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_SYSTEM_RUN_MODE_TARGET,
-								new UnsignedWordElement(50074)),
-						new DummyRegisterElement(50075, 50076),
-						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_SYSTEM_FAULT_CODE,
-								new UnsignedWordElement(50077)),
-						new DummyRegisterElement(50078, 50098),
-						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_RETURN_PRESSURE,
-								new SignedWordElement(50099), SCALE_FACTOR_1),
-						m(ThermalManagementSystem.ChannelId.THERMAL_MANAGEMENT_SUPPLY_PRESSURE,
-								new SignedWordElement(50100), SCALE_FACTOR_1)),
 
 				new FC6WriteRegisterTask(1, 
 						m(HyperCube.ChannelId.HEARTBEAT, new UnsignedWordElement(1))),

@@ -146,10 +146,10 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 						m(BatteryManagementSystem.ChannelId.MIN_CELL_TEMPERATURE_INDEX,
 								new UnsignedWordElement(10017))),
 
-				defineModbusAlarmsTask()
+				this.defineModbusAlarmsTask()
 		);
-		protocol.addTasks(defineModbusCellAnalyticsTasks());
-		protocol.addTasks(defineModbusConnectorAnalyticsTasks());
+		protocol.addTasks(this.defineModbusCellAnalyticsTasks());
+		protocol.addTasks(this.defineModbusConnectorAnalyticsTasks());
 
 		protocol.addTask(new FC4ReadInputRegistersTask(10778, Priority.LOW,
 						m(HyperCubeBattery.ChannelId.INSULATION_RESISTANCE,
@@ -163,7 +163,7 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 								.bit(3, HyperCubeBattery.ChannelId.COMMUNICATION_FAULT)
 						)));
 
-		protocol.addTasks(defineModbusBusBarAnalyticsTasks());
+		protocol.addTasks(this.defineModbusBusBarAnalyticsTasks());
 
 		return protocol;
 	}

@@ -27,11 +27,11 @@ public class StoppingHandler extends StateHandler<State, Context> {
 		case OperatingStatus.DEBUG:
 			return State.STANDBY;
 
-        case OperatingStatus.RUNNING:
-        case OperatingStatus.STARTING:
-        case OperatingStatus.INITIALIZED:
-        	// TODO: Initiate stopping procedure
-			// return State.STOPPING;
+		case OperatingStatus.RUNNING:
+		case OperatingStatus.STARTING:
+		case OperatingStatus.INITIALIZED:
+		// TODO: Initiate stopping procedure
+		// return State.STOPPING;
 		default:
 			if (this.errorTimeout.elapsed(context.clock)) {
 				ess._setTimeoutStartBatteryInverter(true);

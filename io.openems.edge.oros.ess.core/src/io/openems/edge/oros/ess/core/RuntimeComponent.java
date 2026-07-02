@@ -9,7 +9,7 @@ import io.openems.edge.common.channel.StateChannel;
 import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.OpenemsComponent;
 
-public interface RuntimeChannels extends OpenemsComponent {
+public interface RuntimeComponent extends OpenemsComponent {
 
 	enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 		CUMULATED_TIME_OK_STATE(Doc.of(INTEGER)
@@ -85,7 +85,7 @@ public interface RuntimeChannels extends OpenemsComponent {
 	 * @return the Channel
 	 */
 	default StateChannel getCumulatedTimeWarningStateChannel() {
-		return this.channel(ChannelId.CUMULATED_TIME_INFO_STATE);
+		return this.channel(ChannelId.CUMULATED_TIME_WARNING_STATE);
 	}
 
 	/**
