@@ -3,6 +3,8 @@ package io.openems.backend.timedata.timescaledb;
 import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -24,6 +26,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 
 import io.openems.backend.common.component.AbstractOpenemsBackendComponent;
+import io.openems.backend.common.debugcycle.DebugLoggable;
 import io.openems.backend.common.metadata.Metadata;
 import io.openems.backend.common.timedata.Timedata;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
@@ -35,11 +38,11 @@ import io.openems.common.jsonrpc.notification.TimestampedDataNotification;
 import io.openems.common.timedata.Resolution;
 import io.openems.common.types.ChannelAddress;
 import io.openems.common.types.EdgeConfig;
-import io.openems.common.types.OpenemsType;
-import io.openems.shared.timescaledb.DataPoint;
+import io.openems.shared.timescaledb.data.DataPoint;
+import io.openems.shared.timescaledb.schema.Tenancy;
+import io.openems.shared.timescaledb.TimescaleDbConnector;
+import io.openems.shared.timescaledb.Type;
 import io.openems.shared.timescaledb.Utils;
-import io.openems.shared.timescaledb.Tenancy;
-import io.openems.shared.timescaledb.TimescaleDbHandler;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(
@@ -47,7 +50,7 @@ import io.openems.shared.timescaledb.TimescaleDbHandler;
 		configurationPolicy = ConfigurationPolicy.REQUIRE,
 		immediate = true
 )
-public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements Timedata {
+public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements Timedata, DebugLoggable {
 
 	private final Logger log = LoggerFactory.getLogger(TimescaleDbImpl.class);
 
@@ -56,7 +59,7 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 
 	private Config config;
 	
-	private volatile TimescaleDbHandler dbHandler;
+	private volatile TimescaleDbConnector connector;
 	private volatile boolean active;
 	private ScheduledExecutorService initExecutor;
 
@@ -85,15 +88,16 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 		if (!this.active) {
 			return;
 		}
-		TimescaleDbHandler handler;
+		TimescaleDbConnector connector;
 		try {
-			handler = new TimescaleDbHandler(Tenancy.MULTI, config.host(), config.username(), config.password()) //
+			connector = new TimescaleDbConnector(Tenancy.MULTI, config.host(), config.username(), config.password()) //
 					.database(config.database()) //
 					.port(config.port()) //
 					.poolSize(config.poolSize()) //
 					.writeWorkers(config.writeWorkers()) //
 					.rawRetentionDays(config.rawRetentionDays()) //
 					.rawCompressionDays(config.rawCompressionDays()) //
+					.readOnly(config.isReadOnly()) //
 					.connect();
 		} catch (SQLException | RuntimeException e) {
 			this.logError(this.log, "TimescaleDB initialization failed; retrying in "
@@ -107,10 +111,10 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 		}
 		synchronized (this) {
 			if (!this.active) {
-				handler.deactivate();
+				connector.deactivate();
 				return;
 			}
-			this.dbHandler = handler;
+			this.connector = connector;
 		}
 		this.logInfo(this.log, "TimescaleDB Backend activated and schema applied");
 	}
@@ -121,10 +125,10 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 		if (this.initExecutor != null) {
 			this.initExecutor.shutdownNow();
 		}
-		TimescaleDbHandler toClose;
+		TimescaleDbConnector toClose;
 		synchronized (this) {
-			toClose = this.dbHandler;
-			this.dbHandler = null;
+			toClose = this.connector;
+			this.connector = null;
 		}
 		if (toClose != null) {
 			toClose.deactivate();
@@ -147,11 +151,11 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 	}
 
 	private void writeData(String edgeId, AbstractDataNotification notification) {
-		var handler = this.dbHandler;
+		var handler = this.connector;
 		if (handler == null) {
 			return;
 		}
-// dealing with JSON
+		// dealing with JSON
 		var data = notification.getData();
 		var dataEntries = data.rowMap().entrySet();
 		if (dataEntries.isEmpty()) {
@@ -187,7 +191,7 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 					var channelId = addr.getChannelId();
 
 					String componentType = "backend";
-					boolean core = false;
+					boolean rollup = false;
 					EdgeConfig.Component.Channel ch = null;
 					if (edgeConfig != null) {
 						var componentOpt = edgeConfig.getComponent(componentId);
@@ -196,18 +200,18 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 							componentType = component.getFactoryId();
 							ch = component.getChannels().get(channelId);
 							if (ch != null) {
-								core = Utils.isCore(ch.getDetail().getPersistencePriority());
+								rollup = Utils.isRollup(ch.getDetail().getPersistencePriority());
 							}
 						}
 					}
 
-					String dataType = ch != null ? toDataType(ch.getType()) : inferDataType(primitive);
-					Object value = coerceValue(primitive, dataType);
+					Type type = ch != null ? Type.fromOpenemsType(ch.getType()) : Type.detect(primitive);
+					Object value = type.coerce(primitive);
 
 					String unit = ch != null && ch.getUnit() != null ? ch.getUnit().symbol : null;
 
 					points.add(new DataPoint(
-							timestamp, edgeId, componentId, componentType, channelId, dataType, core, unit, value));
+							timestamp, edgeId, componentId, componentType, channelId, type, rollup, unit, value));
 				} catch (OpenemsNamedException e) {
 					this.logWarn(this.log, "Unable to parse ChannelAddress [" + channelString + "]: " + e.getMessage());
 				}
@@ -221,59 +225,40 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 		}
 	}
 
-	
-	private static String toDataType(OpenemsType type) {
-		return switch (type) {
-		case BOOLEAN, SHORT, INTEGER, LONG -> "INTEGER";
-		case FLOAT, DOUBLE -> "FLOAT";
-		case STRING -> "STRING";
-		};
-	}
-
-	
-	private static String inferDataType(JsonPrimitive primitive) {
-		if (primitive.isBoolean()) {
-			return "INTEGER";
-		}
-		if (primitive.isNumber()) {
-			return primitive.getAsString().indexOf('.') == -1 ? "INTEGER" : "FLOAT";
-		}
-		return "STRING";
-	}
-
-	/**
-	 * Coerces a JSON value to match the resolved data type, so a channel's
-	 * stored values are consistent with its hypertable.
-	 *
-	 * @param primitive the JSON value
-	 * @param dataType  the resolved data type
-	 * @return the coerced value (Long, Double, or String)
-	 */
-	private static Object coerceValue(JsonPrimitive primitive, String dataType) {
-		return switch (dataType) {
-		case "INTEGER" -> primitive.isBoolean() ? (primitive.getAsBoolean() ? 1L : 0L) : primitive.getAsLong();
-		case "FLOAT" -> primitive.getAsDouble();
-		default -> primitive.getAsString();
-		};
-	}
-
 	@Override
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricData(String edgeId,
 			ZonedDateTime fromDate, ZonedDateTime toDate, Set<ChannelAddress> channels, Resolution resolution)
 			throws OpenemsNamedException {
-		var handler = this.dbHandler;
+		var handler = this.connector;
 		if (handler == null) return new TreeMap<>();
 		try {
-			return handler.queryHistoricData(edgeId, fromDate, toDate, channels, resolution.toSeconds());
+			return handler.queryHistoricData(edgeId, fromDate, toDate, channels, resolution);
 		} catch (SQLException e) {
 			throw new OpenemsException(e);
 		}
 	}
 
 	@Override
+	public String debugLog() {
+		var handler = this.connector;
+		return handler != null ? handler.debugLog() : "TimescaleDB [connecting...]";
+	}
+
+	@Override
+	public Map<String, JsonElement> debugMetrics() {
+		var handler = this.connector;
+		if (handler == null) {
+			return Map.of();
+		}
+		var result = new HashMap<String, JsonElement>();
+		handler.debugMetrics().forEach((table, sizeMb) -> result.put(table, new JsonPrimitive(sizeMb)));
+		return result;
+	}
+
+	@Override
 	public SortedMap<ChannelAddress, JsonElement> queryHistoricEnergy(String edgeId, ZonedDateTime fromDate,
 			ZonedDateTime toDate, Set<ChannelAddress> channels) throws OpenemsNamedException {
-		var handler = this.dbHandler;
+		var handler = this.connector;
 		if (handler == null) return new TreeMap<>();
 		try {
 			return handler.queryHistoricEnergy(edgeId, fromDate, toDate, channels);
@@ -286,10 +271,10 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricEnergyPerPeriod(String edgeId,
 			ZonedDateTime fromDate, ZonedDateTime toDate, Set<ChannelAddress> channels, Resolution resolution)
 			throws OpenemsNamedException {
-		var handler = this.dbHandler;
+		var handler = this.connector;
 		if (handler == null) return new TreeMap<>();
 		try {
-			return handler.queryHistoricEnergyPerPeriod(edgeId, fromDate, toDate, channels, resolution.toSeconds());
+			return handler.queryHistoricEnergyPerPeriod(edgeId, fromDate, toDate, channels, resolution);
 		} catch (SQLException e) {
 			throw new OpenemsException(e);
 		}

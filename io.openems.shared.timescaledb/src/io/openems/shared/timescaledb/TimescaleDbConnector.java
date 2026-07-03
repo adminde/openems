@@ -1,27 +1,31 @@
 package io.openems.shared.timescaledb;
 
 import java.sql.SQLException;
+import java.time.Instant;
 import java.time.ZonedDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 
-import io.openems.shared.timescaledb.schema.Schema;
-import io.openems.shared.timescaledb.worker.ReadHandler;
-import io.openems.shared.timescaledb.worker.WriteHandler;
 import org.postgresql.Driver;
 import org.postgresql.ds.PGSimpleDataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.gson.JsonElement;
 import com.zaxxer.hikari.HikariDataSource;
 
+import io.openems.common.timedata.Resolution;
 import io.openems.common.types.ChannelAddress;
+import io.openems.shared.timescaledb.data.DataPoint;
+import io.openems.shared.timescaledb.data.ReadHandler;
+import io.openems.shared.timescaledb.data.WriteHandler;
 import io.openems.shared.timescaledb.schema.ChannelManager;
-import io.openems.shared.timescaledb.schema.tenancy.MultiTenantChannelManager;
-import io.openems.shared.timescaledb.schema.tenancy.SingleTenantChannelManager;
-import io.openems.shared.timescaledb.schema.tenancy.MultiTenantSchema;
-import io.openems.shared.timescaledb.schema.tenancy.SingleTenantSchema;
+import io.openems.shared.timescaledb.schema.SchemaHandler;
+import io.openems.shared.timescaledb.schema.Tenancy;
 
 /**
  * Facade and entry point to the shared TimescaleDB persistence.
@@ -33,14 +37,18 @@ import io.openems.shared.timescaledb.schema.tenancy.SingleTenantSchema;
  * pool, applies the schema and starts the write workers.
  *
  * <pre>
- * var db = new TimescaleDbHandler(Tenancy.SINGLE_TENANT, host, username, password) //
+ * var db = new TimescaleDbHandler(Tenancy.SINGLE, host, username, password) //
  * 		.database("data") //
  * 		.port(5432) //
  * 		.poolSize(10) //
  * 		.connect();
  * </pre>
  */
-public class TimescaleDbHandler {
+public class TimescaleDbConnector {
+
+	private static final long READ_ONLY_LOG_INTERVAL_SECONDS = 300;
+
+	private final Logger log = LoggerFactory.getLogger(TimescaleDbConnector.class);
 
 	// Required parameters
 	private final Tenancy tenancy;
@@ -55,7 +63,7 @@ public class TimescaleDbHandler {
 	private int writeWorkers = 4;
 	private int rawRetentionDays = 30;
 	private int rawCompressionDays = 7;
-	private Boolean minutelyAggregate = null; // null = derived from tenancy
+	private boolean readOnly = false;
 
 	// Initialized by connect()
 	private HikariDataSource dataSource;
@@ -63,7 +71,9 @@ public class TimescaleDbHandler {
 	private WriteHandler writeHandler;
 	private ReadHandler readHandler;
 
-	public TimescaleDbHandler(Tenancy tenancy, String host, String username, String password) {
+	private volatile Instant lastReadOnlyLog = Instant.EPOCH;
+
+	public TimescaleDbConnector(Tenancy tenancy, String host, String username, String password) {
 		this.tenancy = tenancy;
 		this.host = host;
 		this.username = username;
@@ -76,7 +86,7 @@ public class TimescaleDbHandler {
 	 * @param database the database name
 	 * @return myself for chaining
 	 */
-	public TimescaleDbHandler database(String database) {
+	public TimescaleDbConnector database(String database) {
 		this.assertNotConnected();
 		this.database = database;
 		return this;
@@ -88,7 +98,7 @@ public class TimescaleDbHandler {
 	 * @param port the port
 	 * @return myself for chaining
 	 */
-	public TimescaleDbHandler port(int port) {
+	public TimescaleDbConnector port(int port) {
 		this.assertNotConnected();
 		this.port = port;
 		return this;
@@ -100,7 +110,7 @@ public class TimescaleDbHandler {
 	 * @param poolSize the maximum pool size
 	 * @return myself for chaining
 	 */
-	public TimescaleDbHandler poolSize(int poolSize) {
+	public TimescaleDbConnector poolSize(int poolSize) {
 		this.assertNotConnected();
 		this.poolSize = poolSize;
 		return this;
@@ -113,7 +123,7 @@ public class TimescaleDbHandler {
 	 * @param writeWorkers the number of write workers
 	 * @return myself for chaining
 	 */
-	public TimescaleDbHandler writeWorkers(int writeWorkers) {
+	public TimescaleDbConnector writeWorkers(int writeWorkers) {
 		this.assertNotConnected();
 		this.writeWorkers = writeWorkers;
 		return this;
@@ -125,7 +135,7 @@ public class TimescaleDbHandler {
 	 * @param rawRetentionDays the retention in days
 	 * @return myself for chaining
 	 */
-	public TimescaleDbHandler rawRetentionDays(int rawRetentionDays) {
+	public TimescaleDbConnector rawRetentionDays(int rawRetentionDays) {
 		this.assertNotConnected();
 		this.rawRetentionDays = rawRetentionDays;
 		return this;
@@ -137,27 +147,22 @@ public class TimescaleDbHandler {
 	 * @param rawCompressionDays the compression delay in days
 	 * @return myself for chaining
 	 */
-	public TimescaleDbHandler rawCompressionDays(int rawCompressionDays) {
+	public TimescaleDbConnector rawCompressionDays(int rawCompressionDays) {
 		this.assertNotConnected();
 		this.rawCompressionDays = rawCompressionDays;
 		return this;
 	}
 
 	/**
-	 * Overrides whether the 1-minute Fast Lane aggregate is built (refreshes
-	 * every 60s; costs resources on small devices).
+	 * Activates the read-only mode: {@link #writeBatch} silently discards all
+	 * points (with a rate-limited log message). Default: false.
 	 *
-	 * <p>
-	 * Default is derived from the tenancy: {@code true} for
-	 * {@link Tenancy#MULTI} (central database), {@code false} for
-	 * {@link Tenancy#SINGLE} (resource-limited Edge device).
-	 *
-	 * @param minutelyAggregate whether to build the 1-minute aggregate
+	 * @param readOnly whether to activate read-only mode
 	 * @return myself for chaining
 	 */
-	public TimescaleDbHandler minutelyAggregate(boolean minutelyAggregate) {
+	public TimescaleDbConnector readOnly(boolean readOnly) {
 		this.assertNotConnected();
-		this.minutelyAggregate = minutelyAggregate;
+		this.readOnly = readOnly;
 		return this;
 	}
 
@@ -168,7 +173,7 @@ public class TimescaleDbHandler {
 	 * @return myself for chaining
 	 * @throws SQLException on database connection or schema creation failure
 	 */
-	public TimescaleDbHandler connect() throws SQLException {
+	public TimescaleDbConnector connect() throws SQLException {
 		this.assertNotConnected();
 
 		if (!Driver.isRegistered()) {
@@ -189,39 +194,30 @@ public class TimescaleDbHandler {
 		hikari.setDataSource(pgds);
 		this.dataSource = hikari;
 
-		var createMinutelyAggregate = this.minutelyAggregate != null //
-				? this.minutelyAggregate
-				: this.tenancy == Tenancy.MULTI;
-
-		// Pick the tenancy-specific ChannelManager + SchemaHandler. All other
-		// variance between single-tenant (one edge per database) and multi-tenant
-		// (many edges per database) is confined to these two classes; the
-		// read/write handlers stay tenancy-agnostic.
-		Schema schemaHandler;
-		switch (this.tenancy) {
-		case SINGLE -> {
-			this.channelManager = new SingleTenantChannelManager();
-			schemaHandler = new SingleTenantSchema(this.dataSource, this.rawRetentionDays,
-					this.rawCompressionDays, createMinutelyAggregate);
-		}
-		case MULTI -> {
-			this.channelManager = new MultiTenantChannelManager();
-			schemaHandler = new MultiTenantSchema(this.dataSource, this.rawRetentionDays,
-					this.rawCompressionDays, createMinutelyAggregate);
-		}
-		default -> throw new IllegalArgumentException("Unsupported TimescaleDB tenancy: " + this.tenancy);
-		}
+		// SchemaHandler and ChannelManager derive their SQL from the tenancy;
+		// the read/write handlers stay tenancy-agnostic.
+		var schema = new SchemaHandler(this.tenancy, this.dataSource, this.rawRetentionDays, this.rawCompressionDays);
+		this.channelManager = new ChannelManager(this.tenancy);
 		this.writeHandler = new WriteHandler(this.dataSource, this.channelManager, this.writeWorkers);
-		this.readHandler = new ReadHandler(this.dataSource, this.channelManager, createMinutelyAggregate);
+		this.readHandler = new ReadHandler(this.dataSource, this.channelManager);
 
 		// Apply schema on startup
 		try {
-			schemaHandler.applySchema();
+			schema.applySchema();
 		} catch (SQLException | RuntimeException e) {
 			this.writeHandler.deactivate();
 			this.dataSource.close();
 			this.dataSource = null;
 			throw e;
+		}
+
+		// Warm up the channel cache with one bulk query, so the first writes and
+		// reads skip their per-channel lookups. Best effort — a cold start is fine.
+		try (var con = this.dataSource.getConnection()) {
+			var count = this.channelManager.warmUpCache(con);
+			this.log.info("TimescaleDB channel cache warmed up with {} channels", count);
+		} catch (SQLException e) {
+			this.log.warn("TimescaleDB channel cache warm-up failed; continuing cold: {}", e.getMessage());
 		}
 		return this;
 	}
@@ -233,14 +229,58 @@ public class TimescaleDbHandler {
 	}
 
 	public void writeBatch(List<DataPoint> points) throws SQLException {
+		if (this.readOnly) {
+			var now = Instant.now();
+			if (now.isAfter(this.lastReadOnlyLog.plusSeconds(READ_ONLY_LOG_INTERVAL_SECONDS))) {
+				this.lastReadOnlyLog = now;
+				this.log.info("Read-Only mode is active. Discarding {} points", points.size());
+			}
+			return;
+		}
 		this.writeHandler.writeBatch(points);
+	}
+
+	/**
+	 * Returns a short status line for continuous debug logging: write-queue fill
+	 * level and total points written since start.
+	 *
+	 * @return the debug log string
+	 */
+	public String debugLog() {
+		return new StringBuilder("TimescaleDB [queue:") //
+				.append(this.writeHandler.queueSize()).append("/").append(this.writeHandler.queueCapacity()) //
+				.append("|written:").append(this.writeHandler.totalWritten()) //
+				.append(this.readOnly ? "|READ_ONLY" : "") //
+				.append("]").toString();
+	}
+
+	/**
+	 * Returns the size of each hypertable in MB, for monitoring database growth.
+	 *
+	 * @return map of hypertable name to size in MB; empty on error
+	 */
+	public Map<String, Number> debugMetrics() {
+		var data = new HashMap<String, Number>();
+		try (var con = this.dataSource.getConnection(); //
+				var st = con.createStatement()) {
+			var rs = st.executeQuery("""
+					SELECT hypertable_name,
+					       hypertable_size(format('%I.%I', hypertable_schema, hypertable_name)::regclass) / 1024 / 1024
+					FROM timescaledb_information.hypertables""");
+			while (rs.next()) {
+				data.put(rs.getString(1), rs.getInt(2));
+			}
+		} catch (SQLException e) {
+			this.log.warn("Unable to query debugMetrics: {}", e.getMessage());
+		}
+		return data;
 	}
 
 	// Queries historic data for a set of channels at a specific resolution
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricData(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
-			Set<ChannelAddress> channels, long bucketSeconds) throws SQLException {
-		return this.readHandler.queryHistoricData(edgeName, from, to, channels, bucketSeconds);
+			Set<ChannelAddress> channels, Resolution resolution) throws SQLException {
+		return this.readHandler.queryHistoricData(edgeName, from, to, channels, resolution);
 	}
 
 	// Queries the total historic energy consumed/produced during a period.
@@ -253,8 +293,8 @@ public class TimescaleDbHandler {
 	// Queries historic energy per bucket resolution.
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricEnergyPerPeriod(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
-			Set<ChannelAddress> channels, long bucketSeconds) throws SQLException {
-		return this.readHandler.queryHistoricEnergyPerPeriod(edgeName, from, to, channels, bucketSeconds);
+			Set<ChannelAddress> channels, Resolution resolution) throws SQLException {
+		return this.readHandler.queryHistoricEnergyPerPeriod(edgeName, from, to, channels, resolution);
 	}
 
 	// Queries the most recent known value for a channel.

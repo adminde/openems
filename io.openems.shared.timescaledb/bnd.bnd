@@ -1,18 +1,19 @@
 Bundle-Name: OpenEMS Shared TimescaleDB
-Bundle-Vendor: OpenEMS Association e.V.
+Bundle-Vendor: Oros Energy Europe GmbH
 Bundle-License: https://opensource.org/licenses/EPL-2.0
 Bundle-Version: 1.0.0.${tstamp}
 Export-Package: \
-	io.openems.shared.timescaledb
-
--privatepackage: \
-	io.openems.shared.timescaledb.schema,\
-	io.openems.shared.timescaledb.schema.tenancy,\
-	io.openems.shared.timescaledb.worker
+	io.openems.shared.timescaledb,\
+	io.openems.shared.timescaledb.data,\
+	io.openems.shared.timescaledb.schema
 
 -buildpath: \
 	${buildpath},\
+	io.openems.common,\
 	com.google.gson,\
 	com.zaxxer.HikariCP,\
-	io.openems.common,\
+	de.bytefish:pgbulkinsert,\
 	org.postgresql.jdbc
+
+-conditionalpackage: \
+	de.bytefish.pgbulkinsert.*

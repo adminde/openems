@@ -207,6 +207,16 @@
 			<artifactId>HikariCP</artifactId>
 			<version>7.0.2</version>
 		</dependency>
+		<!-- de -->
+		<dependency>
+			<!--
+			PgBulkInsert: Java library for bulk inserts to PostgreSQL using the
+			binary COPY protocol. Embedded privately in io.openems.shared.timescaledb.
+			-->
+			<groupId>de.bytefish</groupId>
+			<artifactId>pgbulkinsert</artifactId>
+			<version>8.1.4</version>
+		</dependency>
 		<!-- eu -->
 		<dependency>
 			<!-- Used by io.openems.edge.evcs.ocpp. -->
@@ -566,6 +576,11 @@
 			<version>8.0.0</version>
 		</dependency>
 		<dependency>
+			<groupId>com.zaxxer</groupId>
+			<artifactId>HikariCP</artifactId>
+			<version>7.0.2</version>
+		</dependency>
+		<dependency>
 			<!--
 			Kotlin OSGi Bundle
 			Changelog: https://github.com/JetBrains/kotlin/releases
@@ -865,16 +880,6 @@
 			<groupId>org.objenesis</groupId>
 			<artifactId>objenesis</artifactId>
 			<version>3.5</version>
-		</dependency>
-		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
-			<version>42.7.10</version>
-		</dependency>
-		<dependency>
-			<groupId>com.zaxxer</groupId>
-			<artifactId>HikariCP</artifactId>
-			<version>7.0.2</version>
 		</dependency>
 	</dependencies>
 </project>

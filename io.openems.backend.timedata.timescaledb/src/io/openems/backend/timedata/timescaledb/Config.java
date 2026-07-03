@@ -38,5 +38,8 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "Write Workers", description = "Number of background threads draining the write queue into the database. Keep below Pool Size so reads still get a connection.")
 	int writeWorkers() default 10;
 
+	@AttributeDefinition(name = "Read-Only mode", description = "Activates the read-only mode. Then no data is written to TimescaleDB.")
+	boolean isReadOnly() default false;
+
 	String webconsole_configurationFactory_nameHint() default "Timedata TimescaleDB [{id}]";
 }

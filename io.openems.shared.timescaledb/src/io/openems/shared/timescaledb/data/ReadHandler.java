@@ -1,4 +1,4 @@
-package io.openems.shared.timescaledb.worker;
+package io.openems.shared.timescaledb.data;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -9,7 +9,6 @@ import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -19,10 +18,13 @@ import java.util.UUID;
 import com.google.gson.JsonElement;
 import com.zaxxer.hikari.HikariDataSource;
 
+import io.openems.common.timedata.Resolution;
 import io.openems.common.types.ChannelAddress;
-import io.openems.shared.timescaledb.schema.ChannelDefinition;
+import io.openems.shared.timescaledb.Type;
+import io.openems.shared.timescaledb.Utils;
+import io.openems.shared.timescaledb.schema.ChannelInfo;
 import io.openems.shared.timescaledb.schema.ChannelManager;
-import io.openems.shared.timescaledb.schema.Schema;
+import io.openems.shared.timescaledb.schema.SchemaHandler;
 
 /**
  * Handles read queries for TimescaleDB, including historic data, energy totals, and latest values.
@@ -31,7 +33,6 @@ public class ReadHandler {
 
 	private final HikariDataSource dataSource;
 	private final ChannelManager channelManager;
-	private final boolean minutelyAggregateAvailable;
 
 	/**
 	 * Constructor.
@@ -39,15 +40,10 @@ public class ReadHandler {
 	 * @param dataSource                 The Hikari connection pool
 	 * @param channelManager             The ChannelManager to resolve channel
 	 *                                   metadata
-	 * @param minutelyAggregateAvailable Whether the 1-minute Fast Lane aggregate
-	 *                                   exists; when false, sub-15m core queries
-	 *                                   fall back to raw tables
 	 */
-	public ReadHandler(HikariDataSource dataSource, ChannelManager channelManager,
-	                   boolean minutelyAggregateAvailable) {
+	public ReadHandler(HikariDataSource dataSource, ChannelManager channelManager) {
 		this.dataSource = dataSource;
 		this.channelManager = channelManager;
-		this.minutelyAggregateAvailable = minutelyAggregateAvailable;
 	}
 
 	/**
@@ -55,23 +51,25 @@ public class ReadHandler {
 	 *
 	 * <p>
 	 * Used by Timedata.getLatestValue(). Picks the right raw hypertable based
-	 * on the channel's type and core flag, then runs a single-row reverse
+	 * on the channel's type and rollup flag, then runs a single-row reverse
 	 * scan on the (channel_id, time DESC) index.
 	 * 
 	 * @param edgeName The Edge identifier
-	 * @param addr     The ChannelAddress
+	 * @param channel  The ChannelAddress
 	 * @return The latest value if present
 	 * @throws SQLException on database error
 	 */
-	public Optional<Object> queryLatestValue(String edgeName, ChannelAddress addr) throws SQLException {
-		try (Connection con = this.dataSource.getConnection()) {
-			ChannelDefinition info = this.channelManager.lookupChannel(con, edgeName, addr);
+	public Optional<Object> queryLatestValue(String edgeName, ChannelAddress channel) throws SQLException {
+		try (Connection connection = this.dataSource.getConnection()) {
+			ChannelInfo info = this.channelManager.lookupChannel(connection, edgeName, channel);
 			if (info == null) {
 				return Optional.empty();
 			}
-			String table = "data_" + dataTypeFolder(info.dataType());
-			String sql = "SELECT value FROM " + table + " WHERE channel_id = ? ORDER BY time DESC LIMIT 1";
-			try (var pst = con.prepareStatement(sql)) {
+			String sql = new StringBuilder()
+					.append("SELECT value FROM ").append(info.type().rawTableName)
+					.append(" WHERE channel_id = ? ORDER BY time DESC LIMIT 1")
+					.toString();
+			try (var pst = connection.prepareStatement(sql)) {
 				pst.setObject(1, info.channelId());
 				try (ResultSet rs = pst.executeQuery()) {
 					if (rs.next()) {
@@ -88,56 +86,77 @@ public class ReadHandler {
 	 *
 	 * <p>
 	 * For each requested channel, picks the best source view and runs a single
-	 * grouped SELECT to produce one row per (bucket, channel).
+	 * grouped SELECT to produce one row per (bucket, channel). The result map is
+	 * prefilled with JsonNull for every bucket/channel, matching the dense map
+	 * the OpenEMS API expects. Calendar-based resolutions (days and coarser) are
+	 * bucketed timezone-aware, so month buckets and DST transitions are correct.
 	 *
-	 * @param edgeName       The Edge identifier
-	 * @param from           Start time
-	 * @param to             End time
-	 * @param channels       Set of requested channels
-	 * @param bucketSecs  Resolution in seconds
-	 * @return sorted map keyed by bucket timestamp (UTC)
+	 * @param edgeName   The Edge identifier
+	 * @param from       Start time
+	 * @param to         End time
+	 * @param channels   Set of requested channels
+	 * @param resolution The bucket {@link Resolution}
+	 * @return sorted map keyed by bucket timestamp
 	 * @throws SQLException on database error
 	 */
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricData(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
-			Set<ChannelAddress> channels, long bucketSecs) throws SQLException {
+			Set<ChannelAddress> channels, Resolution resolution) throws SQLException {
 
-		SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> result = new java.util.TreeMap<>();
 		if (channels.isEmpty()) {
-			return result;
+			return new java.util.TreeMap<>();
 		}
+		var result = Utils.prepareDataMap(from, to, channels, resolution);
+		var approxBucketSecs = Utils.approxSeconds(resolution);
+		var interval = Utils.toSqlInterval(resolution);
+		var calendarBucket = resolution.getUnit().isDateBased();
 
-		try (Connection con = this.dataSource.getConnection()) {
-			
-			Map<String, List<ChannelAddr>> byView = new HashMap<>();
-			for (ChannelAddress addr : channels) {
-				ChannelDefinition info = this.channelManager.lookupChannel(con, edgeName, addr);
+		try (Connection connection = this.dataSource.getConnection()) {
+			Map<String, Map<UUID, ChannelAddress>> byView = new HashMap<>();
+			for (ChannelAddress channel : channels) {
+				ChannelInfo info = this.channelManager.lookupChannel(connection, edgeName, channel);
 				if (info == null) {
 					continue;
 				}
-				String view = this.pickSource(info.dataType(), info.core(), bucketSecs, from);
-				byView.computeIfAbsent(view, k -> new ArrayList<>()).add(new ChannelAddr(info.channelId(), addr));
+				String view = this.pickSource(info.type(), info.rollup(), approxBucketSecs, from);
+				byView.computeIfAbsent(view, k -> new HashMap<>()).put(info.channelId(), channel);
 			}
 			for (var entry : byView.entrySet()) {
 				String view = entry.getKey();
-				List<ChannelAddr> channelAddrs = entry.getValue();
-				UUID[] channelIds = channelAddrs.stream().map(ChannelAddr::channelId).toArray(UUID[]::new);
+				Map<UUID, ChannelAddress> addrById = entry.getValue();
+				UUID[] channelIds = addrById.keySet().toArray(UUID[]::new);
 
-				String timeCol = view.startsWith("agg_") ? "bucket" : "time";
-				String aggExpr = view.startsWith("agg_") ? "AVG(avg_val)" : "AVG(value)";
-				if (view.contains("string")) {
-					aggExpr = view.startsWith("agg_") ? "last(last_val, bucket)" : "last(value, time)";
+				// Raw hypertables expose (time, value); the continuous-aggregate
+				// views expose (bucket, avg_val/last_val).
+				boolean raw = isRawTable(view);
+				String timeCol = raw ? "time" : "bucket";
+				String aggExpr = view.contains("string")
+						? (raw ? "last(value, time)" : "last(last_val, bucket)")
+						: (raw ? "AVG(value)" : "AVG(avg_val)");
+
+				// time_bucket with a timezone argument aligns calendar buckets (days,
+				// months, ...) to local midnight incl. DST; requires TimescaleDB >= 2.8.
+				StringBuilder sql = new StringBuilder()
+						.append("SELECT time_bucket(?::interval, ").append(timeCol);
+				if (calendarBucket) {
+					sql.append(", ?");
 				}
-				String sql = "SELECT time_bucket(?::interval, " + timeCol + ") AS b, channel_id, "
-						+ aggExpr + " AS v FROM " + view + " "
-						+ "WHERE channel_id = ANY(?) AND " + timeCol + " >= ? AND " + timeCol + " < ? "
-						+ "GROUP BY b, channel_id ORDER BY b";
+				sql.append(") AS b, channel_id, ").append(aggExpr).append(" AS v ")
+						.append("FROM ").append(view).append(" ")
+						.append("WHERE channel_id = ANY(?)")
+						.append(" AND ").append(timeCol).append(" >= ?")
+						.append(" AND ").append(timeCol).append(" < ? ")
+						.append("GROUP BY b, channel_id ORDER BY b");
 
-				try (var pst = con.prepareStatement(sql)) {
-					pst.setString(1, bucketSecs + " seconds");
-					pst.setArray(2, con.createArrayOf("uuid", channelIds));
-					pst.setObject(3, from.toOffsetDateTime());
-					pst.setObject(4, to.toOffsetDateTime());
+				try (var pst = connection.prepareStatement(sql.toString())) {
+					var i = 1;
+					pst.setString(i++, interval);
+					if (calendarBucket) {
+						pst.setString(i++, from.getZone().getId());
+					}
+					pst.setArray(i++, connection.createArrayOf("uuid", channelIds));
+					pst.setObject(i++, from.toOffsetDateTime());
+					pst.setObject(i, to.toOffsetDateTime());
 
 					try (ResultSet rs = pst.executeQuery()) {
 						while (rs.next()) {
@@ -145,8 +164,7 @@ public class ReadHandler {
 							UUID channelId = rs.getObject(2, UUID.class);
 							Object value = rs.getObject(3);
 
-							ChannelAddress addr = channelAddrs.stream().filter(e -> e.channelId().equals(channelId))
-									.findFirst().map(ChannelAddr::addr).orElse(null);
+							ChannelAddress addr = addrById.get(channelId);
 							if (addr == null) {
 								continue;
 							}
@@ -179,18 +197,17 @@ public class ReadHandler {
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
 			Set<ChannelAddress> channels) throws SQLException {
 
-		SortedMap<ChannelAddress, JsonElement> result = new java.util.TreeMap<>();
+		SortedMap<ChannelAddress, JsonElement> result = Utils.prepareEnergyMap(channels);
 		try (Connection con = this.dataSource.getConnection()) {
-			for (ChannelAddress addr : channels) {
-				ChannelDefinition info = this.channelManager.lookupChannel(con, edgeName, addr);
+			for (ChannelAddress channel : channels) {
+				ChannelInfo info = this.channelManager.lookupChannel(con, edgeName, channel);
 				if (info == null) {
-					result.put(addr, com.google.gson.JsonNull.INSTANCE);
-					continue;
+					continue; // stays JsonNull from the prefill
 				}
 
 				// Sum positive deltas, treating any downward jump as a counter reset
 				// where the post-reset value itself counts as accumulation.
-				String table = "data_" + dataTypeFolder(info.dataType());
+				String table = info.type().rawTableName;
 				String sql = """
 						WITH ordered AS (
 						    SELECT value, LAG(value) OVER (ORDER BY time) AS prev
@@ -211,9 +228,7 @@ public class ReadHandler {
 					try (ResultSet rs = pst.executeQuery()) {
 						if (rs.next()) {
 							Object v = rs.getObject(1);
-							result.put(addr, toJson(v));
-						} else {
-							result.put(addr, com.google.gson.JsonNull.INSTANCE);
+							result.put(channel, toJson(v));
 						}
 					}
 				}
@@ -226,37 +241,44 @@ public class ReadHandler {
 	 * Returns the energy delta per bucket.
 	 *
 	 * <p>
-	 * Implemented as a window query over the appropriate aggregate using
-	 * `last(value, time)` per bucket and LAG() to subtract neighbors.
-	 * 
-	 * @param edgeName       The Edge identifier
-	 * @param from           Start time
-	 * @param to             End time
-	 * @param channels       Set of requested channels
-	 * @param bucketSecs  Resolution in seconds
+	 * Implemented as a window query over the raw table using `last(value, time)`
+	 * per bucket and LAG() to subtract neighbors. The query window is extended by
+	 * one bucket before {@code from} so the first requested bucket gets a real
+	 * delta. The result map is prefilled with JsonNull for every bucket/channel.
+	 *
+	 * @param edgeName   The Edge identifier
+	 * @param from       Start time
+	 * @param to         End time
+	 * @param channels   Set of requested channels
+	 * @param resolution The bucket {@link Resolution}
 	 * @return A map of timestamps to channel energy deltas
 	 * @throws SQLException on database error
 	 */
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricEnergyPerPeriod(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
-			Set<ChannelAddress> channels, long bucketSecs) throws SQLException {
+			Set<ChannelAddress> channels, Resolution resolution) throws SQLException {
 
-		SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> result = new java.util.TreeMap<>();
 		if (channels.isEmpty()) {
-			return result;
+			return new java.util.TreeMap<>();
 		}
+		var result = Utils.prepareDataMap(from, to, channels, resolution);
+		var interval = Utils.toSqlInterval(resolution);
+		var calendarBucket = resolution.getUnit().isDateBased();
+		var extendedFrom = from.minus(resolution.getValue(), resolution.getUnit());
 
 		try (Connection con = this.dataSource.getConnection()) {
-			for (ChannelAddress addr : channels) {
-				ChannelDefinition info = this.channelManager.lookupChannel(con, edgeName, addr);
+			for (ChannelAddress channel : channels) {
+				ChannelInfo info = this.channelManager.lookupChannel(con, edgeName, channel);
 				if (info == null) {
 					continue;
 				}
-				String table = "data_" + dataTypeFolder(info.dataType());
+				String bucketExpr = calendarBucket
+						? "time_bucket(?::interval, time, ?)"
+						: "time_bucket(?::interval, time)";
 				String sql = """
 						WITH per_bucket AS (
-						    SELECT time_bucket(?::interval, time) AS b,
-						           last(value, time)              AS last_val
+						    SELECT %s AS b,
+						           last(value, time) AS last_val
 						    FROM %s
 						    WHERE channel_id = ? AND time >= ? AND time < ?
 						    GROUP BY b
@@ -270,22 +292,29 @@ public class ReadHandler {
 						       END AS delta
 						FROM per_bucket
 						ORDER BY b;
-						""".formatted(table);
+						""".formatted(bucketExpr, info.type().rawTableName);
 
 				try (var pst = con.prepareStatement(sql)) {
-					pst.setString(1, bucketSecs + " seconds");
-					pst.setObject(2, info.channelId());
-					pst.setObject(3, from.toOffsetDateTime());
-					pst.setObject(4, to.toOffsetDateTime());
+					var i = 1;
+					pst.setString(i++, interval);
+					if (calendarBucket) {
+						pst.setString(i++, from.getZone().getId());
+					}
+					pst.setObject(i++, info.channelId());
+					pst.setObject(i++, extendedFrom.toOffsetDateTime());
+					pst.setObject(i, to.toOffsetDateTime());
 					try (ResultSet rs = pst.executeQuery()) {
 						while (rs.next()) {
 							ZonedDateTime bucketTs = rs.getObject(1, OffsetDateTime.class).atZoneSameInstant(from.getZone());
 							Object delta = rs.getObject(2);
 							if (delta == null) {
-								continue; // first bucket has no LAG()
+								continue; // bucket before the window has no LAG()
+							}
+							if (bucketTs.isBefore(from)) {
+								continue; // t-1 bucket only feeds the first LAG()
 							}
 							result.computeIfAbsent(bucketTs, k -> new java.util.TreeMap<>())
-									.put(addr, toJson(delta));
+									.put(channel, toJson(delta));
 						}
 					}
 				}
@@ -311,15 +340,16 @@ public class ReadHandler {
 	public java.util.List<Long> getResendTimestamps(String edgeName,
 			ChannelAddress notSendChannel, long lastResendTimestamp) throws SQLException {
 		var result = new ArrayList<Long>();
-		try (Connection con = this.dataSource.getConnection()) {
-			ChannelDefinition info = this.channelManager.lookupChannel(con, edgeName, notSendChannel);
+		try (Connection connection = this.dataSource.getConnection()) {
+			ChannelInfo info = this.channelManager.lookupChannel(connection, edgeName, notSendChannel);
 			if (info == null) {
 				return result;
 			}
-			String table = "data_" + dataTypeFolder(info.dataType());
-			String sql = "SELECT EXTRACT(EPOCH FROM time)::bigint FROM " + table
-					+ " WHERE channel_id = ? AND time > to_timestamp(?) AND value <> 0 ORDER BY time";
-			try (var pst = con.prepareStatement(sql)) {
+			String sql = new StringBuilder()
+					.append("SELECT EXTRACT(EPOCH FROM time)::bigint FROM ").append(info.type().rawTableName)
+					.append(" WHERE channel_id = ? AND time > to_timestamp(?) AND value <> 0 ORDER BY time")
+					.toString();
+			try (var pst = connection.prepareStatement(sql)) {
 				pst.setObject(1, info.channelId());
 				pst.setLong(2, Math.max(lastResendTimestamp, 0L));
 				try (ResultSet rs = pst.executeQuery()) {
@@ -353,22 +383,23 @@ public class ReadHandler {
 		}
 		try (Connection con = this.dataSource.getConnection()) {
 			// Group channels by raw table so we run at most three queries.
-			Map<String, List<ChannelAddr>> byTable = new HashMap<>();
+			Map<String, Map<UUID, ChannelAddress>> byTable = new HashMap<>();
 			for (ChannelAddress addr : channels) {
-				ChannelDefinition info = this.channelManager.lookupChannel(con, edgeName, addr);
+				ChannelInfo info = this.channelManager.lookupChannel(con, edgeName, addr);
 				if (info == null) {
 					continue;
 				}
-				String table = "data_" + dataTypeFolder(info.dataType());
-				byTable.computeIfAbsent(table, k -> new ArrayList<>())
-						.add(new ChannelAddr(info.channelId(), addr));
+				byTable.computeIfAbsent(info.type().rawTableName, k -> new HashMap<>())
+						.put(info.channelId(), addr);
 			}
 			for (var entry : byTable.entrySet()) {
 				String table = entry.getKey();
-				List<ChannelAddr> chans = entry.getValue();
-				UUID[] ids = chans.stream().map(ChannelAddr::channelId).toArray(UUID[]::new);
-				String sql = "SELECT EXTRACT(EPOCH FROM time)::bigint, channel_id, value FROM " + table
-						+ " WHERE channel_id = ANY(?) AND time >= ? AND time < ? ORDER BY time";
+				Map<UUID, ChannelAddress> addrById = entry.getValue();
+				UUID[] ids = addrById.keySet().toArray(UUID[]::new);
+				String sql = new StringBuilder()
+						.append("SELECT EXTRACT(EPOCH FROM time)::bigint, channel_id, value FROM ").append(table)
+						.append(" WHERE channel_id = ANY(?) AND time >= ? AND time < ? ORDER BY time")
+						.toString();
 				try (var pst = con.prepareStatement(sql)) {
 					pst.setArray(1, con.createArrayOf("uuid", ids));
 					pst.setObject(2, from.toOffsetDateTime());
@@ -378,9 +409,7 @@ public class ReadHandler {
 							long ts = rs.getLong(1);
 							UUID cid = rs.getObject(2, UUID.class);
 							Object value = rs.getObject(3);
-							ChannelAddress addr = chans.stream()
-									.filter(e -> e.channelId().equals(cid))
-									.findFirst().map(ChannelAddr::addr).orElse(null);
+							ChannelAddress addr = addrById.get(cid);
 							if (addr == null) {
 								continue;
 							}
@@ -394,89 +423,88 @@ public class ReadHandler {
 		return result;
 	}
 
-	private static String dataTypeFolder(String dataType) {
-		return switch (dataType) {
-		case "INTEGER" -> "integer";
-		case "FLOAT"   -> "float";
-		default        -> "string";
-		};
-	}
-
 	/**
 	 * Picks the best source view/table for a given resolution: the coarsest view
 	 * whose bucket size is &lt;= the requested resolution. When the 1-minute
-	 * aggregate is unavailable (e.g. on Edge devices), sub-15m core queries fall
+	 * aggregate is unavailable (e.g. on Edge devices), sub-15m rollup queries fall
 	 * back to raw tables.
 	 *
 	 * <p>
-	 * For core channels the choice is also time-aware: the Fast Lane (_core) views
+	 * For rollup channels the choice is also time-aware: the Fast Lane (_rollup) views
 	 * expire on their retention policies, while the shared (Slow Lane) views are
-	 * kept forever. If the query window reaches further back than the picked _core
+	 * kept forever. If the query window reaches further back than the picked _rollup
 	 * tier's retention horizon, this routes to the shared view instead, so old
-	 * core history remains reachable (at the same or the next-coarser resolution).
+	 * rollup history remains reachable (at the same or the next-coarser resolution).
 	 *
-	 * @param dataType       INTEGER / FLOAT / STRING
-	 * @param core           true = Fast Lane (VERY_HIGH), false = Slow Lane
+	 * @param type           INTEGER / FLOAT / STRING
+	 * @param rollup         true = Fast Lane (VERY_HIGH), false = Slow Lane
 	 * @param bucketSeconds  desired bucket size in seconds
 	 * @param from           start of the query window (its oldest point)
 	 * @return the unqualified table or materialized-view name
 	 */
-	private String pickSource(String dataType, boolean core, long bucketSeconds, ZonedDateTime from) {
-		String typePart = switch (dataType) {
-		case "INTEGER" -> "integer";
-		case "FLOAT"   -> "float";
-		default        -> "string";
-		};
+	private String pickSource(Type type, boolean rollup, long bucketSeconds, ZonedDateTime from) {
+		String typePart = type.aggInfix;
 
 		// Strings cannot be aggregated mathematically, so they always use raw data.
-		if ("string".equals(typePart)) {
-			return "data_" + typePart;
+		if (type == Type.STRING) {
+			return type.rawTableName;
 		}
 
-		// Fast Lane (core = true): tiers 1m, 15m, 1d, each falling back to the
+		// Fast Lane (rollup = true): tiers 1m, 15m, 1d, each falling back to the
 		// never-expiring shared view once the window predates its retention.
-		if (core) {
+		if (rollup) {
 			// Daily tier.
 			if (bucketSeconds >= 86400) {
-				return reachesBefore(from, Schema.AGG_1D_CORE_DAYS)
-						? "agg_1d_" + typePart          // shared, kept forever
-						: "agg_1d_core_" + typePart;
+				return reachesBefore(from, SchemaHandler.RETENTION_1D)
+						? "data_1d_" + typePart          // shared, kept forever
+						: "data_1d_rollup_" + typePart;
 			}
 			// 15-minute tier — also where a sub-15m request lands once it predates
 			// the 1-minute retention (no 1-minute data exists that far back).
-			if (bucketSeconds >= 900 || reachesBefore(from, Schema.AGG_1M_CORE_DAYS)) {
-				return reachesBefore(from, Schema.AGG_15M_CORE_DAYS)
-						? "agg_15m_" + typePart         // shared, kept forever
-						: "agg_15m_core_" + typePart;
+			if (bucketSeconds >= 900 || reachesBefore(from, SchemaHandler.RETENTION_1M_DAYS)) {
+				return reachesBefore(from, SchemaHandler.RETENTION_15M_DAYS)
+						? "data_15m_" + typePart         // shared, kept forever
+						: "data_15m_rollup_" + typePart;
 			}
 			// 1-minute tier (recent window only).
-			if (bucketSeconds >= 60 && this.minutelyAggregateAvailable) {
-				return "agg_1m_core_" + typePart;
+			if (bucketSeconds >= 60) {
+				return "data_1m_rollup_" + typePart;
 			}
 			return "data_" + typePart;
 		}
 
-		// Slow Lane (core = false): tiers 15m, 1d. Sub-15m falls back to raw.
+		// Slow Lane (rollup = false): tiers 15m, 1d. Sub-15m falls back to raw.
 		if (bucketSeconds >= 86400) {
-			return "agg_1d_" + typePart;
+			return "data_1d_" + typePart;
 		}
 		if (bucketSeconds >= 900) {
-			return "agg_15m_" + typePart;
+			return "data_15m_" + typePart;
 		}
 		return "data_" + typePart;
 	}
 
 	/**
+	 * Whether {@code source} is one of the raw hypertables (as opposed to a
+	 * continuous-aggregate view): raw tables expose {@code (time, value)}, the
+	 * aggregate views expose {@code (bucket, avg_val/last_val)}.
+	 */
+	private static boolean isRawTable(String source) {
+		for (var type : Type.values()) {
+			if (type.rawTableName.equals(source)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Whether {@code from} is older than {@code days} ago — i.e. the query window
-	 * reaches into a region a _core view's retention policy may already have
+	 * reaches into a region a _rollup view's retention policy may already have
 	 * dropped.
 	 */
 	private static boolean reachesBefore(ZonedDateTime from, long days) {
 		return from.toInstant().isBefore(Instant.now().minus(Duration.ofDays(days)));
 	}
-
-	/** Helper record pairing an channel_id (UUID v7) with its ChannelAddress. */
-	private record ChannelAddr(UUID channelId, ChannelAddress addr) {}
 
 	/** Convert a raw JDBC value into the JsonElement form OpenEMS expects. */
 	private static JsonElement toJson(Object value) {
