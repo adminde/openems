@@ -36,11 +36,11 @@ public class HeatingHandlerImpl {
 			policyOption = ReferencePolicyOption.GREEDY, //
 			target = "(enabled=true)"//
 	)
-	protected void addHeating(SymmetricHeating component) {
+	public void addHeating(SymmetricHeating component) {
 		this.heatings.add(component);
 	}
 
-	protected void removeHeating(SymmetricHeating component) {
+	public void removeHeating(SymmetricHeating component) {
 		this.heatings.remove(component);
 	}
 

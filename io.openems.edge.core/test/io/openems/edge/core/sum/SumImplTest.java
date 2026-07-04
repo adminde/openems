@@ -19,7 +19,9 @@ import io.openems.edge.common.test.ComponentTest;
 import io.openems.edge.common.test.DummyComponentManager;
 import io.openems.edge.core.sum.handler.ChargerHandlerImpl;
 import io.openems.edge.core.sum.handler.EssHandlerImpl;
+import io.openems.edge.core.sum.handler.HeatingHandlerImpl;
 import io.openems.edge.core.sum.handler.MeterHandlerImpl;
+import io.openems.edge.core.sum.handler.TessHandlerImpl;
 import io.openems.edge.evcs.test.DummyEvcsPower;
 import io.openems.edge.evcs.test.DummyManagedEvcs;
 import io.openems.edge.heat.test.DummyManagedHeatPump;
@@ -42,6 +44,8 @@ public class SumImplTest {
 		final var tariffManager = new DummyTariffManager() //
 				.withTariffGridBuyProvider(fromQuarterlyPrices(clock, 1.0, 1.1, 1.2)) //
 				.withTariffGridSellProvider(fromQuarterlyGridSellPrices(clock, 2.0, 2.1, 2.2));
+		final HeatingHandlerImpl heatingHandler = new HeatingHandlerImpl();
+		final TessHandlerImpl tessHandler = new TessHandlerImpl();
 		final MeterHandlerImpl meterHandler = new MeterHandlerImpl();
 		final ChargerHandlerImpl chargerHandler = new ChargerHandlerImpl();
 		final EssHandlerImpl essHandler = new EssHandlerImpl();
@@ -57,6 +61,8 @@ public class SumImplTest {
 				.addReference("meterHandler", meterHandler)//
 				.addReference("chargerHandler", chargerHandler)//
 				.addReference("essHandler", essHandler)//
+				.addReference("heatingHandler", heatingHandler)//
+				.addReference("tessHandler", tessHandler)//
 				.addReference("tariffManager", tariffManager) //
 				.activate(MyConfig.create() //
 						.setGridMinActivePower(0) //
@@ -137,12 +143,25 @@ public class SumImplTest {
 		final var tariffManager = new DummyTariffManager() //
 				.withTariffGridBuyProvider(fromQuarterlyPrices(clock, 1.0)) //
 				.withTariffGridSellProvider(fromQuarterlyGridSellPrices(clock, 2.0));
+		final var meterHandler = new MeterHandlerImpl();
+		final var chargerHandler = new ChargerHandlerImpl();
+		final var essHandler = new EssHandlerImpl();
+		final var heatingHandler = new HeatingHandlerImpl();
+		final var tessHandler = new TessHandlerImpl();
+		meterHandler.addMeter(grid);
+		heatingHandler.addHeating(heating);
+		tessHandler.addTess(tess);
 		final var test = new ComponentTest(sut) //
 				.addComponent(grid) //
 				.addComponent(heating) //
 				.addComponent(tess) //
 				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("componentManager", new DummyComponentManager(clock)) //
+				.addReference("meterHandler", meterHandler)//
+				.addReference("chargerHandler", chargerHandler)//
+				.addReference("essHandler", essHandler)//
+				.addReference("heatingHandler", heatingHandler)//
+				.addReference("tessHandler", tessHandler)//
 				.addReference("tariffManager", tariffManager) //
 				.activate(MyConfig.create() //
 						.setGridMinActivePower(0) //
@@ -181,12 +200,25 @@ public class SumImplTest {
 		final var tariffManager = new DummyTariffManager() //
 				.withTariffGridBuyProvider(fromQuarterlyPrices(clock, 1.0)) //
 				.withTariffGridSellProvider(fromQuarterlyGridSellPrices(clock, 2.0));
+		final var meterHandler = new MeterHandlerImpl();
+		final var chargerHandler = new ChargerHandlerImpl();
+		final var essHandler = new EssHandlerImpl();
+		final var heatingHandler = new HeatingHandlerImpl();
+		final var tessHandler = new TessHandlerImpl();
+		meterHandler.addMeter(grid);
+		tessHandler.addTess(tess1);
+		tessHandler.addTess(tess2);
 		final var test = new ComponentTest(sut) //
 				.addComponent(grid) //
 				.addComponent(tess1) //
 				.addComponent(tess2) //
 				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("componentManager", new DummyComponentManager(clock)) //
+				.addReference("meterHandler", meterHandler)//
+				.addReference("chargerHandler", chargerHandler)//
+				.addReference("essHandler", essHandler)//
+				.addReference("heatingHandler", heatingHandler)//
+				.addReference("tessHandler", tessHandler)//
 				.addReference("tariffManager", tariffManager) //
 				.activate(MyConfig.create() //
 						.setGridMinActivePower(0) //

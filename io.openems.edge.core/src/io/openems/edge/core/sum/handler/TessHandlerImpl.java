@@ -33,11 +33,11 @@ public class TessHandlerImpl {
 			policyOption = ReferencePolicyOption.GREEDY, //
 			target = "(enabled=true)"//
 	)
-	protected void addTess(ThermalEss component) {
+	public void addTess(ThermalEss component) {
 		this.tesss.add(component);
 	}
 
-	protected void removeTess(ThermalEss component) {
+	public void removeTess(ThermalEss component) {
 		this.tesss.remove(component);
 	}
 
