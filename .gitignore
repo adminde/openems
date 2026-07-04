@@ -197,6 +197,10 @@ typings/
 # dotenv environment variables file
 .env
 
+### Claude ###
+/.claude/
+!/.claude/CLAUDE.md
+
 ### Gradle ###
 .gradle
 /build/
