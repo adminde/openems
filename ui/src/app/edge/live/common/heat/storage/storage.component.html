@@ -1,0 +1,19 @@
+@if (isInitialized) {
+  <oe-flat-widget [class]="storageIconStyle" [icon]="{name: 'flame', color: 'heat'}"
+    [title]="'GENERAL.THERMAL_STORAGE_SYSTEM' | translate" [modalComponent]="modalComponent">
+    @for (component of tessComponents; track component; let i = $index) {
+      <!-- Show the alias only when there is more than one ThermalEss. -->
+      @if (tessComponents.length > 1) {
+        <oe-flat-widget-line [name]="component.alias">
+        </oe-flat-widget-line>
+      }
+      <oe-flat-widget-percentagebar [channelAddress]="component.id + '/Soc'">
+      </oe-flat-widget-percentagebar>
+      <oe-flat-widget-line [name]="'GENERAL.TEMPERATURE' | translate"
+        [channelAddress]="component.id + '/Temperature'" [converter]="DEZIDEGREE_CELSIUS_TO_DEGREE_CELSIUS">
+      </oe-flat-widget-line>
+      <oe-flat-widget-horizontal-line [components]="tessComponents" [index]="i">
+      </oe-flat-widget-horizontal-line>
+    }
+  </oe-flat-widget>
+}

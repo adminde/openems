@@ -552,6 +552,17 @@ export class EdgeConfig {
     }
 
     /**
+     * Determines if Edge has a Thermal Storage device
+     */
+    public hasThermalStorage(): boolean {
+        if (this.getComponentIdsImplementingNature("io.openems.edge.heat.tess.api.ThermalEss").length > 0) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
      * Determines if Edge has a Meter device
      */
     public hasMeter(): boolean {

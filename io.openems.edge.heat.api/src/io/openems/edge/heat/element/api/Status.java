@@ -15,7 +15,7 @@ public enum Status implements OptionsEnum {
 	STANDBY(0, "Standby"),
 
 	/**
-	 * The Heatingelement is running using excess energy.
+	 * The Heating Component is running using excess energy.
 	 */
 	EXCESS(1, "Excess"),
 
@@ -25,7 +25,7 @@ public enum Status implements OptionsEnum {
 	CONTROL_NOT_ALLOWED(2, "Control is not allowed"),
 
 	/**
-	 * The Heatingelement has reached the requested or max temperature.
+	 * The Heating Component has reached the requested or max temperature.
 	 */
 	TEMPERATURE_REACHED(3, "Temperature reached"),
 

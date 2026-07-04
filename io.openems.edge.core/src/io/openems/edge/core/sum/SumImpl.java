@@ -45,6 +45,12 @@ import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.dccharger.api.EssDcCharger;
 import io.openems.edge.evcs.api.MetaEvcs;
+import io.openems.edge.heat.api.AsymmetricHeating;
+import io.openems.edge.heat.api.ManagedSymmetricHeating;
+import io.openems.edge.heat.api.SymmetricHeating;
+import io.openems.edge.heat.tess.api.CalculateTessSoc;
+import io.openems.edge.heat.tess.api.SocAveragingMethod;
+import io.openems.edge.heat.tess.api.ThermalEss;
 import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
@@ -232,6 +238,22 @@ public class SumImpl extends AbstractOpenemsComponent implements Sum, OpenemsCom
 		// Consumption
 		final var managedConsumptionActivePower = new CalculateIntegerSum();
 
+		// Heating
+		final var heatingActivePower = new CalculateIntegerSum();
+		final var heatingActivePowerL1 = new CalculateIntegerSum();
+		final var heatingActivePowerL2 = new CalculateIntegerSum();
+		final var heatingActivePowerL3 = new CalculateIntegerSum();
+		final var heatingActiveConsumptionEnergy = new CalculateLongSum();
+		final var heatingThermalPower = new CalculateIntegerSum();
+		final var heatingThermalEnergy = new CalculateLongSum();
+
+		// TESS
+		final var tessSoc = new CalculateTessSoc(SocAveragingMethod.ARITHMETIC);
+		final var tessCapacity = new CalculateIntegerSum();
+		final var tessThermalPower = new CalculateIntegerSum();
+		final var tessThermalChargeEnergy = new CalculateLongSum();
+		final var tessThermalDischargeEnergy = new CalculateLongSum();
+
 		for (var component : this.componentManager.getEnabledComponents()) {
 			if (component instanceof SumOptions sumOption && !sumOption.addToSum()) {
 				continue;
@@ -340,6 +362,47 @@ public class SumImpl extends AbstractOpenemsComponent implements Sum, OpenemsCom
 				productionDcActiveEnergy.addValue(charger.getActualEnergyChannel());
 			}
 
+			/*
+			 * Heating
+			 */
+			case SymmetricHeating heating -> {
+				heatingActivePower.addValue(heating.getActivePowerChannel());
+				heatingActiveConsumptionEnergy.addValue(heating.getActiveConsumptionEnergyChannel());
+				heatingThermalPower.addValue(heating.getThermalPowerChannel());
+				heatingThermalEnergy.addValue(heating.getThermalEnergyChannel());
+
+				if (heating instanceof ManagedSymmetricHeating) {
+					managedConsumptionActivePower.addValue(heating.getActivePowerChannel());
+				}
+
+				switch (heating) {
+				case AsymmetricHeating h -> {
+					heatingActivePowerL1.addValue(h.getActivePowerL1Channel());
+					heatingActivePowerL2.addValue(h.getActivePowerL2Channel());
+					heatingActivePowerL3.addValue(h.getActivePowerL3Channel());
+				}
+				default -> {
+					heatingActivePowerL1.addValue(heating.getActivePowerChannel(),
+							CalculateIntegerSum.DIVIDE_BY_THREE);
+					heatingActivePowerL2.addValue(heating.getActivePowerChannel(),
+							CalculateIntegerSum.DIVIDE_BY_THREE);
+					heatingActivePowerL3.addValue(heating.getActivePowerChannel(),
+							CalculateIntegerSum.DIVIDE_BY_THREE);
+				}
+				}
+			}
+
+			/*
+			 * Thermal Energy Storage System (TESS)
+			 */
+			case ThermalEss tess -> {
+				tessSoc.add(tess);
+				tessCapacity.addValue(tess.getCapacityChannel());
+				tessThermalPower.addValue(tess.getThermalPowerChannel());
+				tessThermalChargeEnergy.addValue(tess.getThermalChargeEnergyChannel());
+				tessThermalDischargeEnergy.addValue(tess.getThermalDischargeEnergyChannel());
+			}
+
 			default -> doNothing();
 			}
 		}
@@ -445,6 +508,26 @@ public class SumImpl extends AbstractOpenemsComponent implements Sum, OpenemsCom
 		final var consumptionActiveEnergy = Optional.ofNullable(enterTheSystem).orElse(0L)
 				- Optional.ofNullable(leaveTheSystem).orElse(0L);
 		this.energyValuesHandler.setValue(Sum.ChannelId.CONSUMPTION_ACTIVE_ENERGY, consumptionActiveEnergy);
+
+		// Heating
+		setValue(this, Sum.ChannelId.HEATING_ACTIVE_POWER, heatingActivePower.calculate());
+		setValue(this, Sum.ChannelId.HEATING_ACTIVE_POWER_L1, heatingActivePowerL1.calculate());
+		setValue(this, Sum.ChannelId.HEATING_ACTIVE_POWER_L2, heatingActivePowerL2.calculate());
+		setValue(this, Sum.ChannelId.HEATING_ACTIVE_POWER_L3, heatingActivePowerL3.calculate());
+		this.energyValuesHandler.setValue(Sum.ChannelId.HEATING_ACTIVE_CONSUMPTION_ENERGY,
+				heatingActiveConsumptionEnergy.calculate());
+		setValue(this, Sum.ChannelId.HEATING_THERMAL_POWER, heatingThermalPower.calculate());
+		this.energyValuesHandler.setValue(Sum.ChannelId.HEATING_THERMAL_ENERGY,
+				heatingThermalEnergy.calculate());
+
+		// TESS
+		setValue(this, Sum.ChannelId.TESS_SOC, tessSoc.calculate());
+		setValue(this, Sum.ChannelId.TESS_CAPACITY, tessCapacity.calculate());
+		setValue(this, Sum.ChannelId.TESS_THERMAL_POWER, tessThermalPower.calculate());
+		this.energyValuesHandler.setValue(Sum.ChannelId.TESS_THERMAL_CHARGE_ENERGY,
+				tessThermalChargeEnergy.calculate());
+		this.energyValuesHandler.setValue(Sum.ChannelId.TESS_THERMAL_DISCHARGE_ENERGY,
+				tessThermalDischargeEnergy.calculate());
 
 		// Further calculated Channels
 		final var essDischargePowerSum = essDcDischargePower.calculate();
@@ -564,6 +647,27 @@ public class SumImpl extends AbstractOpenemsComponent implements Sum, OpenemsCom
 			result.add(new StringBuilder("Consumption:") //
 					.append(consumptionActivePower.asString()) //
 					.toString());
+		}
+		// Heating
+		final var heatingActivePower = this.getHeatingActivePower();
+		if (heatingActivePower.isDefined()) {
+			result.add(new StringBuilder("Heating:") //
+					.append(heatingActivePower.asString()) //
+					.toString());
+		}
+		// TESS
+		final var tessSoc = this.getTessSoc();
+		final var tessThermalPower = this.getTessThermalPower();
+		if (tessSoc.isDefined() || tessThermalPower.isDefined()) {
+			final var b = new StringBuilder("TESS ");
+			if (tessSoc.isDefined() && tessThermalPower.isDefined()) {
+				b.append("SoC:").append(tessSoc.asString()).append("|L:").append(tessThermalPower.asString());
+			} else if (tessSoc.isDefined()) {
+				b.append("SoC:").append(tessSoc.asString());
+			} else {
+				b.append("L:").append(tessThermalPower.asString());
+			}
+			result.add(b.toString());
 		}
 
 		return String.join(" ", result);

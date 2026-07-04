@@ -3,9 +3,9 @@ package io.openems.edge.heat.askoma;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_1;
 import static io.openems.edge.common.channel.ChannelUtils.setValue;
 import static io.openems.edge.common.channel.ChannelUtils.setWriteValueIfNotRead;
+import static io.openems.edge.heat.api.AsymmetricHeating.calculatePhasesFromActivePower;
 import static io.openems.edge.heat.askoma.AskomaConstants.FAST_HEAT_DURATION;
 import static io.openems.edge.heat.askoma.AskomaConstants.OFF_ACTIVE_POWER;
-import static io.openems.edge.meter.api.ElectricityMeter.calculatePhasesFromActivePower;
 import static org.osgi.service.component.annotations.ReferenceCardinality.MANDATORY;
 import static org.osgi.service.component.annotations.ReferencePolicy.STATIC;
 import static org.osgi.service.component.annotations.ReferencePolicyOption.GREEDY;
@@ -31,7 +31,6 @@ import org.slf4j.LoggerFactory;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.referencetarget.GenerateTargetsFromReferences;
-import io.openems.common.types.MeterType;
 import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
 import io.openems.edge.bridge.modbus.api.BridgeModbus;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
@@ -50,11 +49,12 @@ import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.sum.Sum;
 import io.openems.edge.common.taskmanager.Priority;
 import io.openems.edge.controller.api.Controller;
-import io.openems.edge.heat.api.Heating;
+import io.openems.edge.heat.api.AsymmetricHeating;
+import io.openems.edge.heat.api.ManagedSymmetricHeating;
+import io.openems.edge.heat.api.SymmetricHeating;
 import io.openems.edge.heat.element.api.HeatElement;
 import io.openems.edge.heat.element.api.ManagedHeatElement;
 import io.openems.edge.heat.element.api.Status;
-import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
@@ -63,20 +63,17 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 @Component(//
 		name = "Heat.Askoma", //
 		immediate = true, //
-		configurationPolicy = ConfigurationPolicy.REQUIRE, //
-		property = { //
-				"type=CONSUMPTION_METERED" //
-		})
+		configurationPolicy = ConfigurationPolicy.REQUIRE)
 @GenerateTargetsFromReferences("Modbus")
-public class HeatAskomaImpl extends AbstractOpenemsModbusComponent implements HeatAskoma, 
-		ElectricityMeter, Heating, HeatElement, ManagedHeatElement, OpenemsComponent, ModbusComponent, 
+public class HeatAskomaImpl extends AbstractOpenemsModbusComponent implements HeatAskoma,
+		HeatElement, ManagedHeatElement, OpenemsComponent, ModbusComponent,
 		TimedataProvider, Controller {
 
 	private final Logger log = LoggerFactory.getLogger(HeatAskomaImpl.class);
 
 	// gets the total energy consumption in kWh
 	private final CalculateEnergyFromPower totalEnergy = new CalculateEnergyFromPower(this,
-			ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY);
+			SymmetricHeating.ChannelId.ACTIVE_PRODUCTION_ENERGY);
 
 	private Config config = null;
 	private Instant fastHeatStartedAt;
@@ -105,8 +102,9 @@ public class HeatAskomaImpl extends AbstractOpenemsModbusComponent implements He
 				OpenemsComponent.ChannelId.values(), //
 				ModbusComponent.ChannelId.values(), //
 				HeatAskoma.ChannelId.values(), //
-				ElectricityMeter.ChannelId.values(), //
-				Heating.ChannelId.values(), //
+				SymmetricHeating.ChannelId.values(), //
+				AsymmetricHeating.ChannelId.values(), //
+				ManagedSymmetricHeating.ChannelId.values(), //
 				HeatElement.ChannelId.values(), //
 				ManagedHeatElement.ChannelId.values(), //
 				Controller.ChannelId.values() //
@@ -149,29 +147,24 @@ public class HeatAskomaImpl extends AbstractOpenemsModbusComponent implements He
 								.bit(14, HeatAskoma.ChannelId.TEMPERATURE_LIMIT_REACHED) //
 								.bit(15, HeatAskoma.ChannelId.ANY_ERROR_OCCURRED)), //
 
-						m(ElectricityMeter.ChannelId.ACTIVE_POWER, new UnsignedWordElement(110))),
+						m(SymmetricHeating.ChannelId.ACTIVE_POWER, new UnsignedWordElement(110))),
 
 				new FC3ReadRegistersTask(597, Priority.LOW, //
 						m(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT, new UnsignedWordElement(597), SCALE_FACTOR_1)),
 
 				new FC4ReadInputRegistersTask(638, Priority.HIGH, //
-						m(Heating.ChannelId.TEMPERATURE, new UnsignedWordElement(638), SCALE_FACTOR_1))); //
+						m(SymmetricHeating.ChannelId.TEMPERATURE, new UnsignedWordElement(638), SCALE_FACTOR_1))); //
 
 		if (!this.config.readOnly()) {
 			// Askoma spec: MODBUS_CMD_LOAD_FEEDIN_VALUE, signed int16, -30000..30000 W
 			protocol.addTask(new FC3ReadRegistersTask(202, Priority.HIGH, //
-					m(ManagedHeatElement.ChannelId.TARGET_ACTIVE_POWER, new SignedWordElement(202))));
+					m(ManagedSymmetricHeating.ChannelId.TARGET_ACTIVE_POWER, new SignedWordElement(202))));
 
 			protocol.addTask(new FC6WriteRegisterTask(202, //
-					m(ManagedHeatElement.ChannelId.TARGET_ACTIVE_POWER, new SignedWordElement(202))));
+					m(ManagedSymmetricHeating.ChannelId.TARGET_ACTIVE_POWER, new SignedWordElement(202))));
 		}
 
 		return protocol;
-	}
-
-	@Override
-	public MeterType getMeterType() {
-		return MeterType.CONSUMPTION_METERED;
 	}
 
 	@Override
@@ -179,9 +172,9 @@ public class HeatAskomaImpl extends AbstractOpenemsModbusComponent implements He
 		this.totalEnergy.update(this.getActivePower().get());
 		if (this.config.readOnly()) {
 			// Write control is not allowed in read-only mode
-			setValue(this, ManagedHeatElement.ChannelId.CONTROL_NOT_ALLOWED, true);
+			setValue(this, ManagedSymmetricHeating.ChannelId.CONTROL_NOT_ALLOWED, true);
 		} else {
-			setValue(this, ManagedHeatElement.ChannelId.CONTROL_NOT_ALLOWED, false);
+			setValue(this, ManagedSymmetricHeating.ChannelId.CONTROL_NOT_ALLOWED, false);
 			this.applyTargetActivePower();
 		}
 		this.updateStatusChannel();
@@ -255,7 +248,7 @@ public class HeatAskomaImpl extends AbstractOpenemsModbusComponent implements He
 	}
 
 	private void setTargetActivePowerForHeatElement(Integer requestedActivePower) {
-		IntegerWriteChannel targetActivePowerChannel = this.channel(ManagedHeatElement.ChannelId.TARGET_ACTIVE_POWER);
+		IntegerWriteChannel targetActivePowerChannel = this.channel(ManagedSymmetricHeating.ChannelId.TARGET_ACTIVE_POWER);
 		try {
 			setWriteValueIfNotRead(targetActivePowerChannel, requestedActivePower);
 		} catch (OpenemsNamedException e) {
@@ -265,7 +258,7 @@ public class HeatAskomaImpl extends AbstractOpenemsModbusComponent implements He
 	}
 
 	protected void updateStatusChannel() {
-		ChannelUtils.setValue(this, HeatElement.ChannelId.STATUS, this.calculateStatus());
+		ChannelUtils.setValue(this, ManagedHeatElement.ChannelId.STATUS, this.calculateStatus());
 	}
 
 	private Status calculateStatus() {

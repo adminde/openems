@@ -13,6 +13,7 @@ import { CommonProduction } from "./common/production/common-production";
 import { CommonSelfconsumption } from "./common/selfconsumption/common-selfconsumption";
 import { SohStatusBannerComponent } from "./common/soh/components/soh-status-banner/soh-status-banner";
 import { StorageLiveModule } from "./common/storage/storage.module";
+import { ThermalStorageLiveModule } from "./common/heat/storage/storage.module";
 import { WeatherModule } from "./common/weather/weather.module";
 import { Controller_ChannelthresholdComponent } from "./Controller/Channelthreshold/Channelthreshold";
 import { Controller_ChpSocComponent } from "./Controller/ChpSoc/ChpSoc";
@@ -61,6 +62,7 @@ import { SystemOutageInfoComponent } from "./system-outage-info/oe-system-outage
         CommonProduction,
         CommonSelfconsumption,
         StorageLiveModule,
+        ThermalStorageLiveModule,
         Controller_Api_ModbusTcp,
         Controller_EnerixControl,
         Controller_Ess_FixActivePower,

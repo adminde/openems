@@ -982,6 +982,177 @@ public interface Sum extends OpenemsComponent {
 				.persistencePriority(VERY_HIGH)), //
 
 		/**
+		 * Heating: Active Power.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: SymmetricHeating)
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: should be only positive (electrical consumption)
+		 * </ul>
+		 */
+		HEATING_ACTIVE_POWER(Doc.of(INTEGER)//
+				.unit(WATT)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Total electrical power of all Heating devices")), //
+
+		/**
+		 * Heating: Active Power L1.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: AsymmetricHeating)
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * </ul>
+		 */
+		HEATING_ACTIVE_POWER_L1(Doc.of(INTEGER)//
+				.unit(WATT)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Total electrical power of all Heating devices on phase L1")), //
+
+		/**
+		 * Heating: Active Power L2.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: AsymmetricHeating)
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * </ul>
+		 */
+		HEATING_ACTIVE_POWER_L2(Doc.of(INTEGER)//
+				.unit(WATT)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Total electrical power of all Heating devices on phase L2")), //
+
+		/**
+		 * Heating: Active Power L3.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: AsymmetricHeating)
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * </ul>
+		 */
+		HEATING_ACTIVE_POWER_L3(Doc.of(INTEGER)//
+				.unit(WATT)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Total electrical power of all Heating devices on phase L3")), //
+
+		/**
+		 * Heating: Active Consumption Energy.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: SymmetricHeating)
+		 * <li>Type: Long
+		 * <li>Unit: Wh_Σ
+		 * </ul>
+		 */
+		HEATING_ACTIVE_CONSUMPTION_ENERGY(Doc.of(LONG)//
+				.unit(CUMULATED_WATT_HOURS)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Accumulated electrical energy consumption of all Heating devices")), //
+
+		/**
+		 * Heating: Thermal Power.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: SymmetricHeating)
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: should be only positive
+		 * </ul>
+		 */
+		HEATING_THERMAL_POWER(Doc.of(INTEGER)//
+				.unit(WATT)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Total thermal power output of all Heating devices")), //
+
+		/**
+		 * Heating: Thermal Energy.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: SymmetricHeating)
+		 * <li>Type: Long
+		 * <li>Unit: Wh_Σ
+		 * </ul>
+		 */
+		HEATING_THERMAL_ENERGY(Doc.of(LONG)//
+				.unit(CUMULATED_WATT_HOURS)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Accumulated thermal energy of all Heating devices")), //
+
+		/**
+		 * Thermal Energy Storage System (TESS): Average State of Charge.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: ThermalEss)
+		 * <li>Type: Integer
+		 * <li>Unit: %
+		 * <li>Range: 0..100
+		 * </ul>
+		 */
+		TESS_SOC(Doc.of(INTEGER)//
+				.unit(PERCENT)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Range 0..100")), //
+
+		/**
+		 * Thermal Energy Storage System (TESS): Capacity.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: ThermalEss)
+		 * <li>Type: Integer
+		 * <li>Unit: Wh
+		 * </ul>
+		 */
+		TESS_CAPACITY(Doc.of(INTEGER)//
+				.unit(WATT_HOURS)//
+				.persistencePriority(VERY_HIGH)), //
+
+		/**
+		 * Thermal Energy Storage System (TESS): Thermal Power.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: ThermalEss)
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: positive for charging (heat input); negative for discharging
+		 * </ul>
+		 */
+		TESS_THERMAL_POWER(Doc.of(INTEGER)//
+				.unit(WATT)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Net thermal power. Positive for charging; negative for discharging")), //
+
+		/**
+		 * Thermal Energy Storage System (TESS): Thermal Charge Energy.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: ThermalEss)
+		 * <li>Type: Long
+		 * <li>Unit: Wh_Σ
+		 * </ul>
+		 */
+		TESS_THERMAL_CHARGE_ENERGY(Doc.of(LONG)//
+				.unit(CUMULATED_WATT_HOURS)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Accumulated thermal charge energy of all Thermal Storage Systems")), //
+
+		/**
+		 * Thermal Energy Storage System (TESS): Thermal Discharge Energy.
+		 *
+		 * <ul>
+		 * <li>Interface: Sum (origin: ThermalEss)
+		 * <li>Type: Long
+		 * <li>Unit: Wh_Σ
+		 * </ul>
+		 */
+		TESS_THERMAL_DISCHARGE_ENERGY(Doc.of(LONG)//
+				.unit(CUMULATED_WATT_HOURS)//
+				.persistencePriority(VERY_HIGH)//
+				.text("Accumulated thermal discharge energy of all Thermal Storage Systems")), //
+
+		/**
 		 * Is there any Component Info/Warning/Fault that is getting ignored/hidden
 		 * because of the 'ignoreStateComponents' configuration setting?.
 		 */
@@ -1945,6 +2116,234 @@ public interface Sum extends OpenemsComponent {
 	 */
 	public default Value<Long> getConsumptionActiveEnergy() {
 		return this.getConsumptionActiveEnergyChannel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#HEATING_ACTIVE_POWER}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getHeatingActivePowerChannel() {
+		return this.channel(ChannelId.HEATING_ACTIVE_POWER);
+	}
+
+	/**
+	 * Gets the Sum of all Heating Active Power in [W]. See
+	 * {@link ChannelId#HEATING_ACTIVE_POWER}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getHeatingActivePower() {
+		return this.getHeatingActivePowerChannel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#HEATING_ACTIVE_POWER_L1}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getHeatingActivePowerL1Channel() {
+		return this.channel(ChannelId.HEATING_ACTIVE_POWER_L1);
+	}
+
+	/**
+	 * Gets the Sum of all Heating Active Power on L1 in [W]. See
+	 * {@link ChannelId#HEATING_ACTIVE_POWER_L1}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getHeatingActivePowerL1() {
+		return this.getHeatingActivePowerL1Channel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#HEATING_ACTIVE_POWER_L2}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getHeatingActivePowerL2Channel() {
+		return this.channel(ChannelId.HEATING_ACTIVE_POWER_L2);
+	}
+
+	/**
+	 * Gets the Sum of all Heating Active Power on L2 in [W]. See
+	 * {@link ChannelId#HEATING_ACTIVE_POWER_L2}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getHeatingActivePowerL2() {
+		return this.getHeatingActivePowerL2Channel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#HEATING_ACTIVE_POWER_L3}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getHeatingActivePowerL3Channel() {
+		return this.channel(ChannelId.HEATING_ACTIVE_POWER_L3);
+	}
+
+	/**
+	 * Gets the Sum of all Heating Active Power on L3 in [W]. See
+	 * {@link ChannelId#HEATING_ACTIVE_POWER_L3}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getHeatingActivePowerL3() {
+		return this.getHeatingActivePowerL3Channel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#HEATING_ACTIVE_CONSUMPTION_ENERGY}.
+	 *
+	 * @return the Channel
+	 */
+	public default LongReadChannel getHeatingActiveConsumptionEnergyChannel() {
+		return this.channel(ChannelId.HEATING_ACTIVE_CONSUMPTION_ENERGY);
+	}
+
+	/**
+	 * Gets the Sum of all Heating Active Consumption Energy in [Wh_Σ]. See
+	 * {@link ChannelId#HEATING_ACTIVE_CONSUMPTION_ENERGY}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Long> getHeatingActiveConsumptionEnergy() {
+		return this.getHeatingActiveConsumptionEnergyChannel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#HEATING_THERMAL_POWER}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getHeatingThermalPowerChannel() {
+		return this.channel(ChannelId.HEATING_THERMAL_POWER);
+	}
+
+	/**
+	 * Gets the Sum of all Heating Thermal Power in [W]. See
+	 * {@link ChannelId#HEATING_THERMAL_POWER}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getHeatingThermalPower() {
+		return this.getHeatingThermalPowerChannel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#HEATING_THERMAL_ENERGY}.
+	 *
+	 * @return the Channel
+	 */
+	public default LongReadChannel getHeatingThermalEnergyChannel() {
+		return this.channel(ChannelId.HEATING_THERMAL_ENERGY);
+	}
+
+	/**
+	 * Gets the Sum of all Heating Thermal Energy in [Wh_Σ]. See
+	 * {@link ChannelId#HEATING_THERMAL_ENERGY}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Long> getHeatingThermalEnergy() {
+		return this.getHeatingThermalEnergyChannel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#TESS_SOC}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getTessSocChannel() {
+		return this.channel(ChannelId.TESS_SOC);
+	}
+
+	/**
+	 * Gets the Average of all Thermal Energy Storage Systems State of Charge in
+	 * [%], range 0..100 %. See {@link ChannelId#TESS_SOC}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getTessSoc() {
+		return this.getTessSocChannel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#TESS_CAPACITY}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getTessCapacityChannel() {
+		return this.channel(ChannelId.TESS_CAPACITY);
+	}
+
+	/**
+	 * Gets the Sum of all Thermal Energy Storage Systems Capacity in [Wh]. See
+	 * {@link ChannelId#TESS_CAPACITY}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getTessCapacity() {
+		return this.getTessCapacityChannel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#TESS_THERMAL_POWER}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getTessThermalPowerChannel() {
+		return this.channel(ChannelId.TESS_THERMAL_POWER);
+	}
+
+	/**
+	 * Gets the Sum of all Thermal Energy Storage Systems Thermal Power in [W]. See
+	 * {@link ChannelId#TESS_THERMAL_POWER}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getTessThermalPower() {
+		return this.getTessThermalPowerChannel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#TESS_THERMAL_CHARGE_ENERGY}.
+	 *
+	 * @return the Channel
+	 */
+	public default LongReadChannel getTessThermalChargeEnergyChannel() {
+		return this.channel(ChannelId.TESS_THERMAL_CHARGE_ENERGY);
+	}
+
+	/**
+	 * Gets the Sum of all Thermal Energy Storage Systems Thermal Charge Energy in
+	 * [Wh_Σ]. See {@link ChannelId#TESS_THERMAL_CHARGE_ENERGY}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Long> getTessThermalChargeEnergy() {
+		return this.getTessThermalChargeEnergyChannel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#TESS_THERMAL_DISCHARGE_ENERGY}.
+	 *
+	 * @return the Channel
+	 */
+	public default LongReadChannel getTessThermalDischargeEnergyChannel() {
+		return this.channel(ChannelId.TESS_THERMAL_DISCHARGE_ENERGY);
+	}
+
+	/**
+	 * Gets the Sum of all Thermal Energy Storage Systems Thermal Discharge Energy
+	 * in [Wh_Σ]. See {@link ChannelId#TESS_THERMAL_DISCHARGE_ENERGY}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Long> getTessThermalDischargeEnergy() {
+		return this.getTessThermalDischargeEnergyChannel().value();
 	}
 
 	/**

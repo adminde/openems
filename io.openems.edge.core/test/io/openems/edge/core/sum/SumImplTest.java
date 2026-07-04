@@ -19,6 +19,8 @@ import io.openems.edge.common.test.ComponentTest;
 import io.openems.edge.common.test.DummyComponentManager;
 import io.openems.edge.evcs.test.DummyEvcsPower;
 import io.openems.edge.evcs.test.DummyManagedEvcs;
+import io.openems.edge.heat.test.DummyManagedHeatPump;
+import io.openems.edge.heat.test.DummyThermalEss;
 import io.openems.edge.meter.test.DummyElectricityMeter;
 import io.openems.edge.timeofusetariff.test.DummyTariffManager;
 
@@ -113,6 +115,81 @@ public class SumImplTest {
 	}
 
 	@Test
+	public void testHeatingAndTess() throws OpenemsException, Exception {
+		final var clock = createDummyClock();
+		final var sut = new SumImpl();
+		final var grid = new DummyElectricityMeter("meter0") //
+				.withMeterType(GRID); //
+		final var heating = new DummyManagedHeatPump("heating0");
+		final var tess = new DummyThermalEss("tess0");
+		final var tariffManager = new DummyTariffManager() //
+				.withTariffGridBuyProvider(fromQuarterlyPrices(clock, 1.0)) //
+				.withTariffGridSellProvider(fromQuarterlyGridSellPrices(clock, 2.0));
+		final var test = new ComponentTest(sut) //
+				.addComponent(grid) //
+				.addComponent(heating) //
+				.addComponent(tess) //
+				.addReference("cm", new DummyConfigurationAdmin()) //
+				.addReference("componentManager", new DummyComponentManager(clock)) //
+				.addReference("tariffManager", tariffManager) //
+				.activate(MyConfig.create() //
+						.setGridMinActivePower(0) //
+						.setIgnoreStateComponents() //
+						.build()); //
+
+		grid.withActivePower(5000);
+		heating.withActivePower(3000);
+		heating.withThermalPower(2500);
+		tess.withSoc(75) //
+				.withCapacity(10000) //
+				.withThermalPower(2500);
+		test.next(new TestCase() //
+				.onBeforeProcessImage(() -> sut.updateChannelsBeforeProcessImage()) //
+				.output(Sum.ChannelId.HEATING_ACTIVE_POWER, 3000) //
+				.output(Sum.ChannelId.HEATING_THERMAL_POWER, 2500) //
+				.output(Sum.ChannelId.UNMANAGED_CONSUMPTION_ACTIVE_POWER, 2000) //
+				.output(Sum.ChannelId.TESS_SOC, 75) //
+				.output(Sum.ChannelId.TESS_CAPACITY, 10000) //
+				.output(Sum.ChannelId.TESS_THERMAL_POWER, 2500) //
+		);
+	}
+
+	@Test
+	public void testTessMultipleStorages() throws OpenemsException, Exception {
+		final var clock = createDummyClock();
+		final var sut = new SumImpl();
+		final var grid = new DummyElectricityMeter("meter0") //
+				.withMeterType(GRID); //
+		final var tess1 = new DummyThermalEss("tess0") //
+				.withSoc(100) //
+				.withCapacity(10000);
+		final var tess2 = new DummyThermalEss("tess1") //
+				.withSoc(0) //
+				.withCapacity(5000);
+		final var tariffManager = new DummyTariffManager() //
+				.withTariffGridBuyProvider(fromQuarterlyPrices(clock, 1.0)) //
+				.withTariffGridSellProvider(fromQuarterlyGridSellPrices(clock, 2.0));
+		final var test = new ComponentTest(sut) //
+				.addComponent(grid) //
+				.addComponent(tess1) //
+				.addComponent(tess2) //
+				.addReference("cm", new DummyConfigurationAdmin()) //
+				.addReference("componentManager", new DummyComponentManager(clock)) //
+				.addReference("tariffManager", tariffManager) //
+				.activate(MyConfig.create() //
+						.setGridMinActivePower(0) //
+						.setIgnoreStateComponents() //
+						.build()); //
+
+		test.next(new TestCase() //
+				.onBeforeProcessImage(() -> sut.updateChannelsBeforeProcessImage()) //
+				// Capacity-weighted arithmetic mean: (10000*100 + 5000*0) / 15000 ≈ 67
+				.output(Sum.ChannelId.TESS_SOC, 67) //
+				.output(Sum.ChannelId.TESS_CAPACITY, 15000) //
+		);
+	}
+
+	@Test
 	public void testDebugLog() throws OpenemsException, Exception {
 		final var sut = new SumImpl();
 		assertEquals("State:Ok", sut.debugLog());
@@ -145,6 +222,17 @@ public class SumImplTest {
 		withValue(sut, Sum.ChannelId.CONSUMPTION_ACTIVE_POWER, 1111);
 		assertEquals(
 				"State:Ok Ess SoC:50 %|L:1234 W Grid:5678 W Genset:555 W Production Total:7777 W,AC:3333 W,DC:4444 W Consumption:1111 W",
+				sut.debugLog());
+
+		withValue(sut, Sum.ChannelId.HEATING_ACTIVE_POWER, 2222);
+		assertEquals(
+				"State:Ok Ess SoC:50 %|L:1234 W Grid:5678 W Genset:555 W Production Total:7777 W,AC:3333 W,DC:4444 W Consumption:1111 W Heating:2222 W",
+				sut.debugLog());
+
+		withValue(sut, Sum.ChannelId.TESS_SOC, 80);
+		withValue(sut, Sum.ChannelId.TESS_THERMAL_POWER, 3333);
+		assertEquals(
+				"State:Ok Ess SoC:50 %|L:1234 W Grid:5678 W Genset:555 W Production Total:7777 W,AC:3333 W,DC:4444 W Consumption:1111 W Heating:2222 W TESS SoC:80 %|L:3333 W",
 				sut.debugLog());
 	}
 }

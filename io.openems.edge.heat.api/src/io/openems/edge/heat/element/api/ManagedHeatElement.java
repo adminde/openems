@@ -4,24 +4,26 @@ import org.osgi.annotation.versioning.ProviderType;
 
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.PersistencePriority;
-import io.openems.common.channel.Unit;
-import io.openems.common.types.OpenemsType;
+import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.channel.Doc;
-import io.openems.edge.common.component.OpenemsComponent;
+import io.openems.edge.common.channel.value.Value;
+import io.openems.edge.heat.api.ManagedSymmetricHeating;
 
 @ProviderType
-public interface ManagedHeatElement extends OpenemsComponent {
+public interface ManagedHeatElement extends HeatElement, ManagedSymmetricHeating {
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
-		CONTROL_NOT_ALLOWED(Doc.of(OpenemsType.BOOLEAN) //
-				.persistencePriority(PersistencePriority.HIGH)), //
-		DEBUG_TARGET_ACTIVE_POWER(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.WATT)), //
-		TARGET_ACTIVE_POWER(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.WATT) //
-				.accessMode(AccessMode.READ_WRITE) //
-				.onChannelSetNextWriteMirrorToDebugChannel(ChannelId.DEBUG_TARGET_ACTIVE_POWER) //
-				.persistencePriority(PersistencePriority.HIGH)), //
+		/**
+		 * Current Status of the Heat element.
+		 *
+		 * <ul>
+		 * <li>Interface: Heat
+		 * <li>Type: Status
+		 * </ul>
+		 */
+		STATUS(Doc.of(Status.values()) //
+				.persistencePriority(PersistencePriority.LOW) //
+				.accessMode(AccessMode.READ_ONLY)), //
 		;
 
 		private final Doc doc;
@@ -34,5 +36,23 @@ public interface ManagedHeatElement extends OpenemsComponent {
 		public Doc doc() {
 			return this.doc;
 		}
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#STATUS}.
+	 *
+	 * @return the Channel
+	 */
+	public default Channel<Status> getStatusChannel() {
+		return this.channel(ChannelId.STATUS);
+	}
+
+	/**
+	 * Gets the Status of the Heat element. See {@link ChannelId#STATUS}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Status getStatus() {
+		return this.getStatusChannel().value().asEnum();
 	}
 }
