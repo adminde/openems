@@ -107,6 +107,8 @@ export class Widgets {
                         }
                     case "Storage":
                         return config.hasStorage();
+                    case "ThermalStorage":
+                        return config.hasThermalStorage();
                     case "Common_Production":
                     case "Common_Selfconsumption":
                         return config.hasProducer();

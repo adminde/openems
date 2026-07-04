@@ -34,7 +34,9 @@ import io.openems.edge.common.sum.Sum;
 import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.core.sum.handler.ChargerHandlerImpl;
 import io.openems.edge.core.sum.handler.EssHandlerImpl;
+import io.openems.edge.core.sum.handler.HeatingHandlerImpl;
 import io.openems.edge.core.sum.handler.MeterHandlerImpl;
+import io.openems.edge.core.sum.handler.TessHandlerImpl;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateActiveTime;
@@ -67,6 +69,12 @@ public class SumImpl extends AbstractOpenemsComponent implements Sum, OpenemsCom
 
 	@Reference
 	private ChargerHandlerImpl chargerHandler;
+
+	@Reference
+	private HeatingHandlerImpl heatingHandler;
+
+	@Reference
+	private TessHandlerImpl tessHandler;
 
 	@Reference
 	private TariffManager tariffManager;
@@ -177,6 +185,12 @@ public class SumImpl extends AbstractOpenemsComponent implements Sum, OpenemsCom
 
 		this.chargerHandler.calculate();
 
+		this.heatingHandler.calculate();
+		this.assignHeatingChannels();
+
+		this.tessHandler.calculate();
+		this.assignTessChannels();
+
 		this.assignConsumptionChannels();
 		this.calculatePowerDistributionAndSet();
 
@@ -272,8 +286,10 @@ public class SumImpl extends AbstractOpenemsComponent implements Sum, OpenemsCom
 				IntUtils.sumInteger(this.essHandler.getActivePowerL3(), this.meterHandler.getGridActivePowerL3(),
 						this.meterHandler.getProductionAcActivePowerL3()));
 
+		var managedConsumptionActivePower = IntUtils.sumInteger(this.meterHandler.getManagedConsumptionActivePower(),
+				this.heatingHandler.getManagedConsumptionActivePower());
 		setValue(this, Sum.ChannelId.UNMANAGED_CONSUMPTION_ACTIVE_POWER,
-				TypeUtils.subtract(consumptionPower, this.meterHandler.getManagedConsumptionActivePower()));
+				TypeUtils.subtract(consumptionPower, managedConsumptionActivePower));
 
 		// Energy Calculation
 		var enter = TypeUtils.sum(this.essHandler.getActiveDischargeEnergy(),
@@ -283,6 +299,27 @@ public class SumImpl extends AbstractOpenemsComponent implements Sum, OpenemsCom
 
 		var consumptionEnergy = Optional.ofNullable(enter).orElse(0L) - Optional.ofNullable(leave).orElse(0L);
 		this.energyValuesHandler.setValue(Sum.ChannelId.CONSUMPTION_ACTIVE_ENERGY, consumptionEnergy);
+	}
+
+	private void assignHeatingChannels() {
+		setValue(this, Sum.ChannelId.HEATING_ACTIVE_POWER, this.heatingHandler.getActivePower());
+		setValue(this, Sum.ChannelId.HEATING_ACTIVE_POWER_L1, this.heatingHandler.getActivePowerL1());
+		setValue(this, Sum.ChannelId.HEATING_ACTIVE_POWER_L2, this.heatingHandler.getActivePowerL2());
+		setValue(this, Sum.ChannelId.HEATING_ACTIVE_POWER_L3, this.heatingHandler.getActivePowerL3());
+		this.energyValuesHandler.setValue(Sum.ChannelId.HEATING_ACTIVE_CONSUMPTION_ENERGY,
+				this.heatingHandler.getActiveConsumptionEnergy());
+		setValue(this, Sum.ChannelId.HEATING_THERMAL_POWER, this.heatingHandler.getThermalPower());
+		this.energyValuesHandler.setValue(Sum.ChannelId.HEATING_THERMAL_ENERGY, this.heatingHandler.getThermalEnergy());
+	}
+
+	private void assignTessChannels() {
+		setValue(this, Sum.ChannelId.TESS_SOC, this.tessHandler.getSoc());
+		setValue(this, Sum.ChannelId.TESS_CAPACITY, this.tessHandler.getCapacity());
+		setValue(this, Sum.ChannelId.TESS_THERMAL_POWER, this.tessHandler.getThermalPower());
+		this.energyValuesHandler.setValue(Sum.ChannelId.TESS_THERMAL_CHARGE_ENERGY,
+				this.tessHandler.getThermalChargeEnergy());
+		this.energyValuesHandler.setValue(Sum.ChannelId.TESS_THERMAL_DISCHARGE_ENERGY,
+				this.tessHandler.getThermalDischargeEnergy());
 	}
 
 	private void assignTariffChannels() {
@@ -402,6 +439,27 @@ public class SumImpl extends AbstractOpenemsComponent implements Sum, OpenemsCom
 			result.add(new StringBuilder("Consumption:") //
 					.append(consumptionActivePower.asString()) //
 					.toString());
+		}
+		// Heating
+		final var heatingActivePower = this.getHeatingActivePower();
+		if (heatingActivePower.isDefined()) {
+			result.add(new StringBuilder("Heating:") //
+					.append(heatingActivePower.asString()) //
+					.toString());
+		}
+		// TESS
+		final var tessSoc = this.getTessSoc();
+		final var tessThermalPower = this.getTessThermalPower();
+		if (tessSoc.isDefined() || tessThermalPower.isDefined()) {
+			final var b = new StringBuilder("TESS ");
+			if (tessSoc.isDefined() && tessThermalPower.isDefined()) {
+				b.append("SoC:").append(tessSoc.asString()).append("|L:").append(tessThermalPower.asString());
+			} else if (tessSoc.isDefined()) {
+				b.append("SoC:").append(tessSoc.asString());
+			} else {
+				b.append("L:").append(tessThermalPower.asString());
+			}
+			result.add(b.toString());
 		}
 
 		return String.join(" ", result);

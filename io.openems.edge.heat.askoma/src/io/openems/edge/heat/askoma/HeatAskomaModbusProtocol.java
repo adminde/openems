@@ -14,9 +14,8 @@ import io.openems.edge.bridge.modbus.api.task.FC4ReadInputRegistersTask;
 import io.openems.edge.bridge.modbus.api.task.FC6WriteRegisterTask;
 import io.openems.edge.common.channel.ChannelId;
 import io.openems.edge.common.taskmanager.Priority;
-import io.openems.edge.heat.api.Heat;
-import io.openems.edge.heat.api.ManagedHeatElement;
-import io.openems.edge.meter.api.ElectricityMeter;
+import io.openems.edge.heat.api.SymmetricHeating;
+import io.openems.edge.heat.element.api.ManagedHeatElement;
 
 final class HeatAskomaModbusProtocol {
 
@@ -27,14 +26,15 @@ final class HeatAskomaModbusProtocol {
 		var protocol = new ModbusProtocol(parent, //
 				new FC4ReadInputRegistersTask(109, Priority.HIGH, //
 						bits(parent), //
-						map(parent, ElectricityMeter.ChannelId.ACTIVE_POWER, new UnsignedWordElement(110))),
+						map(parent, SymmetricHeating.ChannelId.ACTIVE_POWER, new UnsignedWordElement(110))),
 
 				new FC3ReadRegistersTask(597, Priority.LOW, //
 						map(parent, HeatAskoma.ChannelId.TEMPERATURE_SETPOINT, new UnsignedWordElement(597),
 								SCALE_FACTOR_1)),
 
 				new FC4ReadInputRegistersTask(638, Priority.HIGH, //
-						map(parent, Heat.ChannelId.TEMPERATURE, new UnsignedWordElement(638), SCALE_FACTOR_1))); //
+						map(parent, SymmetricHeating.ChannelId.TEMPERATURE, new UnsignedWordElement(638),
+								SCALE_FACTOR_1))); //
 
 		if (!config.readOnly()) {
 			// Askoma spec: MODBUS_CMD_LOAD_FEEDIN_VALUE, signed int16, -30000..30000 W

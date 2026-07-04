@@ -454,12 +454,15 @@
     "SOC": "Stav nabití",
     "STATE": "Stát",
     "STORAGE_SYSTEM": "Systém bateriového úložiště",
+    "THERMAL_STORAGE_SYSTEM": "Tepelné úložiště",
+    "TEMPERATURE": "Teplota",
+    "MIN_TARGET_TEMPERATURE": "Minimální cílová teplota",
+    "MAX_TARGET_TEMPERATURE": "Maximální cílová teplota",
     "SUBSCRIBED_SUCCESSFULLY": "Úspěšně uloženy odebírané kanály",
     "SUFFIX": {
       "HOUR": "hodin"
     },
     "SYSTEM_STATE": "Stav systému",
-    "TEMPERATURE": "Teplota",
     "TIME": {
       "DAY": "Den",
       "DAYS": "Dny",

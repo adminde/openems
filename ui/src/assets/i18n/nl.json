@@ -444,6 +444,10 @@
     "SOC": "Laadstatus",
     "STATE": "Staat",
     "STORAGE_SYSTEM": "Batterij",
+    "THERMAL_STORAGE_SYSTEM": "Warmteopslag",
+    "TEMPERATURE": "Temperatuur",
+    "MIN_TARGET_TEMPERATURE": "Minimale doeltemperatuur",
+    "MAX_TARGET_TEMPERATURE": "Maximale doeltemperatuur",
     "SUFFIX": {
       "HOUR": "uur"
     },

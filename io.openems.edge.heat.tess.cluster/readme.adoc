@@ -1,0 +1,10 @@
+= Thermal ESS Cluster
+
+Combines multiple thermal energy storage systems (TESS) to one common ThermalEss. This way every Controller can easily work with multiple TESS in parallel.
+
+The average State-of-Charge of the cluster is configurable:
+
+- *ARITHMETIC*: capacity-weighted arithmetic mean
+- *GEOMETRIC*: capacity-weighted geometric mean — a single empty storage forces the cluster SoC to zero
+
+Temperature is aggregated as capacity-weighted mean; the temperature limits (`MaxTemperature`, `MaxTargetTemperature`, `MinTargetTemperature`) report the tightest common operating band of all members.

@@ -724,6 +724,10 @@
         },
         "STATUS": "Status",
         "STORAGE_SYSTEM": "Speichersystem",
+        "THERMAL_STORAGE_SYSTEM": "Wärmespeicher",
+        "TEMPERATURE": "Temperatur",
+        "MIN_TARGET_TEMPERATURE": "Minimale Zieltemperatur",
+        "MAX_TARGET_TEMPERATURE": "Maximale Zieltemperatur",
         "SUFFIX": {
             "HOUR": "Uhr"
         },

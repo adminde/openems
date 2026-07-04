@@ -1,0 +1,9 @@
+oe-modal-line {
+    color: var(--ion-card-content);
+}
+
+oe-modal-line.bold {
+    // Needs display:block so the vertical margin applies to the custom-element host.
+    display: block;
+    margin-bottom: 1rem;
+}

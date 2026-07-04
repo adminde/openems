@@ -21,10 +21,10 @@ import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.ComponentTest;
 import io.openems.edge.common.test.DummyComponentManager;
 import io.openems.edge.controller.test.ControllerTest;
-import io.openems.edge.heat.api.Heat;
-import io.openems.edge.heat.api.ManagedHeatElement;
+import io.openems.edge.heat.api.ManagedSymmetricHeating;
+import io.openems.edge.heat.api.SymmetricHeating;
 import io.openems.edge.heat.askoma.statemachine.StateMachine.State;
-import io.openems.edge.meter.api.ElectricityMeter;
+import io.openems.edge.heat.element.api.ManagedHeatElement;
 
 class HeatAskomaImplTest {
 
@@ -120,13 +120,13 @@ class HeatAskomaImplTest {
 						.build()) //
 				// Actual (50.0 °C) < Target (60.0 °C) → keep heating at maximum power
 				.next(new TestCase("Actual below target: keep heating") //
-						.input(Heat.ChannelId.TEMPERATURE, 500) // 50.0 °C in deci-degree
+						.input(SymmetricHeating.ChannelId.TEMPERATURE, 500) // 50.0 °C in deci-degree
 						.input(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT, 600) // 60.0 °C in deci-degree
 						.output(ManagedHeatElement.ChannelId.TARGET_GRID_ACTIVE_POWER, -10_050) //
 						.output(HeatAskoma.ChannelId.STATE_MACHINE, State.FAST_HEAT)) //
 				// Actual (60.0 °C) >= Target (60.0 °C) → continue heating
 				.next(new TestCase("Actual reaches target: continue heating") //
-						.input(Heat.ChannelId.TEMPERATURE, 600) // 60.0 °C in deci-degree
+						.input(SymmetricHeating.ChannelId.TEMPERATURE, 600) // 60.0 °C in deci-degree
 						.input(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT, 600) // 60.0 °C in deci-degree
 						.output(HeatAskoma.ChannelId.STATE_MACHINE, State.FAST_HEAT) //
 						.onAfterControllersCallbacks(() -> { //
@@ -152,7 +152,7 @@ class HeatAskomaImplTest {
 						.build()) //
 				.next(new TestCase("read-only: no control, MODE reflects configured mode, scheduler ignored") //
 						.output(ManagedHeatElement.ChannelId.TARGET_GRID_ACTIVE_POWER, null) //
-						.output(ManagedHeatElement.ChannelId.CONTROL_NOT_ALLOWED, true) //
+						.output(ManagedSymmetricHeating.ChannelId.CONTROL_NOT_ALLOWED, true) //
 						.output(HeatAskoma.ChannelId.MODE, ChannelMode.FAST_HEAT)) //
 				.deactivate();
 	}
@@ -173,14 +173,14 @@ class HeatAskomaImplTest {
 						.build()) //
 				// Actual (50.0 °C) < target (60.0 °C) → keep heating at maximum power
 				.next(new TestCase("Actual below target: keep heating at max power") //
-						.input(Heat.ChannelId.TEMPERATURE, 500) // 50.0 °C in deci-degree
+						.input(SymmetricHeating.ChannelId.TEMPERATURE, 500) // 50.0 °C in deci-degree
 						.input(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT, 600) // 60.0 °C in deci-degree
 						.output(ManagedHeatElement.ChannelId.TARGET_GRID_ACTIVE_POWER, -10_050) //
 						.output(HeatAskoma.ChannelId.STATE_MACHINE, State.FAST_HEAT)) //
 				// Advance clock past FAST_HEAT_DURATION (10 hours) → fast heat expires, mode
 				.next(new TestCase("fast heat expired: enter safety lockout and stop heating") //
 						.timeleap(clock, 10, ChronoUnit.HOURS) //
-						.input(Heat.ChannelId.TEMPERATURE, 500) // still below target
+						.input(SymmetricHeating.ChannelId.TEMPERATURE, 500) // still below target
 						.input(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT, 600) //
 						.output(ManagedHeatElement.ChannelId.TARGET_GRID_ACTIVE_POWER, 0) //
 						.output(HeatAskoma.ChannelId.STATE_MACHINE, State.FAST_HEAT_PAUSE) //
@@ -189,27 +189,27 @@ class HeatAskomaImplTest {
 							assertEquals(Mode.FAST_HEAT.name(), config.getProperties().get("mode").toString()); //
 						})) //
 				.next(new TestCase("within pause: heating stays off") //
-						.input(Heat.ChannelId.TEMPERATURE, 500) //
+						.input(SymmetricHeating.ChannelId.TEMPERATURE, 500) //
 						.output(ManagedHeatElement.ChannelId.TARGET_GRID_ACTIVE_POWER, 0) //
 						.output(HeatAskoma.ChannelId.STATE_MACHINE, State.FAST_HEAT_PAUSE)) //
 				.next(new TestCase("pause expired: heating restarts") //
 						.timeleap(clock, 1, ChronoUnit.HOURS) //
-						.input(Heat.ChannelId.TEMPERATURE, 500) //
+						.input(SymmetricHeating.ChannelId.TEMPERATURE, 500) //
 						.output(ManagedHeatElement.ChannelId.TARGET_GRID_ACTIVE_POWER, -10_050) //
 						.output(HeatAskoma.ChannelId.STATE_MACHINE, State.FAST_HEAT)) //
 				// Second cycle: another 10h heat window expires and enters pause again
 				.next(new TestCase("second cycle: heat window expires again") //
 						.timeleap(clock, 10, ChronoUnit.HOURS) //
-						.input(Heat.ChannelId.TEMPERATURE, 500) //
+						.input(SymmetricHeating.ChannelId.TEMPERATURE, 500) //
 						.output(ManagedHeatElement.ChannelId.TARGET_GRID_ACTIVE_POWER, 0) //
 						.output(HeatAskoma.ChannelId.STATE_MACHINE, State.FAST_HEAT_PAUSE)) //
 				.next(new TestCase("second cycle: within pause, heating stays off") //
-						.input(Heat.ChannelId.TEMPERATURE, 500) //
+						.input(SymmetricHeating.ChannelId.TEMPERATURE, 500) //
 						.output(ManagedHeatElement.ChannelId.TARGET_GRID_ACTIVE_POWER, 0) //
 						.output(HeatAskoma.ChannelId.STATE_MACHINE, State.FAST_HEAT_PAUSE)) //
 				.next(new TestCase("second cycle: pause expired, heating restarts again") //
 						.timeleap(clock, 1, ChronoUnit.HOURS) //
-						.input(Heat.ChannelId.TEMPERATURE, 500) //
+						.input(SymmetricHeating.ChannelId.TEMPERATURE, 500) //
 						.output(ManagedHeatElement.ChannelId.TARGET_GRID_ACTIVE_POWER, -10_050) //
 						.output(HeatAskoma.ChannelId.STATE_MACHINE, State.FAST_HEAT)) //
 				.deactivate(); //
@@ -241,7 +241,7 @@ class HeatAskomaImplTest {
 						.output(HeatAskoma.ChannelId.MODE, ChannelMode.FAST_HEAT) //
 						.output(HeatAskoma.ChannelId.FAST_HEAT_POWER_NOT_APPLIED, true)) //
 				.next(new TestCase("active power response available: warning resets immediately") //
-						.input(ElectricityMeter.ChannelId.ACTIVE_POWER, 1000) //
+						.input(SymmetricHeating.ChannelId.ACTIVE_POWER, 1000) //
 						.output(HeatAskoma.ChannelId.MODE, ChannelMode.FAST_HEAT) //
 						.output(HeatAskoma.ChannelId.FAST_HEAT_POWER_NOT_APPLIED, false)) //
 				.next(new TestCase("task ended -> OFF: warning stays reset") //
@@ -279,7 +279,7 @@ class HeatAskomaImplTest {
 				sut.channel(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT).getMetaInfo());
 		assertEquals(//
 				new ChannelMetaInfo(638), //
-				sut.channel(Heat.ChannelId.TEMPERATURE).getMetaInfo());
+				sut.channel(SymmetricHeating.ChannelId.TEMPERATURE).getMetaInfo());
 		assertNull(sut.channel(ManagedHeatElement.ChannelId.TARGET_GRID_ACTIVE_POWER).getMetaInfo());
 		this.assertBitsRegister109Mapping(sut);
 	}
@@ -311,7 +311,7 @@ class HeatAskomaImplTest {
 				sut.channel(HeatAskoma.ChannelId.TEMPERATURE_SETPOINT).getMetaInfo());
 		assertEquals(//
 				new ChannelMetaInfo(638), //
-				sut.channel(Heat.ChannelId.TEMPERATURE).getMetaInfo());
+				sut.channel(SymmetricHeating.ChannelId.TEMPERATURE).getMetaInfo());
 		assertEquals(//
 				new ChannelMetaInfo(202), //
 				sut.channel(ManagedHeatElement.ChannelId.TARGET_GRID_ACTIVE_POWER).getMetaInfo());

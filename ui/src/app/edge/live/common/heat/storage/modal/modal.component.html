@@ -1,0 +1,32 @@
+@if (isInitialized) {
+  <oe-modal [title]="'GENERAL.THERMAL_STORAGE_SYSTEM' | translate">
+    @for (component of tessComponents; track component; let i = $index) {
+      @if (tessComponents.length > 1) {
+        <!-- Show the storage name as a bold header when there is more than one ThermalEss. -->
+        <oe-modal-line class="bold" [name]="component.alias">
+        </oe-modal-line>
+        <oe-modal-line [name]="'GENERAL.SOC' | translate" [channelAddress]="component.id + '/Soc'"
+          [converter]="Converter.STATE_IN_PERCENT">
+        </oe-modal-line>
+      } @else {
+        <!-- For a single storage, show the bold SoC as the first line. -->
+        <oe-modal-line class="bold" [name]="'GENERAL.SOC' | translate" [channelAddress]="component.id + '/Soc'"
+          [converter]="Converter.STATE_IN_PERCENT">
+        </oe-modal-line>
+      }
+      <oe-modal-line [name]="'GENERAL.TEMPERATURE' | translate" [channelAddress]="component.id + '/Temperature'"
+        [converter]="Converter.DEZIDEGREE_CELSIUS_TO_DEGREE_CELSIUS">
+      </oe-modal-line>
+      <oe-modal-line [name]="'GENERAL.MIN_TARGET_TEMPERATURE' | translate"
+        [channelAddress]="component.id + '/MinTargetTemperature'"
+        [converter]="Converter.DEZIDEGREE_CELSIUS_TO_DEGREE_CELSIUS">
+      </oe-modal-line>
+      <oe-modal-line [name]="'GENERAL.MAX_TARGET_TEMPERATURE' | translate"
+        [channelAddress]="component.id + '/MaxTargetTemperature'"
+        [converter]="Converter.DEZIDEGREE_CELSIUS_TO_DEGREE_CELSIUS">
+      </oe-modal-line>
+      <oe-modal-horizontal-line [components]="tessComponents" [index]="i">
+      </oe-modal-horizontal-line>
+    }
+  </oe-modal>
+}

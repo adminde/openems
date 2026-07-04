@@ -448,6 +448,10 @@
     "SOC": "Cargo",
     "STATE": "Estado",
     "STORAGE_SYSTEM": "Almacenamiento",
+    "THERMAL_STORAGE_SYSTEM": "Almacenamiento térmico",
+    "TEMPERATURE": "Temperatura",
+    "MIN_TARGET_TEMPERATURE": "Temperatura objetivo mínima",
+    "MAX_TARGET_TEMPERATURE": "Temperatura objetivo máxima",
     "SUFFIX": {
       "HOUR": "h"
     },
