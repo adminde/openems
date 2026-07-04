@@ -15,7 +15,7 @@ server {
 	}
 
 	# OpenEMS Backend Proxy
-	location /openems-backend {
+	location /sock {
 		proxy_pass http://$WEBSOCKET_HOST:$WEBSOCKET_PORT;
 		proxy_http_version 1.1;
 		proxy_set_header Upgrade $http_upgrade;
