@@ -82,13 +82,23 @@ public class CsvDataContainer extends DataContainer {
 		this.factor = factor;
 	}
 
+	/**
+	 * Parses the header line and registers the contained keys.
+	 *
+	 * @param line the header line
+	 */
 	public void addHeader(String line) {
 		this.setKeys(line.split(this.format.lineSeparator));
 	}
 
+	/**
+	 * Parses a data line and adds it as a record.
+	 *
+	 * @param line the data line
+	 */
 	public void addLine(String line) {
 		var values = line.split(this.format.lineSeparator);
-		this.addRecord(parseFloat(values));
+		this.addRecord(this.parseFloat(values));
 	}
 
 	protected Float[] parseFloat(String[] values) {
