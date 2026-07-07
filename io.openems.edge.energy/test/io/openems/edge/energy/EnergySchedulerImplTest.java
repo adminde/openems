@@ -1,5 +1,6 @@
 package io.openems.edge.energy;
 
+import static io.openems.common.jscalendar.JSCalendar.RecurrenceFrequency.DAILY;
 import static io.openems.common.test.TestUtils.createDummyClock;
 import static io.openems.common.utils.DateUtils.roundDownToQuarter;
 import static io.openems.common.utils.ReflectionUtils.getValueViaReflection;
@@ -10,8 +11,8 @@ import static io.openems.edge.energy.EnergySchedulerTestUtils.dummyEssLimitTotal
 import static io.openems.edge.energy.EnergySchedulerTestUtils.dummyEssTimeOfUseTariff;
 import static io.openems.edge.energy.api.EnergyConstants.SUM_PRODUCTION;
 import static io.openems.edge.energy.api.EnergyConstants.SUM_UNMANAGED_CONSUMPTION;
+import static io.openems.edge.energy.api.Environment.PRODUCTION;
 import static io.openems.edge.energy.api.LogVerbosity.TRACE;
-import static io.openems.edge.energy.api.RiskLevel.MEDIUM;
 import static io.openems.edge.energy.api.Version.V2_ENERGY_SCHEDULABLE;
 import static io.openems.edge.energy.optimizer.TestData.CONSUMPTION_PREDICTION_QUARTERLY;
 import static io.openems.edge.energy.optimizer.TestData.HOURLY_PRICES_SUMMER;
@@ -20,23 +21,29 @@ import static io.openems.edge.ess.power.api.Relationship.GREATER_OR_EQUALS;
 import static java.time.temporal.ChronoUnit.DAYS;
 
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalTime;
-import java.time.ZonedDateTime;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
+import io.openems.common.jscalendar.JSCalendar;
 import io.openems.common.test.DummyConfigurationAdmin;
+import io.openems.edge.common.meta.GridBuySoftLimit;
 import io.openems.edge.common.sum.DummySum;
 import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.ComponentTest;
 import io.openems.edge.common.test.DummyComponentManager;
+import io.openems.edge.common.test.DummyMeta;
 import io.openems.edge.controller.ess.timeofusetariff.ControlMode;
 import io.openems.edge.energy.optimizer.Optimizer;
 import io.openems.edge.predictor.api.prediction.Prediction;
 import io.openems.edge.predictor.api.test.DummyPredictor;
 import io.openems.edge.predictor.api.test.DummyPredictorManager;
 import io.openems.edge.scheduler.api.test.DummyScheduler;
+import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.test.DummyTimedata;
+import io.openems.edge.timeofusetariff.test.DummyTariffManager;
 import io.openems.edge.timeofusetariff.test.DummyTimeOfUseTariffProvider;
 
 public class EnergySchedulerImplTest {
@@ -54,7 +61,7 @@ public class EnergySchedulerImplTest {
 	 * @throws Exception on error
 	 */
 	public static EnergySchedulerImpl create(Clock clock) throws Exception {
-		final var now = roundDownToQuarter(ZonedDateTime.now(clock));
+		final var now = roundDownToQuarter(Instant.now(clock));
 		final var midnight = now.truncatedTo(DAYS);
 		final var componentManager = new DummyComponentManager(clock);
 		final var sum = new DummySum() //
@@ -66,14 +73,28 @@ public class EnergySchedulerImplTest {
 				Prediction.from(sum, SUM_UNMANAGED_CONSUMPTION, midnight, CONSUMPTION_PREDICTION_QUARTERLY),
 				SUM_UNMANAGED_CONSUMPTION);
 		final var timeOfUseTariff = DummyTimeOfUseTariffProvider.fromHourlyPrices(clock, HOURLY_PRICES_SUMMER);
+		final var tariffManager = new DummyTariffManager() //
+				.withTariffGridBuyProvider(timeOfUseTariff);
 
 		final var sut = new EnergySchedulerImpl();
 		new ComponentTest(sut) //
 				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("componentManager", componentManager) //
+				.addReference("meta", new DummyMeta()//
+						.withGridBuySoftLimit(JSCalendar.Tasks.<GridBuySoftLimit>create(clock)//
+								.add(t -> t//
+										.setStart("08:00") //
+										.setDuration(Duration.ofHours(12)) //
+										.addRecurrenceRule(b -> b //
+												.setFrequency(DAILY)) //
+										.setPayload(new GridBuySoftLimit(2000))) //
+								.add(t -> t//
+										.setPayload(new GridBuySoftLimit(6000))) //
+								.build())) //
 				.addReference("predictorManager", new DummyPredictorManager(predictor0, predictor1)) //
 				.addReference("timedata", new DummyTimedata("timedata0")) //
 				.addReference("timeOfUseTariff", timeOfUseTariff) //
+				.addReference("tariffManager", tariffManager) //
 				.addReference("scheduler", new DummyScheduler("scheduler0")) //
 				.addReference("addSchedulable", dummyEssEmergencyCapacityReserve("ctrlEmergencyCapacityReserve0", 20)) //
 				.addReference("addSchedulable", dummyEssLimitTotalDischarge("ctrlLimitTotalDischarge0", 0)) //
@@ -88,7 +109,7 @@ public class EnergySchedulerImplTest {
 						.setEnabled(false) //
 						.setLogVerbosity(TRACE) //
 						.setVersion(V2_ENERGY_SCHEDULABLE) //
-						.setRiskLevel(MEDIUM) //
+						.setEnvironment(PRODUCTION) //
 						.build()) //
 				.next(new TestCase());
 		return sut;
@@ -105,4 +126,14 @@ public class EnergySchedulerImplTest {
 		return getValueViaReflection(energyScheduler, "optimizer");
 	}
 
+	/**
+	 * Gets the {@link Timedata} via Java Reflection.
+	 * 
+	 * @param energyScheduler the {@link EnergySchedulerImpl}
+	 * @return the object
+	 * @throws Exception on error
+	 */
+	public static DummyTimedata getTimedata(EnergySchedulerImpl energyScheduler) throws Exception {
+		return getValueViaReflection(energyScheduler, "timedata");
+	}
 }

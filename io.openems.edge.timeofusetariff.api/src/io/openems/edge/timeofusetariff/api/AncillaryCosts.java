@@ -234,8 +234,7 @@ public class AncillaryCosts {
 		 *         schedule.
 		 */
 		public JSCalendar.Tasks<Double> toSchedule(Clock clock) {
-			final var tasks = JSCalendar.Tasks.<Double>create() //
-					.setClock(clock);
+			final var tasks = JSCalendar.Tasks.<Double>create(clock);
 
 			// Process all DateRanges defined in the GridFee configuration
 			for (var dateRange : this.dateRanges) {
@@ -259,8 +258,7 @@ public class AncillaryCosts {
 							.setDuration(duration) //
 							.addRecurrenceRule(b -> b.setFrequency(DAILY) //
 									.setUntil(dateRange.end())) //
-							.setPayload(payload)//
-							.build());
+							.setPayload(payload));
 				}
 			}
 
@@ -460,8 +458,7 @@ public class AncillaryCosts {
 	 * @throws OpenemsNamedException on error.
 	 */
 	public static JSCalendar.Tasks<Double> parseSchedule(Clock clock, JsonArray schedule) throws OpenemsNamedException {
-		final var tasks = JSCalendar.Tasks.<Double>create() //
-				.setClock(clock);
+		final var tasks = JSCalendar.Tasks.<Double>create(clock);
 
 		for (var yearData : schedule) {
 			var year = getAsInt(yearData, "year");
@@ -565,8 +562,7 @@ public class AncillaryCosts {
 							.addRecurrenceRule(rr -> rr //
 									.setFrequency(DAILY) //
 									.setUntil(q.end)) //
-							.setPayload(payload) //
-							.build());
+							.setPayload(payload)); //
 				}
 
 				// Create list of all intervals for gap detection
@@ -589,8 +585,7 @@ public class AncillaryCosts {
 								.setDuration(duration) //
 								.addRecurrenceRule(rr -> rr.setFrequency(DAILY) //
 										.setUntil(q.end))
-								.setPayload(standardTariff) //
-								.build());
+								.setPayload(standardTariff));
 					}
 
 					// Special handling for midnight end time
@@ -613,8 +608,7 @@ public class AncillaryCosts {
 							.setDuration(duration) //
 							.addRecurrenceRule(rr -> rr.setFrequency(DAILY) //
 									.setUntil(q.end)) //
-							.setPayload(standardTariff) //
-							.build());
+							.setPayload(standardTariff));
 				}
 			}
 		}

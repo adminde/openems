@@ -7,6 +7,7 @@ import static io.openems.edge.controller.evse.cluster.EshUtils.generateModes;
 import static io.openems.edge.controller.evse.cluster.EshUtils.parseTasks;
 import static java.util.stream.Collectors.joining;
 
+import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.function.Supplier;
 
@@ -16,6 +17,7 @@ import com.google.common.collect.ImmutableTable;
 
 import io.openems.common.jsonrpc.serialization.JsonSerializer;
 import io.openems.common.jsonrpc.serialization.JsonSerializerUtil;
+import io.openems.edge.common.component.ClockProvider;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.controller.evse.single.Params;
 import io.openems.edge.controller.evse.single.Types.Payload;
@@ -101,14 +103,15 @@ public class EnergyScheduler {
 	 * test.
 	 * 
 	 * @param parent                the parent {@link OpenemsComponent}
+	 * @param clockProvider         a {@link ClockProvider}
 	 * @param clusterConfigSupplier supplier for {@link ClusterEshConfig}
 	 * @return a {@link EnergyScheduleHandler}
 	 */
 	public static EshWithDifferentModes<SingleModes, OptimizationContext, ClusterScheduleContext> buildEnergyScheduleHandler(
-			OpenemsComponent parent, Supplier<ClusterEshConfig> clusterConfigSupplier) {
+			OpenemsComponent parent, ClockProvider clockProvider, Supplier<ClusterEshConfig> clusterConfigSupplier) {
 		return EnergyScheduleHandler.WithDifferentModes
 				.<SingleModes, OptimizationContext, ClusterScheduleContext>create(parent) //
-				.setSerializer(ClusterEshConfig.serializer(), clusterConfigSupplier) //
+				.setSerializer(ClusterEshConfig.serializer(clockProvider.getClock()), clusterConfigSupplier) //
 
 				.setOptimizationContext(goc -> {
 					final var clusterConfig = clusterConfigSupplier.get();
@@ -144,11 +147,12 @@ public class EnergyScheduler {
 							.findFirst().map(m -> m.mode()).orElse(null);
 				}) //
 
-				.setSimulator((id, period, gsc, coc, csc, ef, mode, fitness) -> {
+				.setSimulator((id, period, gsc, coc, csc, ef, mode, fitness, isFinalRun) -> {
 					var ed = EshUtils.EnergyDistribution.fromSimulator(period, coc, csc, mode);
 					ed.initializeSetPoints();
 					ed.distributeSurplusEnergy(DistributionStrategy.EQUAL_POWER);
 					ed.applyChargeEnergy(ef);
+					return mode;
 				})
 
 				.build();
@@ -178,19 +182,20 @@ public class EnergyScheduler {
 		/**
 		 * Returns a {@link JsonSerializer} for a {@link EshConfig}.
 		 *
+		 * @param clock the {@link Clock}
 		 * @return the created {@link JsonSerializer}
 		 */
-		public static JsonSerializer<ClusterEshConfig> serializer() {
+		public static JsonSerializer<ClusterEshConfig> serializer(Clock clock) {
 			return JsonSerializerUtil.jsonObjectSerializer(json -> {
 				return ClusterEshConfig.from(//
 						json.getEnum("distributionStrategy", DistributionStrategy.class), //
-						json.getImmutableList("params", Params.serializer()) //
+						json.getImmutableList("params", Params.serializer(clock)) //
 				);
 			}, obj -> {
 				return buildJsonObject() //
 						.addProperty("distributionStrategy", obj.distributionStrategy) //
 						.add("params", obj.singleParams.values().stream() //
-								.map(Params.serializer()::serialize) //
+								.map(Params.serializer(clock)::serialize) //
 								.collect(toJsonArray())) //
 						.build();
 			});
