@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+
+## Code Comments
+
+This is an open-source project. Every comment is addressed to the general open-source community, never to a specific person and never to the user of this session.
+
+- NEVER write comments that narrate your own work, reasoning, or the reason a change was made in this session (e.g. "changed this because…", "as requested", "now uses X instead of Y"). Such context belongs in the commit message / PR description, not in the code.
+- Only write an inline comment when it adds genuine, lasting value by documenting something that would otherwise be misinterpreted or is non-obvious (e.g. a subtle invariant, a non-obvious CSS/DOM requirement, a domain rule). If the code is self-explanatory, add no comment.
+- Keep comments generic, factual, and timeless. Describe what the code does or why the constraint exists, not the history of how it got there.
+- Write every comment as a proper sentence starting with a capital letter (applies to `//`, `/* */`, JSDoc, and HTML `<!-- -->` comments alike).
+
+
 ## Build Commands
 
 ### Java (Edge & Backend)
