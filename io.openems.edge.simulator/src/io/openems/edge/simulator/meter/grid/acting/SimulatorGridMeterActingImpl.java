@@ -152,7 +152,7 @@ public class SimulatorGridMeterActingImpl extends AbstractOpenemsComponent
 				// ignore this Ess
 				continue;
 			}
-			activePower = TypeUtils.subtract(activePower, ess.getActivePower().get());
+			activePower = TypeUtils.subtract(activePower, ess.getActivePowerChannel().getNextValue().get());
 		}
 
 		this._setActivePower(activePower);
