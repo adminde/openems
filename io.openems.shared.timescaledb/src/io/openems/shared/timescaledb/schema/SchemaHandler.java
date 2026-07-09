@@ -273,20 +273,18 @@ public class SchemaHandler {
 				.append("LANGUAGE plpgsql AS $$ ")
 				.append("DECLARE ").append("found_type VARCHAR; ")
 				.append("BEGIN ").append("SELECT id, type INTO out_id, found_type FROM component ")
-				.append("input_component_type VARCHAR, ")
-				.append("input_component_type VARCHAR, ")
 				.append(componentWhere).append("; ")
 				.append("IF out_id IS NULL THEN ");
 		if (multi) {
 			componentQuery
 					.append("INSERT INTO component (edge_id, name, type) ")
 					.append("VALUES (input_edge_id, input_component_name, input_component_type) ")
-					.append("ON CONFLICT (edge_id, name) DO NOTHING");
+					.append("ON CONFLICT (edge_id, name) DO NOTHING ");
 		} else {
 			componentQuery
 					.append("INSERT INTO component (name, type) ")
 					.append("VALUES (input_component_name, input_component_type) ")
-					.append("ON CONFLICT (name) DO NOTHING");
+					.append("ON CONFLICT (name) DO NOTHING ");
 		}
 		componentQuery.append("RETURNING id INTO out_id; ")
 				.append("IF out_id IS NULL THEN ")

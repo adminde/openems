@@ -1,0 +1,22 @@
+= Timedata TimescaleDB
+
+OpenEMS Backend implementation for https://www.timescale.com/[TimescaleDB] (PostgreSQL + TimescaleDB extension).
+
+Stores the channel data of *many* Edges in one multi-tenant database: every measurement is scoped to its Edge via a normalized `edge` dimension table. Data arrives through `Controller.Api.Backend` notifications (timestamped, aggregated and resend), is enriched with channel metadata from the Edge's `EdgeConfig` (value type, unit, `PersistencePriority`) and written asynchronously in batches via the PostgreSQL binary COPY protocol. Channels with priority `VERY_HIGH` enter the *rollup* Fast Lane with a 1-minute continuous aggregate. The database schema — hypertables, continuous aggregates, compression and retention policies — is created automatically on first start; if the database is unreachable on activation, initialization retries every 10 seconds.
+
+[NOTE]
+====
+* Requires PostgreSQL with the `timescaledb` extension (>= 2.8) and the https://github.com/fboulnois/pg_uuidv7[`pg_uuidv7`] extension.
+* Create the database manually before connecting, e.g.: `psql -U postgres -c "CREATE DATABASE openems;"`
+* A great OpenSource tool to visualize the data is https://grafana.com/[Grafana] — connect it as a regular PostgreSQL data source.
+====
+
+== Configuration
+
+* *Host / Port / Database / Username / Password* — connection to the database (default database: `openems`).
+* *Raw Retention Days* (default 90) — days to keep raw high-resolution data; aggregated views are kept longer (see architecture documentation).
+* *Raw Compression Days* (default 7) — days before raw chunks are compressed columnar.
+* *Pool Size / Write Workers* (defaults 50 / 10) — HikariCP connections and parallel COPY writers; keep Write Workers below Pool Size so reads always get a connection.
+* *Read-Only mode* — discards all writes; use for a second Backend instance that should only serve queries.
+
+`debugLog` reports the write-queue fill level and total written points each debug cycle; `debugMetrics` reports the size of each hypertable in MB.

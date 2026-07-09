@@ -14,6 +14,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.gson.JsonElement;
 import com.zaxxer.hikari.HikariDataSource;
@@ -31,8 +35,16 @@ import io.openems.shared.timescaledb.schema.SchemaHandler;
  */
 public class ReadHandler {
 
+	private final Logger log = LoggerFactory.getLogger(ReadHandler.class);
+
 	private final HikariDataSource dataSource;
 	private final ChannelManager channelManager;
+
+	/**
+	 * Channels already reported by the missing-rollup warning, so each one is
+	 * logged only once per runtime.
+	 */
+	private final Set<String> slowLaneWarned = ConcurrentHashMap.newKeySet();
 
 	/**
 	 * Constructor.
@@ -118,6 +130,16 @@ public class ReadHandler {
 				if (info == null) {
 					continue;
 				}
+
+				// A sub-15m query on a Slow-Lane channel would have used the 1-minute
+				// Fast-Lane tier if the channel were in RollupChannels; warn once per
+				// channel so missing include-list entries surface instead of silently
+				// degrading to raw scans.
+				if (!info.rollup() && approxBucketSecs < 900 && this.slowLaneWarned.add(channel.toString())) {
+					this.log.warn("Channel [{}] queried at [{}s] resolution but not in the Fast Lane; "
+							+ "consider adding it to RollupChannels", channel, approxBucketSecs);
+				}
+
 				String view = this.pickSource(info.type(), info.rollup(), approxBucketSecs, from);
 				byView.computeIfAbsent(view, k -> new HashMap<>()).put(info.channelId(), channel);
 			}

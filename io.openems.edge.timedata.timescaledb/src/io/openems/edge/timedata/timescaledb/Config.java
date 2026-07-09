@@ -26,8 +26,8 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "Retention Days", description = "Days to keep raw high resolution data before deletion")
 	int retentionDays() default 30;
 
-	@AttributeDefinition(name = "Compression Days", description = "Days to wait before compressing raw high resolution data")
-	int compressionDays() default 7;
+	@AttributeDefinition(name = "Compression Days", description = "Days to wait before compressing raw high resolution data.")
+	int compressionDays() default 1;
 
 	@AttributeDefinition(name = "Database", description = "Database name")
 	String database() default "data";

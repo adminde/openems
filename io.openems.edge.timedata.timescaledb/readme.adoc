@@ -1,0 +1,28 @@
+= Timedata TimescaleDB
+
+Persists all data of OpenEMS Edge Channels locally to a https://www.timescale.com/[TimescaleDB] timeseries database (PostgreSQL + TimescaleDB extension) and provides it for historic queries and for resending to the OpenEMS Backend after connection outages.
+
+Channel values are collected on every Cycle, filtered by their local `PersistencePriority` (default: at least `MEDIUM`) and written asynchronously in batches via the PostgreSQL binary COPY protocol. Channels with priority `VERY_HIGH` are additionally marked for the *rollup* Fast Lane, which maintains a 1-minute continuous aggregate for dashboard queries. The database schema — hypertables, continuous aggregates, compression and retention policies — is created automatically on first start.
+
+== Prerequisites
+
+* PostgreSQL with the `timescaledb` extension (>= 2.8) and the https://github.com/fboulnois/pg_uuidv7[`pg_uuidv7`] extension installed on the server.
+* An empty database (default name: `data`) the configured user may write to.
+
+Quick start with Docker:
+
+[source,shell]
+----
+docker run -d --name tsdb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb-ha:pg16
+# install pg_uuidv7 into the container, then:
+docker exec tsdb psql -U postgres -c "CREATE DATABASE data;"
+----
+
+== Configuration
+
+* *Host / Port / Database / Username / Password* — connection to the database.
+* *Retention Days* (default 30) — days to keep raw high-resolution data; aggregated views are kept longer (see architecture documentation).
+* *Compression Days* (default 1) — days before raw chunks are compressed columnar. Uncompressed data needs roughly 35x more disk space, so on flash-based Edge hardware keep this at 1; compressed chunks stay transparently queryable.
+* *Pool Size / Write Workers* — HikariCP connections and parallel COPY writers; keep Write Workers below Pool Size so reads always get a connection.
+* *No of Cycles* (default 10) — Cycles between buffer flushes into the write pipeline.
+* *Persistence Priority* (default MEDIUM) — minimum local `PersistencePriority` a Channel needs to be persisted at all.

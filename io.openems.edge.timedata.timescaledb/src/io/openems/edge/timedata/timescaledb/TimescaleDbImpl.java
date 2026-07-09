@@ -1,6 +1,5 @@
 package io.openems.edge.timedata.timescaledb;
 
-import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,12 +27,11 @@ import com.google.gson.JsonNull;
 import io.openems.shared.timescaledb.data.DataPoint;
 import io.openems.shared.timescaledb.schema.Tenancy;
 import io.openems.shared.timescaledb.TimescaleDbConnector;
+import io.openems.shared.timescaledb.RollupChannels;
 import io.openems.shared.timescaledb.Type;
-import io.openems.shared.timescaledb.Utils;
 
 import io.openems.common.channel.AccessMode;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
-import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.timedata.Resolution;
 import io.openems.common.types.ChannelAddress;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
@@ -92,7 +90,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 					.rawCompressionDays(config.compressionDays()) //
 					.connect();
 			this.log.info("TimescaleDB connected");
-		} catch (SQLException e) {
+		} catch (OpenemsNamedException e) {
 			this.log.error("Failed to connect to TimescaleDB: " + e.getMessage(), e);
 		}
 	}
@@ -142,7 +140,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 								}
 
 								var raw = valueOpt.get();
-								boolean rollup = Utils.isRollup(channel.channelDoc().getLocalPersistencePriority());
+								boolean rollup = RollupChannels.isRollup(componentAlias, channel.channelId().id());
 								var type = Type.fromOpenemsType(channel.getType());
 								var value = type.coerce(raw);
 
@@ -165,11 +163,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 			toWrite = new ArrayList<>(this.buffer);
 			this.buffer.clear();
 		}
-		try {
-			this.connector.writeBatch(toWrite);
-		} catch (SQLException e) {
-			this.log.error("Failed to write batch: " + e.getMessage(), e);
-		}
+		this.connector.writeBatch(toWrite);
 	}
 
 	@Override
@@ -180,7 +174,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 			}
 			try {
 				return this.connector.queryLatestValue(null, channelAddress);
-			} catch (SQLException e) {
+			} catch (OpenemsNamedException e) {
 				this.log.error("getLatestValue failed: " + e.getMessage(), e);
 				return Optional.empty();
 			}
@@ -208,11 +202,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 		if (this.connector == null) {
 			return new TreeMap<>();
 		}
-		try {
-			return this.connector.queryHistoricData(null, fromDate, toDate, channels, resolution);
-		} catch (SQLException e) {
-			throw new OpenemsException("queryHistoricData failed: " + e.getMessage(), e);
-		}
+		return this.connector.queryHistoricData(null, fromDate, toDate, channels, resolution);
 	}
 
 	@Override
@@ -224,11 +214,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 			channels.forEach(c -> empty.put(c, JsonNull.INSTANCE));
 			return empty;
 		}
-		try {
-			return this.connector.queryHistoricEnergy(null, fromDate, toDate, channels);
-		} catch (SQLException e) {
-			throw new OpenemsException("queryHistoricEnergy failed: " + e.getMessage(), e);
-		}
+		return this.connector.queryHistoricEnergy(null, fromDate, toDate, channels);
 	}
 
 	@Override
@@ -238,11 +224,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 		if (this.connector == null) {
 			return new TreeMap<>();
 		}
-		try {
-			return this.connector.queryHistoricEnergyPerPeriod(null, fromDate, toDate, channels, resolution);
-		} catch (SQLException e) {
-			throw new OpenemsException("queryHistoricEnergyPerPeriod failed: " + e.getMessage(), e);
-		}
+		return this.connector.queryHistoricEnergyPerPeriod(null, fromDate, toDate, channels, resolution);
 	}
 
 	@Override
@@ -252,15 +234,11 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 		if (this.connector == null) {
 			return timeranges;
 		}
-		try {
-			for (long timestamp : this.connector.getResendTimestamps(
-					null, notSendChannel, lastResendTimestamp)) {
-				timeranges.insert(timestamp);
-			}
-			return timeranges;
-		} catch (SQLException e) {
-			throw new OpenemsException("getResendTimeranges failed: " + e.getMessage(), e);
+		for (long timestamp : this.connector.getResendTimestamps(
+				null, notSendChannel, lastResendTimestamp)) {
+			timeranges.insert(timestamp);
 		}
+		return timeranges;
 	}
 
 	@Override
@@ -270,10 +248,6 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 		if (this.connector == null) {
 			return new TreeMap<>();
 		}
-		try {
-			return this.connector.queryResendData(null, fromDate, toDate, channels);
-		} catch (SQLException e) {
-			throw new OpenemsException("queryResendData failed: " + e.getMessage(), e);
-		}
+		return this.connector.queryResendData(null, fromDate, toDate, channels);
 	}
 }

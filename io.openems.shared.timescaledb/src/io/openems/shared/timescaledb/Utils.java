@@ -8,7 +8,6 @@ import java.util.TreeMap;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 
-import io.openems.common.channel.PersistencePriority;
 import io.openems.common.timedata.Resolution;
 import io.openems.common.types.ChannelAddress;
 
@@ -18,18 +17,6 @@ import io.openems.common.types.ChannelAddress;
 public final class Utils {
 
 	private Utils() {
-	}
-
-	/**
-	 * Whether a channel of the given {@link PersistencePriority} belongs in the
-	 * Fast Lane (`rollup = true`). Both the Edge and Backend write paths use this
-	 * single helper so they always agree on which lane a channel belongs to.
-	 *
-	 * @param p the persistence priority
-	 * @return {@code true} only for {@link PersistencePriority#VERY_HIGH}
-	 */
-	public static boolean isRollup(PersistencePriority p) {
-		return p == PersistencePriority.VERY_HIGH;
 	}
 
 	/**

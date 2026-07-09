@@ -1,6 +1,5 @@
 package io.openems.backend.timedata.timescaledb;
 
-import java.sql.SQLException;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -8,16 +7,21 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiPredicate;
 
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.event.Event;
+import org.osgi.service.event.EventHandler;
+import org.osgi.service.event.propertytypes.EventTopics;
 import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,10 +31,11 @@ import com.google.gson.JsonPrimitive;
 
 import io.openems.backend.common.component.AbstractOpenemsBackendComponent;
 import io.openems.backend.common.debugcycle.DebugLoggable;
+import io.openems.backend.common.metadata.Edge;
 import io.openems.backend.common.metadata.Metadata;
 import io.openems.backend.common.timedata.Timedata;
+import io.openems.common.event.EventReader;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
-import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.jsonrpc.notification.AbstractDataNotification;
 import io.openems.common.jsonrpc.notification.AggregatedDataNotification;
 import io.openems.common.jsonrpc.notification.ResendDataNotification;
@@ -40,9 +45,9 @@ import io.openems.common.types.ChannelAddress;
 import io.openems.common.types.EdgeConfig;
 import io.openems.shared.timescaledb.data.DataPoint;
 import io.openems.shared.timescaledb.schema.Tenancy;
+import io.openems.shared.timescaledb.RollupChannels;
 import io.openems.shared.timescaledb.TimescaleDbConnector;
 import io.openems.shared.timescaledb.Type;
-import io.openems.shared.timescaledb.Utils;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(
@@ -50,7 +55,10 @@ import io.openems.shared.timescaledb.Utils;
 		configurationPolicy = ConfigurationPolicy.REQUIRE,
 		immediate = true
 )
-public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements Timedata, DebugLoggable {
+@EventTopics({ //
+		Edge.Events.ON_SET_ONLINE //
+})
+public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements Timedata, EventHandler, DebugLoggable {
 
 	private final Logger log = LoggerFactory.getLogger(TimescaleDbImpl.class);
 
@@ -62,6 +70,10 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 	private volatile TimescaleDbConnector connector;
 	private volatile boolean active;
 	private ScheduledExecutorService initExecutor;
+	private TimeFilter timeFilter;
+	private ChannelFilter channelFilter;
+
+	private final Map<String, Set<String>> timestampedChannelsForEdge = new ConcurrentHashMap<>();
 
 	@Reference
 	private volatile Metadata metadata;
@@ -78,6 +90,8 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 	@Activate
 	private void activate(Config config) {
 		this.config = config;
+		this.timeFilter = TimeFilter.from(config.startDate(), config.endDate());
+		this.channelFilter = ChannelFilter.from(config.blacklistedChannels(), config.blacklistedChannelIds());
 		this.active = true;
 		this.initExecutor = Executors.newSingleThreadScheduledExecutor(
 				r -> new Thread(r, "TimescaleDB-init"));
@@ -99,7 +113,7 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 					.rawCompressionDays(config.rawCompressionDays()) //
 					.readOnly(config.isReadOnly()) //
 					.connect();
-		} catch (SQLException | RuntimeException e) {
+		} catch (OpenemsNamedException | RuntimeException e) {
 			this.logError(this.log, "TimescaleDB initialization failed; retrying in "
 					+ INIT_RETRY_SECONDS + "s: " + e.getMessage());
 			try {
@@ -137,20 +151,34 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 
 	@Override
 	public void write(String edgeId, TimestampedDataNotification notification) {
-		this.writeData(edgeId, notification);
+		this.writeData(edgeId, notification, (edge, channel) -> {
+			this.timestampedChannelsForEdge
+					.computeIfAbsent(edge, e -> ConcurrentHashMap.newKeySet())
+					.add(channel);
+			return true;
+		});
 	}
 
 	@Override
 	public void write(String edgeId, AggregatedDataNotification notification) {
-		this.writeData(edgeId, notification);
+		this.writeData(edgeId, notification, (edge, channel) -> !this.isTimestampedChannel(edge, channel));
 	}
 
 	@Override
 	public void write(String edgeId, ResendDataNotification data) {
-		this.writeData(edgeId, data);
+		this.writeData(edgeId, data, (edge, channel) -> true);
+	}
+	
+	private boolean isTimestampedChannel(String edgeId, String channel) {
+		var channelSet = this.timestampedChannelsForEdge.get(edgeId);
+		if (channelSet == null) {
+			return true;
+		}
+		return channelSet.contains(channel);
 	}
 
-	private void writeData(String edgeId, AbstractDataNotification notification) {
+	private void writeData(String edgeId, AbstractDataNotification notification,
+			BiPredicate<String, String> shouldWrite) {
 		var handler = this.connector;
 		if (handler == null) {
 			return;
@@ -173,6 +201,9 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 
 		for (var dataEntry : dataEntries) {
 			var timestamp = dataEntry.getKey();
+			if (!this.timeFilter.isValid(timestamp)) {
+				continue;
+			}
 			var channelEntries = dataEntry.getValue().entrySet();
 
 			for (var channelEntry : channelEntries) {
@@ -183,6 +214,14 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 					continue;
 				}
 
+				if (!this.channelFilter.isValid(channelString)) {
+					continue;
+				}
+
+				if (!shouldWrite.test(edgeId, channelString)) {
+					continue;
+				}
+
 				var primitive = element.getAsJsonPrimitive();
 
 				try {
@@ -190,8 +229,9 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 					var componentId = addr.getComponentId();
 					var channelId = addr.getChannelId();
 
+					boolean rollup = RollupChannels.isRollup(componentId, channelId);
+
 					String componentType = "backend";
-					boolean rollup = false;
 					EdgeConfig.Component.Channel ch = null;
 					if (edgeConfig != null) {
 						var componentOpt = edgeConfig.getComponent(componentId);
@@ -199,9 +239,6 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 							var component = componentOpt.get();
 							componentType = component.getFactoryId();
 							ch = component.getChannels().get(channelId);
-							if (ch != null) {
-								rollup = Utils.isRollup(ch.getDetail().getPersistencePriority());
-							}
 						}
 					}
 
@@ -218,10 +255,19 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 			}
 		}
 
-		try {
-			handler.writeBatch(points);
-		} catch (SQLException e) {
-			this.logWarn(this.log, "Failed to write batch to TimescaleDB: " + e.getMessage());
+		handler.writeBatch(points);
+	}
+
+	@Override
+	public void handleEvent(Event event) {
+		// Drop an Edge's classification when it goes offline; rebuilt on reconnect.
+		if (Edge.Events.ON_SET_ONLINE.equals(event.getTopic())) {
+			var reader = new EventReader(event);
+			var edgeId = reader.getString(Edge.Events.OnSetOnline.EDGE_ID);
+			var isOnline = reader.getBoolean(Edge.Events.OnSetOnline.IS_ONLINE);
+			if (!isOnline) {
+				this.timestampedChannelsForEdge.remove(edgeId);
+			}
 		}
 	}
 
@@ -230,12 +276,10 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 			ZonedDateTime fromDate, ZonedDateTime toDate, Set<ChannelAddress> channels, Resolution resolution)
 			throws OpenemsNamedException {
 		var handler = this.connector;
-		if (handler == null) return new TreeMap<>();
-		try {
-			return handler.queryHistoricData(edgeId, fromDate, toDate, channels, resolution);
-		} catch (SQLException e) {
-			throw new OpenemsException(e);
+		if (handler == null || !this.timeFilter.isValid(fromDate, toDate)) {
+			return new TreeMap<>();
 		}
+		return handler.queryHistoricData(edgeId, fromDate, toDate, channels, resolution);
 	}
 
 	@Override
@@ -259,12 +303,10 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 	public SortedMap<ChannelAddress, JsonElement> queryHistoricEnergy(String edgeId, ZonedDateTime fromDate,
 			ZonedDateTime toDate, Set<ChannelAddress> channels) throws OpenemsNamedException {
 		var handler = this.connector;
-		if (handler == null) return new TreeMap<>();
-		try {
-			return handler.queryHistoricEnergy(edgeId, fromDate, toDate, channels);
-		} catch (SQLException e) {
-			throw new OpenemsException(e);
+		if (handler == null || !this.timeFilter.isValid(fromDate, toDate)) {
+			return new TreeMap<>();
 		}
+		return handler.queryHistoricEnergy(edgeId, fromDate, toDate, channels);
 	}
 
 	@Override
@@ -272,11 +314,9 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 			ZonedDateTime fromDate, ZonedDateTime toDate, Set<ChannelAddress> channels, Resolution resolution)
 			throws OpenemsNamedException {
 		var handler = this.connector;
-		if (handler == null) return new TreeMap<>();
-		try {
-			return handler.queryHistoricEnergyPerPeriod(edgeId, fromDate, toDate, channels, resolution);
-		} catch (SQLException e) {
-			throw new OpenemsException(e);
+		if (handler == null || !this.timeFilter.isValid(fromDate, toDate)) {
+			return new TreeMap<>();
 		}
+		return handler.queryHistoricEnergyPerPeriod(edgeId, fromDate, toDate, channels, resolution);
 	}
 }

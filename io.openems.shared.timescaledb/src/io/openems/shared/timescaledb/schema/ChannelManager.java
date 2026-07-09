@@ -122,12 +122,12 @@ public class ChannelManager {
 	 * @param edgeName   The edge identifier, e.g. "edge0" (ignored in single-tenant mode)
 	 * @param channel    OpenEMS channel address (componentId/channelName)
 	 * @return The resolved channel info or {@code null} if unknown
-	 * @throws SQLException on database error
+	 * @throws SQLException             on database error
+	 * @throws IllegalArgumentException in multi-tenant mode when edgeName is null
 	 */
 	public ChannelInfo lookupChannel(Connection connection, String edgeName, ChannelAddress channel)
 			throws SQLException {
-
-		// TODO: Validate tenancy mode and raise exception if edgeName is null
+		this.assertEdgeName(edgeName, channel.toString());
 		var key = this.encodeChannelKey(edgeName, channel.getComponentId(), channel.getChannelId());
 		var cached = this.cache.get(key);
 		if (cached != null) {
@@ -171,9 +171,12 @@ public class ChannelManager {
 	 * @param connection An open JDBC connection
 	 * @param data       The DataPoint being written
 	 * @return the resolved {@link ChannelInfo}
-	 * @throws SQLException on database error
+	 * @throws SQLException             on database error
+	 * @throws IllegalArgumentException in multi-tenant mode when the DataPoint
+	 *                                  carries no edge name
 	 */
 	public ChannelInfo resolveChannel(Connection connection, DataPoint data) throws SQLException {
+		this.assertEdgeName(data.edgeName(), data.componentName() + "/" + data.channelName());
 		var key = this.encodeChannelKey(data);
 		var cached = this.cache.get(key);
 		if (cached != null && isReresolved(cached, data)) {
@@ -241,6 +244,22 @@ public class ChannelManager {
 			return componentName + "/" + channelName;
 		}
 		return edgeName + "/" + componentName + "/" + channelName;
+	}
+
+	/**
+	 * In multi-tenant mode every lookup/resolve must be scoped to an edge —
+	 * accepting null would silently mix data of different edges under a
+	 * "null/..." cache key and match no rows in the database.
+	 *
+	 * @param edgeName the edge identifier to validate
+	 * @param channel  channel description for the error message
+	 * @throws IllegalArgumentException in multi-tenant mode when edgeName is null
+	 */
+	private void assertEdgeName(String edgeName, String channel) {
+		if (this.tenancy == Tenancy.MULTI && edgeName == null) {
+			throw new IllegalArgumentException(
+					"Multi-tenant TimescaleDB requires an edge name; got null for Channel [" + channel + "]");
+		}
 	}
 
 	private static boolean isReresolved(ChannelInfo cached, DataPoint data) {
