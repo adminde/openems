@@ -1,22 +1,137 @@
-= Timedata TimescaleDB
+= Timedata TimescaleDB (Backend)
 
-OpenEMS Backend implementation for https://www.timescale.com/[TimescaleDB] (PostgreSQL + TimescaleDB extension).
+OpenEMS Backend implementation for https://www.timescale.com/[TimescaleDB]
+(PostgreSQL + TimescaleDB extension). Stores the channel data of *many* Edges
+in one multi-tenant database: every measurement is scoped to its Edge through
+a normalized `edge` dimension table.
 
-Stores the channel data of *many* Edges in one multi-tenant database: every measurement is scoped to its Edge via a normalized `edge` dimension table. Data arrives through `Controller.Api.Backend` notifications (timestamped, aggregated and resend), is enriched with channel metadata from the Edge's `EdgeConfig` (value type, unit, `PersistencePriority`) and written asynchronously in batches via the PostgreSQL binary COPY protocol. Channels with priority `VERY_HIGH` enter the *rollup* Fast Lane with a 1-minute continuous aggregate. The database schema — hypertables, continuous aggregates, compression and retention policies — is created automatically on first start; if the database is unreachable on activation, initialization retries every 10 seconds.
+The database schema — dimension tables, hypertables, continuous aggregates,
+compression and retention policies — is created automatically and idempotently
+on every start. If the database is unreachable on activation, initialization
+retries every 10 seconds; the component stays alive. The full design (schema,
+pipeline, failure handling) is documented in
+`io.openems.shared.timescaledb/ARCHITECTURE.md`.
+
+== How it works
+
+=== Ingestion
+
+Data arrives per Edge over websocket (`Controller.Api.Backend`) in three
+notification flavors:
+
+1. *Timestamped* — high-resolution samples of the channels the Edge sends
+   on-change (priority ≥ `HIGH`). Receiving a channel this way marks it as
+   "arrives timestamped" for that Edge.
+2. *Aggregated* — 5-minute aggregates covering a wider channel set (priority ≥
+   the Edge's aggregated floor). To avoid double-writing, aggregated values of
+   channels that already arrive timestamped are *skipped* (deduplication); the
+   marker set is cleared when the Edge goes offline, so after a reconnect the
+   aggregated stream fills in until timestamped data flows again.
+3. *Resend* — historical gap-filler after connection outages; always written.
+
+Before writing, every point passes two configurable filters — the
+*ChannelFilter* (blacklist of channel addresses / component-ids, plus
+rejection of malformed component-ids that would pollute the dimension tables)
+and the *TimeFilter* (writes outside the configured date window are dropped;
+queries outside it are answered empty).
+
+Channel metadata (value type, unit) is resolved from the Edge's `EdgeConfig`
+(with type detection from the JSON value as fallback). Fast-Lane membership
+(`rollup`) comes from the shared `RollupChannels` include-list — independent
+of the `EdgeConfig`, so it is correct from the very first point.
+
+----
+ Edge (websocket)
+   |
+   |-- timestamped ------------------------------------------> write
+   |-- aggregated ---> channel already timestamped? --yes----> skip (dedup)
+   |                                                 '-no----> write
+   '-- resend --------------------------------------------- -> write
+                                                                 |
+   write:  ChannelFilter / TimeFilter  --reject--> drop + log    |
+           type/unit <- EdgeConfig, rollup <- RollupChannels  <--'
+           async pipeline -> PostgreSQL binary COPY
+             |
+             v
+   multi-tenant RAW hypertables (keep 90 d, compress after 7 d)
+     |
+     |-- RollupChannels ->  FAST LANE:  1m (90 d) -> 15m (1 y) -> 1d (10 y)
+     |
+     '-- all channels --->  SLOW LANE:  15m + 1d kept forever
+----
+
+=== Read path
+
+UI history queries pick the coarsest aggregate tier that satisfies the
+requested resolution and the query window's age; once a Fast-Lane tier's
+retention horizon is passed, queries route transparently to the never-expiring
+Slow Lane. A fine-grained query on a channel that is *not* in the Fast Lane
+logs a one-time `WARN … consider adding it to RollupChannels` — the signal to
+extend the include-list.
+
+----
+ historic query --> pickSource(bucket size, window age)
+   |
+   |-- >= 1 min and <= 90 d ............ 1m rollup
+   |-- >= 15 min ....................... 15m tiers (rollup 1 y, shared forever)
+   |-- >= 1 d .......................... 1d tiers
+   |-- finer buckets / strings ......... raw
+   |
+   '-- fine bucket, not in Fast Lane ... WARN "consider adding to RollupChannels"
+----
+
+Energy queries (`queryHistoricEnergy*`) always read raw data with
+counter-reset detection — aggregates would corrupt cumulative totals.
+
+== Storage profile
+
+The Backend is the permanent archive — the Slow Lane (15-minute and daily
+aggregates of *all* channels) is kept forever:
+
+|===
+| Tier | Resolution | Retention
+
+| Raw hypertables | as received | 90 d (compressed after 7 d)
+| Fast Lane `data_1m_rollup_*` | 1 minute | 90 d
+| Fast Lane `data_15m_rollup_*` | 15 minutes | 365 d
+| Fast Lane `data_1d_rollup_*` | 1 day | 10 y
+| Slow Lane `data_15m_*` (all channels) | 15 minutes | forever
+| Slow Lane `data_1d_*` (all channels) | 1 day | forever
+|===
+
+Raw compression waits 7 days (unlike the Edge's 1 day) because resend after
+Edge outages routinely writes days into the past, and late writes into
+compressed chunks are expensive.
 
 [NOTE]
 ====
-* Requires PostgreSQL with the `timescaledb` extension (>= 2.8) and the https://github.com/fboulnois/pg_uuidv7[`pg_uuidv7`] extension.
-* Create the database manually before connecting, e.g.: `psql -U postgres -c "CREATE DATABASE openems;"`
-* A great OpenSource tool to visualize the data is https://grafana.com/[Grafana] — connect it as a regular PostgreSQL data source.
+* Requires PostgreSQL with the `timescaledb` extension (>= 2.8) and the
+  https://github.com/fboulnois/pg_uuidv7[`pg_uuidv7`] extension.
+* Create the database manually before connecting, e.g.:
+  `psql -U postgres -c "CREATE DATABASE openems;"`
+* A great OpenSource tool to visualize the data is
+  https://grafana.com/[Grafana] — connect it as a regular PostgreSQL data
+  source.
 ====
 
 == Configuration
 
-* *Host / Port / Database / Username / Password* — connection to the database (default database: `openems`).
-* *Raw Retention Days* (default 90) — days to keep raw high-resolution data; aggregated views are kept longer (see architecture documentation).
-* *Raw Compression Days* (default 7) — days before raw chunks are compressed columnar.
-* *Pool Size / Write Workers* (defaults 50 / 10) — HikariCP connections and parallel COPY writers; keep Write Workers below Pool Size so reads always get a connection.
-* *Read-Only mode* — discards all writes; use for a second Backend instance that should only serve queries.
+|===
+| Property | Default | Meaning
 
-`debugLog` reports the write-queue fill level and total written points each debug cycle; `debugMetrics` reports the size of each hypertable in MB.
+| Host / Port / Database / Username / Password | `localhost` / `5432` / `openems` | database connection
+| Raw Retention Days | 90 | days to keep raw high-resolution data
+| Raw Compression Days | 7 | days before raw chunks are compressed columnar
+| Pool Size / Write Workers | 50 / 10 | HikariCP connections / parallel COPY writers — keep Write Workers below Pool Size so reads always get a connection
+| Read-Only mode | false | discards all writes; use for a second Backend instance that should only serve queries
+| Channel Filter / Time Filter | — | blacklist of channel addresses / component-ids; date window outside which writes are dropped and queries answered empty
+|===
+
+The aggregate horizons use the shared `AggregateRetention.BACKEND_DEFAULTS`;
+they feed both the database policies and the read-path routing from one
+instance — never change the policies directly in SQL.
+
+== Debugging
+
+`debugLog` reports the write-queue fill level and total written points each
+debug cycle; `debugMetrics` reports the size of each hypertable in MB.

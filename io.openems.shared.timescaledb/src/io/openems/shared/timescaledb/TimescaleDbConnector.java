@@ -18,11 +18,14 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.JsonElement;
 import com.zaxxer.hikari.HikariDataSource;
 
+import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
+import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.timedata.Resolution;
 import io.openems.common.types.ChannelAddress;
 import io.openems.shared.timescaledb.data.DataPoint;
 import io.openems.shared.timescaledb.data.ReadHandler;
 import io.openems.shared.timescaledb.data.WriteHandler;
+import io.openems.shared.timescaledb.schema.AggregateRetention;
 import io.openems.shared.timescaledb.schema.ChannelManager;
 import io.openems.shared.timescaledb.schema.SchemaHandler;
 import io.openems.shared.timescaledb.schema.Tenancy;
@@ -37,7 +40,7 @@ import io.openems.shared.timescaledb.schema.Tenancy;
  * pool, applies the schema and starts the write workers.
  *
  * <pre>
- * var db = new TimescaleDbHandler(Tenancy.SINGLE, host, username, password) //
+ * var db = new TimescaleDbConnector(Tenancy.SINGLE, host, username, password) //
  * 		.database("data") //
  * 		.port(5432) //
  * 		.poolSize(10) //
@@ -63,6 +66,7 @@ public class TimescaleDbConnector {
 	private int writeWorkers = 4;
 	private int rawRetentionDays = 30;
 	private int rawCompressionDays = 7;
+	private AggregateRetention aggregateRetention = AggregateRetention.BACKEND_DEFAULTS;
 	private boolean readOnly = false;
 
 	// Initialized by connect()
@@ -154,6 +158,21 @@ public class TimescaleDbConnector {
 	}
 
 	/**
+	 * Sets the retention horizons of the continuous-aggregate tiers. Default:
+	 * {@link AggregateRetention#BACKEND_DEFAULTS} (90/365/3650 days Fast Lane,
+	 * Slow Lane kept forever). Storage-constrained Edge devices pass shorter
+	 * horizons. Feeds both the schema policies and the read-path routing.
+	 *
+	 * @param aggregateRetention the {@link AggregateRetention}
+	 * @return myself for chaining
+	 */
+	public TimescaleDbConnector aggregateRetention(AggregateRetention aggregateRetention) {
+		this.assertNotConnected();
+		this.aggregateRetention = aggregateRetention;
+		return this;
+	}
+
+	/**
 	 * Activates the read-only mode: {@link #writeBatch} silently discards all
 	 * points (with a rate-limited log message). Default: false.
 	 *
@@ -171,13 +190,18 @@ public class TimescaleDbConnector {
 	 * database schema and starts the write workers.
 	 *
 	 * @return myself for chaining
-	 * @throws SQLException on database connection or schema creation failure
+	 * @throws OpenemsNamedException on database connection or schema creation
+	 *                               failure
 	 */
-	public TimescaleDbConnector connect() throws SQLException {
+	public TimescaleDbConnector connect() throws OpenemsNamedException {
 		this.assertNotConnected();
 
-		if (!Driver.isRegistered()) {
-			Driver.register();
+		try {
+			if (!Driver.isRegistered()) {
+				Driver.register();
+			}
+		} catch (SQLException e) {
+			throw new OpenemsException("Unable to register the PostgreSQL JDBC driver", e);
 		}
 		var pgds = new PGSimpleDataSource();
 		pgds.setServerNames(new String[] { this.host });
@@ -196,10 +220,11 @@ public class TimescaleDbConnector {
 
 		// SchemaHandler and ChannelManager derive their SQL from the tenancy;
 		// the read/write handlers stay tenancy-agnostic.
-		var schema = new SchemaHandler(this.tenancy, this.dataSource, this.rawRetentionDays, this.rawCompressionDays);
+		var schema = new SchemaHandler(this.tenancy, this.dataSource, this.rawRetentionDays, this.rawCompressionDays,
+				this.aggregateRetention);
 		this.channelManager = new ChannelManager(this.tenancy);
 		this.writeHandler = new WriteHandler(this.dataSource, this.channelManager, this.writeWorkers);
-		this.readHandler = new ReadHandler(this.dataSource, this.channelManager);
+		this.readHandler = new ReadHandler(this.dataSource, this.channelManager, this.aggregateRetention);
 
 		// Apply schema on startup
 		try {
@@ -208,7 +233,7 @@ public class TimescaleDbConnector {
 			this.writeHandler.deactivate();
 			this.dataSource.close();
 			this.dataSource = null;
-			throw e;
+			throw new OpenemsException("Unable to connect to TimescaleDB and apply schema", e);
 		}
 
 		// Warm up the channel cache with one bulk query, so the first writes and
@@ -228,7 +253,7 @@ public class TimescaleDbConnector {
 		}
 	}
 
-	public void writeBatch(List<DataPoint> points) throws SQLException {
+	public void writeBatch(List<DataPoint> points) {
 		if (this.readOnly) {
 			var now = Instant.now();
 			if (now.isAfter(this.lastReadOnlyLog.plusSeconds(READ_ONLY_LOG_INTERVAL_SECONDS))) {
@@ -279,38 +304,62 @@ public class TimescaleDbConnector {
 	// Queries historic data for a set of channels at a specific resolution
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricData(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
-			Set<ChannelAddress> channels, Resolution resolution) throws SQLException {
-		return this.readHandler.queryHistoricData(edgeName, from, to, channels, resolution);
+			Set<ChannelAddress> channels, Resolution resolution) throws OpenemsNamedException {
+		try {
+			return this.readHandler.queryHistoricData(edgeName, from, to, channels, resolution);
+		} catch (SQLException e) {
+			throw new OpenemsException("queryHistoricData failed", e);
+		}
 	}
 
 	// Queries the total historic energy consumed/produced during a period.
 	public SortedMap<ChannelAddress, JsonElement> queryHistoricEnergy(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
-			Set<ChannelAddress> channels) throws SQLException {
-		return this.readHandler.queryHistoricEnergy(edgeName, from, to, channels);
+			Set<ChannelAddress> channels) throws OpenemsNamedException {
+		try {
+			return this.readHandler.queryHistoricEnergy(edgeName, from, to, channels);
+		} catch (SQLException e) {
+			throw new OpenemsException("queryHistoricEnergy failed", e);
+		}
 	}
 
 	// Queries historic energy per bucket resolution.
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricEnergyPerPeriod(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
-			Set<ChannelAddress> channels, Resolution resolution) throws SQLException {
-		return this.readHandler.queryHistoricEnergyPerPeriod(edgeName, from, to, channels, resolution);
+			Set<ChannelAddress> channels, Resolution resolution) throws OpenemsNamedException {
+		try {
+			return this.readHandler.queryHistoricEnergyPerPeriod(edgeName, from, to, channels, resolution);
+		} catch (SQLException e) {
+			throw new OpenemsException("queryHistoricEnergyPerPeriod failed", e);
+		}
 	}
 
 	// Queries the most recent known value for a channel.
-	public Optional<Object> queryLatestValue(String edgeName, ChannelAddress addr) throws SQLException {
-		return this.readHandler.queryLatestValue(edgeName, addr);
+	public Optional<Object> queryLatestValue(String edgeName, ChannelAddress addr) throws OpenemsNamedException {
+		try {
+			return this.readHandler.queryLatestValue(edgeName, addr);
+		} catch (SQLException e) {
+			throw new OpenemsException("queryLatestValue failed", e);
+		}
 	}
 
-	public java.util.List<Long> getResendTimestamps(String edgeName,
-			ChannelAddress notSendChannel, long lastResendTimestamp) throws SQLException {
-		return this.readHandler.getResendTimestamps(edgeName, notSendChannel, lastResendTimestamp);
+	public List<Long> getResendTimestamps(String edgeName,
+			ChannelAddress notSendChannel, long lastResendTimestamp) throws OpenemsNamedException {
+		try {
+			return this.readHandler.getResendTimestamps(edgeName, notSendChannel, lastResendTimestamp);
+		} catch (SQLException e) {
+			throw new OpenemsException("getResendTimestamps failed", e);
+		}
 	}
 
 	public SortedMap<Long, SortedMap<ChannelAddress, JsonElement>> queryResendData(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
-			Set<ChannelAddress> channels) throws SQLException {
-		return this.readHandler.queryResendData(edgeName, from, to, channels);
+			Set<ChannelAddress> channels) throws OpenemsNamedException {
+		try {
+			return this.readHandler.queryResendData(edgeName, from, to, channels);
+		} catch (SQLException e) {
+			throw new OpenemsException("queryResendData failed", e);
+		}
 	}
 
 	public void deactivate() {

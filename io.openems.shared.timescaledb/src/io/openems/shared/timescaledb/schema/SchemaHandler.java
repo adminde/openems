@@ -19,15 +19,11 @@ import com.zaxxer.hikari.HikariDataSource;
  */
 public class SchemaHandler {
 
-	// Fast Lane (_rollup) continuous-aggregate retention horizons.
-	public static final int RETENTION_1M_DAYS = 90;
-	public static final int RETENTION_15M_DAYS = 365;
-	public static final int RETENTION_1D = 3650;
-
 	private final Tenancy tenancy;
 	private final HikariDataSource dataSource;
 	private final int rawRetentionDays;
 	private final int rawCompressionDays;
+	private final AggregateRetention aggregateRetention;
 
 	/**
 	 * Constructor.
@@ -36,12 +32,15 @@ public class SchemaHandler {
 	 * @param dataSource         The Hikari connection pool
 	 * @param rawRetentionDays   Days to keep raw data before deletion
 	 * @param rawCompressionDays Days to wait before compressing raw data
+	 * @param aggregateRetention The per-deployment aggregate retention horizons
 	 */
-	public SchemaHandler(Tenancy tenancy, HikariDataSource dataSource, int rawRetentionDays, int rawCompressionDays) {
+	public SchemaHandler(Tenancy tenancy, HikariDataSource dataSource, int rawRetentionDays, int rawCompressionDays,
+			AggregateRetention aggregateRetention) {
 		this.tenancy = tenancy;
 		this.dataSource = dataSource;
 		this.rawRetentionDays = rawRetentionDays;
 		this.rawCompressionDays = rawCompressionDays;
+		this.aggregateRetention = aggregateRetention;
 	}
 
 	/**
@@ -139,14 +138,26 @@ public class SchemaHandler {
 			addAggPolicyIfAbsent(statement, "data_1d_integer",         "3 days",  "1 day",      "1 day");
 			addAggPolicyIfAbsent(statement, "data_1d_float",           "3 days",  "1 day",      "1 day");
 
-			// Retention policies (Fast Lane only; Slow Lane kept forever)
+			// Retention policies for the aggregate tiers, from the per-deployment
+			// AggregateRetention (Slow Lane: 0 = keep forever, the Backend default).
+			// ReadHandler.pickSource routes queries from the same instance, so the
+			// horizons it assumes are exactly the ones enforced here.
+			var ar = this.aggregateRetention;
 			for (var t : new String[] { "integer", "float" }) {
 				addPolicyIfAbsent(statement, "add_retention_policy", "data_1m_rollup_" + t,
-						"INTERVAL '" + RETENTION_1M_DAYS + " days'");
+						"INTERVAL '" + ar.rollup1mDays() + " days'");
 				addPolicyIfAbsent(statement, "add_retention_policy", "data_15m_rollup_" + t,
-						"INTERVAL '" + RETENTION_15M_DAYS + " days'");
+						"INTERVAL '" + ar.rollup15mDays() + " days'");
 				addPolicyIfAbsent(statement, "add_retention_policy", "data_1d_rollup_" + t,
-						"INTERVAL '" + RETENTION_1D + " days'");
+						"INTERVAL '" + ar.rollup1dDays() + " days'");
+				if (ar.slowLane15mDays() > 0) {
+					addPolicyIfAbsent(statement, "add_retention_policy", "data_15m_" + t,
+							"INTERVAL '" + ar.slowLane15mDays() + " days'");
+				}
+				if (ar.slowLane1dDays() > 0) {
+					addPolicyIfAbsent(statement, "add_retention_policy", "data_1d_" + t,
+							"INTERVAL '" + ar.slowLane1dDays() + " days'");
+				}
 			}
 
 			// Stored functions for atomic channel registration.
@@ -456,11 +467,15 @@ public class SchemaHandler {
 						GROUP BY bucket, channel_id WITH NO DATA
 						""".formatted(viewName, bucket, source, whereClause != null ? whereClause : ""));
 			} else {
+				// avg_val is weighted by each sub-bucket's sample_count: a plain
+				// AVG(avg_val) would give every sub-bucket equal weight and drift
+				// whenever the sample density inside the bucket is uneven.
 				st.execute("""
 						CREATE MATERIALIZED VIEW %s WITH (timescaledb.continuous) AS
 						SELECT time_bucket('%s', bucket) AS bucket, channel_id,
 						       MIN(min_val) AS min_val, MAX(max_val) AS max_val,
-						       AVG(avg_val) AS avg_val, last(last_val,bucket) AS last_val,
+						       SUM(avg_val * sample_count) / NULLIF(SUM(sample_count), 0) AS avg_val,
+						       last(last_val,bucket) AS last_val,
 						       SUM(sample_count) AS sample_count
 						FROM %s GROUP BY time_bucket('%s', bucket), channel_id WITH NO DATA
 						""".formatted(viewName, bucket, source, bucket));

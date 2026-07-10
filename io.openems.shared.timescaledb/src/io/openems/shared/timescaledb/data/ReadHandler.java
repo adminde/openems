@@ -26,9 +26,9 @@ import io.openems.common.timedata.Resolution;
 import io.openems.common.types.ChannelAddress;
 import io.openems.shared.timescaledb.Type;
 import io.openems.shared.timescaledb.Utils;
+import io.openems.shared.timescaledb.schema.AggregateRetention;
 import io.openems.shared.timescaledb.schema.ChannelInfo;
 import io.openems.shared.timescaledb.schema.ChannelManager;
-import io.openems.shared.timescaledb.schema.SchemaHandler;
 
 /**
  * Handles read queries for TimescaleDB, including historic data, energy totals, and latest values.
@@ -39,6 +39,7 @@ public class ReadHandler {
 
 	private final HikariDataSource dataSource;
 	private final ChannelManager channelManager;
+	private final AggregateRetention aggregateRetention;
 
 	/**
 	 * Channels already reported by the missing-rollup warning, so each one is
@@ -49,13 +50,18 @@ public class ReadHandler {
 	/**
 	 * Constructor.
 	 *
-	 * @param dataSource                 The Hikari connection pool
-	 * @param channelManager             The ChannelManager to resolve channel
-	 *                                   metadata
+	 * @param dataSource         The Hikari connection pool
+	 * @param channelManager     The ChannelManager to resolve channel metadata
+	 * @param aggregateRetention The aggregate retention horizons this
+	 *                           deployment's SchemaHandler enforces — used by
+	 *                           pickSource() to avoid routing queries into
+	 *                           already-expired tiers
 	 */
-	public ReadHandler(HikariDataSource dataSource, ChannelManager channelManager) {
+	public ReadHandler(HikariDataSource dataSource, ChannelManager channelManager,
+			AggregateRetention aggregateRetention) {
 		this.dataSource = dataSource;
 		this.channelManager = channelManager;
+		this.aggregateRetention = aggregateRetention;
 	}
 
 	/**
@@ -149,12 +155,15 @@ public class ReadHandler {
 				UUID[] channelIds = addrById.keySet().toArray(UUID[]::new);
 
 				// Raw hypertables expose (time, value); the continuous-aggregate
-				// views expose (bucket, avg_val/last_val).
+				// views expose (bucket, avg_val/last_val/sample_count). Re-bucketing
+				// aggregate rows weights by sample_count — a plain AVG(avg_val)
+				// would count sparse and dense sub-buckets equally.
 				boolean raw = isRawTable(view);
 				String timeCol = raw ? "time" : "bucket";
 				String aggExpr = view.contains("string")
 						? (raw ? "last(value, time)" : "last(last_val, bucket)")
-						: (raw ? "AVG(value)" : "AVG(avg_val)");
+						: (raw ? "AVG(value)"
+								: "SUM(avg_val * sample_count) / NULLIF(SUM(sample_count), 0)");
 
 				// time_bucket with a timezone argument aligns calendar buckets (days,
 				// months, ...) to local midnight incl. DST; requires TimescaleDB >= 2.8.
@@ -447,25 +456,25 @@ public class ReadHandler {
 
 	/**
 	 * Picks the best source view/table for a given resolution: the coarsest view
-	 * whose bucket size is &lt;= the requested resolution. When the 1-minute
-	 * aggregate is unavailable (e.g. on Edge devices), sub-15m rollup queries fall
-	 * back to raw tables.
+	 * whose bucket size is &lt;= the requested resolution.
 	 *
 	 * <p>
-	 * For rollup channels the choice is also time-aware: the Fast Lane (_rollup) views
-	 * expire on their retention policies, while the shared (Slow Lane) views are
-	 * kept forever. If the query window reaches further back than the picked _rollup
-	 * tier's retention horizon, this routes to the shared view instead, so old
-	 * rollup history remains reachable (at the same or the next-coarser resolution).
+	 * The choice is also time-aware, based on the same {@link AggregateRetention}
+	 * the SchemaHandler enforces: if the query window reaches further back than
+	 * the picked tier's retention horizon, this routes to the next-longer-lived
+	 * view instead (Fast Lane → Slow Lane → daily Slow Lane), so old history
+	 * remains reachable at the same or the next-coarser resolution instead of
+	 * returning holes.
 	 *
 	 * @param type           INTEGER / FLOAT / STRING
-	 * @param rollup         true = Fast Lane (VERY_HIGH), false = Slow Lane
+	 * @param rollup         true = Fast Lane, false = Slow Lane
 	 * @param bucketSeconds  desired bucket size in seconds
 	 * @param from           start of the query window (its oldest point)
 	 * @return the unqualified table or materialized-view name
 	 */
 	private String pickSource(Type type, boolean rollup, long bucketSeconds, ZonedDateTime from) {
 		String typePart = type.aggInfix;
+		var ar = this.aggregateRetention;
 
 		// Strings cannot be aggregated mathematically, so they always use raw data.
 		if (type == Type.STRING) {
@@ -473,20 +482,23 @@ public class ReadHandler {
 		}
 
 		// Fast Lane (rollup = true): tiers 1m, 15m, 1d, each falling back to the
-		// never-expiring shared view once the window predates its retention.
+		// longer-lived shared view once the window predates its retention.
 		if (rollup) {
 			// Daily tier.
 			if (bucketSeconds >= 86400) {
-				return reachesBefore(from, SchemaHandler.RETENTION_1D)
-						? "data_1d_" + typePart          // shared, kept forever
+				return this.expired(from, ar.rollup1dDays())
+						? "data_1d_" + typePart          // shared Slow Lane
 						: "data_1d_rollup_" + typePart;
 			}
 			// 15-minute tier — also where a sub-15m request lands once it predates
 			// the 1-minute retention (no 1-minute data exists that far back).
-			if (bucketSeconds >= 900 || reachesBefore(from, SchemaHandler.RETENTION_1M_DAYS)) {
-				return reachesBefore(from, SchemaHandler.RETENTION_15M_DAYS)
-						? "data_15m_" + typePart         // shared, kept forever
-						: "data_15m_rollup_" + typePart;
+			if (bucketSeconds >= 900 || this.expired(from, ar.rollup1mDays())) {
+				if (!this.expired(from, ar.rollup15mDays())) {
+					return "data_15m_rollup_" + typePart;
+				}
+				return this.expired(from, ar.slowLane15mDays())
+						? "data_1d_" + typePart          // even the shared 15m expired
+						: "data_15m_" + typePart;
 			}
 			// 1-minute tier (recent window only).
 			if (bucketSeconds >= 60) {
@@ -500,9 +512,20 @@ public class ReadHandler {
 			return "data_1d_" + typePart;
 		}
 		if (bucketSeconds >= 900) {
-			return "data_15m_" + typePart;
+			return this.expired(from, ar.slowLane15mDays())
+					? "data_1d_" + typePart
+					: "data_15m_" + typePart;
 		}
 		return "data_" + typePart;
+	}
+
+	/**
+	 * Whether the query window starts before the given retention horizon, i.e.
+	 * the picked tier no longer holds data that far back. A horizon of {@code 0}
+	 * means "kept forever" and never expires.
+	 */
+	private boolean expired(ZonedDateTime from, int retentionDays) {
+		return retentionDays > 0 && reachesBefore(from, retentionDays);
 	}
 
 	/**

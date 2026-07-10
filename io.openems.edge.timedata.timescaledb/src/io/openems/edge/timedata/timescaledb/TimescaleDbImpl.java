@@ -25,6 +25,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 
 import io.openems.shared.timescaledb.data.DataPoint;
+import io.openems.shared.timescaledb.schema.AggregateRetention;
 import io.openems.shared.timescaledb.schema.Tenancy;
 import io.openems.shared.timescaledb.TimescaleDbConnector;
 import io.openems.shared.timescaledb.RollupChannels;
@@ -88,6 +89,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 					.writeWorkers(config.writeWorkers()) //
 					.rawRetentionDays(config.retentionDays()) //
 					.rawCompressionDays(config.compressionDays()) //
+					.aggregateRetention(AggregateRetention.EDGE_DEFAULTS) //
 					.connect();
 			this.log.info("TimescaleDB connected");
 		} catch (OpenemsNamedException e) {
