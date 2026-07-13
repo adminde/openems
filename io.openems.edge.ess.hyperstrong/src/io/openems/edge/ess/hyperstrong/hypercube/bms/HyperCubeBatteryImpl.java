@@ -1,6 +1,7 @@
 package io.openems.edge.ess.hyperstrong.hypercube.bms;
 
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_1;
 import static io.openems.edge.ess.hyperstrong.AlarmAnalysis.decodeAlarm;
 import static io.openems.edge.ess.hyperstrong.ModbusUtils.defineModbusAlarmRegister;
 import static io.openems.edge.ess.hyperstrong.ModbusUtils.defineModbusSignedWordInputRegistersTasks;
@@ -43,7 +44,6 @@ import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.common.taskmanager.Priority;
-import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 
 @Designate(ocd = Config.class, factory = true)
@@ -129,14 +129,14 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 								.bit(0, HyperCubeBattery.ChannelId.POSITIVE_RELAY_STATUS)
 								.bit(1, HyperCubeBattery.ChannelId.NEGATIVE_RELAY_STATUS)
 						),
-						m(SymmetricEss.ChannelId.MAX_CELL_VOLTAGE,
+						m(Battery.ChannelId.MAX_CELL_VOLTAGE,
 								new UnsignedWordElement(10010)),
-						m(SymmetricEss.ChannelId.MIN_CELL_VOLTAGE,
+						m(Battery.ChannelId.MIN_CELL_VOLTAGE,
 								new UnsignedWordElement(10011)),
-						m(SymmetricEss.ChannelId.MAX_CELL_TEMPERATURE,
-								new SignedWordElement(10012)),
-						m(SymmetricEss.ChannelId.MIN_CELL_TEMPERATURE,
-								new SignedWordElement(10013)),
+						m(Battery.ChannelId.MAX_CELL_TEMPERATURE,
+								new SignedWordElement(10012), SCALE_FACTOR_MINUS_1),
+						m(Battery.ChannelId.MIN_CELL_TEMPERATURE,
+								new SignedWordElement(10013), SCALE_FACTOR_MINUS_1),
 						m(BatteryManagementSystem.ChannelId.MAX_CELL_VOLTAGE_INDEX,
 								new UnsignedWordElement(10014)),
 						m(BatteryManagementSystem.ChannelId.MIN_CELL_VOLTAGE_INDEX,
