@@ -1,6 +1,7 @@
 package io.openems.edge.ess.hyperstrong.hypercube.bms;
 
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_1;
 import static io.openems.edge.ess.hyperstrong.AlarmAnalysis.decodeAlarm;
 import static io.openems.edge.ess.hyperstrong.ModbusUtils.defineModbusAlarmRegister;
 import static io.openems.edge.ess.hyperstrong.ModbusUtils.defineModbusSignedWordInputRegistersTasks;
@@ -134,9 +135,9 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 						m(SymmetricEss.ChannelId.MIN_CELL_VOLTAGE,
 								new UnsignedWordElement(10011)),
 						m(SymmetricEss.ChannelId.MAX_CELL_TEMPERATURE,
-								new SignedWordElement(10012)),
+								new SignedWordElement(10012), SCALE_FACTOR_MINUS_1),
 						m(SymmetricEss.ChannelId.MIN_CELL_TEMPERATURE,
-								new SignedWordElement(10013)),
+								new SignedWordElement(10013), SCALE_FACTOR_MINUS_1),
 						m(BatteryManagementSystem.ChannelId.MAX_CELL_VOLTAGE_INDEX,
 								new UnsignedWordElement(10014)),
 						m(BatteryManagementSystem.ChannelId.MIN_CELL_VOLTAGE_INDEX,
