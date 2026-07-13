@@ -123,9 +123,8 @@ public class ModbusUtils {
 			BiFunction<Integer, Integer, ModbusElement> addElement) {
 		List<Task> tasks = new ArrayList<Task>();
 		int taskIndex = 0;
-		int blockSize = (int) Math.ceil((double) count / MAX_REGISTERS_PER_TASK);
 		while (taskIndex < count) {
-			var blockChunk = Math.min(blockSize, count - taskIndex);
+			var blockChunk = Math.min(MAX_REGISTERS_PER_TASK, count - taskIndex);
 			var blockElements = new ModbusElement[blockChunk];
 			for (var i = 0; i < blockChunk; i++) {
 				var address = startAddress + taskIndex + i;
