@@ -121,10 +121,13 @@ public class ModbusUtils {
 
 	public static List<Task> defineModbusInputArrayTasks(int startAddress, int count,
 			BiFunction<Integer, Integer, ModbusElement> addElement) {
+		int blocks = (int) Math.ceil((double) count / MAX_REGISTERS_PER_TASK);
+		int blockSize = (int) Math.ceil((double) count / blocks);
+
 		List<Task> tasks = new ArrayList<Task>();
 		int taskIndex = 0;
 		while (taskIndex < count) {
-			var blockChunk = Math.min(MAX_REGISTERS_PER_TASK, count - taskIndex);
+			var blockChunk = Math.min(blockSize, count - taskIndex);
 			var blockElements = new ModbusElement[blockChunk];
 			for (var i = 0; i < blockChunk; i++) {
 				var address = startAddress + taskIndex + i;
