@@ -18,3 +18,7 @@ public interface Edge2EdgeWebsocketMeter extends ElectricityMeter, OpenemsCompon
 		@Override
 		public Doc doc() {
 			return this.doc;
+		}
+	}
+
+}
