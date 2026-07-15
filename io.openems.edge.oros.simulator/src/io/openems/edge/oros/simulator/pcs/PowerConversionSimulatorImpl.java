@@ -43,8 +43,8 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 		name = "Simulator.PCS.OROS",
 		immediate = true,
 		configurationPolicy = REQUIRE)
-public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent
-		implements PowerConversionSimulator, PowerConversionSystem, ManagedSymmetricBatteryInverter,
+public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent implements
+		PowerConversionSimulator, PowerConversionSystem, ManagedSymmetricBatteryInverter,
 		SymmetricBatteryInverter, SymmetricComponent, OpenemsComponent, ModbusSlave, TimedataProvider {
 
 	public static final float POWER_DERATING_ZONE = 5F;
@@ -131,7 +131,7 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent
 		int dcCurrentMa = (int) ((long) activePower * 1_000_000L / dcVoltage);
 		this._setDcVoltage(dcVoltage);
 		this._setDcCurrent(dcCurrentMa);
-		this._setDcDischargePower(activePower);
+		this._setDcPower(activePower);
 
 		setValue(this, SymmetricBatteryInverter.ChannelId.ACTIVE_POWER, activePower);
 		setValue(this, SymmetricBatteryInverter.ChannelId.REACTIVE_POWER, reactivePower);

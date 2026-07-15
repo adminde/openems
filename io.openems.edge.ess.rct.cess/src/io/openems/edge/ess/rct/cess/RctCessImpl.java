@@ -4,14 +4,10 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
 import static io.openems.edge.ess.rct.cess.statemachine.StateMachine.State.UNDEFINED;
 import static org.osgi.service.component.annotations.ReferenceCardinality.MANDATORY;
-import static org.osgi.service.component.annotations.ReferenceCardinality.MULTIPLE;
 import static org.osgi.service.component.annotations.ReferenceCardinality.OPTIONAL;
 import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
 import static org.osgi.service.component.annotations.ReferencePolicy.STATIC;
 import static org.osgi.service.component.annotations.ReferencePolicyOption.GREEDY;
-
-import java.util.LinkedList;
-import java.util.List;
 
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
@@ -45,7 +41,6 @@ import io.openems.edge.common.jsonapi.JsonApiBuilder;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
-import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.ess.api.EssErrorAcknowledge;
 import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
@@ -53,7 +48,6 @@ import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.ess.rct.cess.battery.RctCessBattery;
 import io.openems.edge.ess.rct.cess.batteryinverter.RctCessBatteryInverter;
-import io.openems.edge.ess.rct.cess.charger.RctCessDcCharger;
 import io.openems.edge.ess.rct.cess.jsonrpc.ClearTimeoutFailure;
 import io.openems.edge.ess.rct.cess.statemachine.Context;
 import io.openems.edge.ess.rct.cess.statemachine.StateMachine;
@@ -68,7 +62,6 @@ import io.openems.edge.oros.ess.core.protection.PowerLimiter;
 import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
-import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(
@@ -86,11 +79,6 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 
 	private final Logger log = LoggerFactory.getLogger(RctCessImpl.class);
 	private final StateMachine stateMachine = new StateMachine(UNDEFINED);
-
-	private final CalculateEnergyFromPower calculateDcChargeEnergy = new CalculateEnergyFromPower(this,
-			HybridEss.ChannelId.DC_CHARGE_ENERGY);
-	private final CalculateEnergyFromPower calculateDcDischargeEnergy = new CalculateEnergyFromPower(this,
-			HybridEss.ChannelId.DC_DISCHARGE_ENERGY);
 
 	private Config config;
 
@@ -114,9 +102,6 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 
 	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY)
 	private volatile RctCessBattery battery;
-
-	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MULTIPLE)
-	private List<RctCessDcCharger> chargers = new LinkedList<>();
 
 	@Override
 	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY)
@@ -147,12 +132,7 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 				config.modbus_id(), config.pcs_id(), config.bms_id(), config.startStop(), false)) {
 			return;
 		}
-
-		if (OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "charger", config.charger_ids())) {
-			return;
-		}
 		this.config = config;
-		this.chargers.forEach(charger -> charger.bindEss(this));
 
 		this.channelManager.setPowerLimiter(
 				new PowerLimiter(this,
@@ -201,12 +181,6 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 		// Initialize 'Start-Stop' Channel
 		this._setStartStop(StartStop.UNDEFINED);
 
-		// Calculate the PV- and DC Discharge Power value from DC and Charger Power
-		this.calculateDcPower();
-
-		// Calculate the Energy values from DC Discharge Power.
-		this.calculateDcEnergy();
-
 		// Prepare Context
 		var context = new Context(this, this.config, this.getBatteryManagementSystem(), this.getPowerConversionSystem(),
 				this.componentManager.getClock());
@@ -219,42 +193,6 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 		} catch (OpenemsNamedException e) {
 			this._setRunFailed(true);
 			this.logError(this.log, "StateMachine failed: " + e.getMessage());
-		}
-	}
-
-	private void calculateDcPower() {
-		var inverter = this.getPowerConversionSystem();
-		if (!inverter.getDcDischargePower().isDefined()) {
-			return;
-		}
-		var dcPower = inverter.getDcDischargePower().get();
-
-		if (this.hasDcChargers()) {
-			var pvPower = 0;
-			for (RctCessDcCharger charger : this.getDcChargers()) {
-				pvPower += charger.getActualPower().orElse(0);
-			}
-			this._setPvPower(pvPower);
-
-			dcPower = TypeUtils.subtract(dcPower, pvPower);
-		}
-		this._setDcDischargePower(dcPower);
-	}
-
-	private void calculateDcEnergy() {
-		var dischargePower = this.getDcDischargePowerChannel().getNextValue().get();
-		if (dischargePower == null) {
-			// Not available
-			this.calculateDcChargeEnergy.update(null);
-			this.calculateDcDischargeEnergy.update(null);
-		} else if (dischargePower >= 0) {
-			// Load-From-Grid
-			this.calculateDcChargeEnergy.update(0);
-			this.calculateDcDischargeEnergy.update(dischargePower);
-		} else {
-			// Feed-To-Grid
-			this.calculateDcChargeEnergy.update(dischargePower * -1);
-			this.calculateDcDischargeEnergy.update(0);
 		}
 	}
 
@@ -309,31 +247,8 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 	}
 
 	@Override
-	public boolean hasDcChargers() {
-		return !this.chargers.isEmpty();
-	}
-
-	@Override
-	public List<RctCessDcCharger> getDcChargers() {
-		return this.chargers;
-	}
-
-	@Override
-	public final Integer getSurplusPower() {
-		if (!this.hasDcChargers() || !this.getPvPowerChannel().getNextValue().isDefined()
-				|| !this.getSoc().isDefined()) {
-			return null;
-		}
-		// Is the Battery full?
-		if (this.getSoc().get() < 99) {
-			return null;
-		}
-		// Is PV producing?
-		int pvPower = this.getPvPowerChannel().getNextValue().get();
-		if (pvPower < 100) {
-			return null;
-		}
-		return pvPower;
+	public Integer getSurplusPower() {
+		return this.getPowerConversionSystem().getSurplusPower();
 	}
 
 	@Override

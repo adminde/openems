@@ -55,10 +55,6 @@ public interface RctCessBattery extends BatteryManagementSystem, Battery,
 				.unit(Unit.VOLT)
 				.persistencePriority(PersistencePriority.MEDIUM)),
 
-		POWER(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.WATT)
-				.persistencePriority(PersistencePriority.HIGH)),
-
 		INSULATION_VALUE(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.OHM)
 				.persistencePriority(PersistencePriority.MEDIUM)),

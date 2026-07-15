@@ -361,7 +361,6 @@ public class ChannelManager extends AbstractChannelListenerManager {
 		}
 	}
 
-
 	/**
 	 * Removes a Listener.
 	 *

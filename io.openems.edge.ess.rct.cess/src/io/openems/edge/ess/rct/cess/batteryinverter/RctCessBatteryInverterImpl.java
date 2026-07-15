@@ -7,6 +7,7 @@ import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.chain;
 import static io.openems.edge.common.sum.GridMode.ON_GRID;
 import static io.openems.edge.common.type.Phase.SingleOrAllPhase.ALL;
+import static io.openems.edge.common.type.TypeUtils.subtract;
 import static io.openems.edge.ess.power.api.Pwr.ACTIVE;
 import static io.openems.edge.ess.power.api.Pwr.REACTIVE;
 import static io.openems.edge.ess.power.api.Relationship.GREATER_OR_EQUALS;
@@ -14,6 +15,8 @@ import static io.openems.edge.ess.power.api.Relationship.LESS_OR_EQUALS;
 import static io.openems.edge.ess.rct.cess.batteryinverter.statemachine.StateMachine.State.UNDEFINED;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -60,9 +63,12 @@ import io.openems.edge.common.modbusslave.ModbusSlaveTable;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.common.taskmanager.Priority;
+import io.openems.edge.ess.rct.cess.battery.RctCessBattery;
 import io.openems.edge.ess.rct.cess.batteryinverter.statemachine.Context;
 import io.openems.edge.ess.rct.cess.batteryinverter.statemachine.StateMachine;
 import io.openems.edge.ess.rct.cess.batteryinverter.statemachine.StateMachine.State;
+import io.openems.edge.ess.rct.cess.charger.RctCessDcCharger;
+import io.openems.edge.oros.bms.api.BatteryManagementProvider;
 import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 import io.openems.edge.timedata.api.Timedata;
@@ -79,19 +85,27 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
 })
 public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent implements
-		RctCessBatteryInverter, PowerConversionSystem, ManagedSymmetricBatteryInverter, SymmetricBatteryInverter,
-		BatteryInverterErrorAcknowledge, SymmetricComponent, OpenemsComponent, ModbusComponent, ModbusSlave,
-		TimedataProvider, EventHandler, StartStoppable {
+		RctCessBatteryInverter, PowerConversionSystem, HybridManagedSymmetricBatteryInverter,
+		ManagedSymmetricBatteryInverter, SymmetricBatteryInverter, SymmetricComponent,
+		OpenemsComponent, ModbusComponent, ModbusSlave, BatteryInverterErrorAcknowledge,
+		BatteryManagementProvider, TimedataProvider, EventHandler, StartStoppable {
 
 	private final Logger log = LoggerFactory.getLogger(RctCessBatteryInverterImpl.class);
 	private final StateMachine stateMachine = new StateMachine(State.UNDEFINED);
 
 	private final AtomicReference<StartStop> startStopTarget = new AtomicReference<>(StartStop.UNDEFINED);
 
+	private final CalculateEnergyFromPower calculateDcChargeEnergy = new CalculateEnergyFromPower(this,
+			HybridManagedSymmetricBatteryInverter.ChannelId.DC_CHARGE_ENERGY);
+	private final CalculateEnergyFromPower calculateDcDischargeEnergy = new CalculateEnergyFromPower(this,
+			HybridManagedSymmetricBatteryInverter.ChannelId.DC_DISCHARGE_ENERGY);
+
 	private final CalculateEnergyFromPower calculateAcChargeEnergy = new CalculateEnergyFromPower(this,
 			SymmetricBatteryInverter.ChannelId.ACTIVE_CHARGE_ENERGY);
 	private final CalculateEnergyFromPower calculateAcDischargeEnergy = new CalculateEnergyFromPower(this,
 			SymmetricBatteryInverter.ChannelId.ACTIVE_DISCHARGE_ENERGY);
+
+	private final List<RctCessDcCharger> chargers = new CopyOnWriteArrayList<>();
 
 	private Config config = null;
 
@@ -110,6 +124,18 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 		super.setModbus(modbus);
 	}
 
+	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
+	private volatile RctCessBattery bms;
+
+	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MULTIPLE)
+	protected void addCharger(RctCessDcCharger charger) {
+		this.chargers.add(charger);
+	}
+
+	protected void removeCharger(RctCessDcCharger charger) {
+		this.chargers.remove(charger);
+	}
+
 	public RctCessBatteryInverterImpl() {
 		super(OpenemsComponent.ChannelId.values(),
 				ModbusComponent.ChannelId.values(),
@@ -119,6 +145,7 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 				BatteryInverterErrorAcknowledge.ChannelId.values(),
 				SymmetricBatteryInverter.ChannelId.values(),
 				ManagedSymmetricBatteryInverter.ChannelId.values(),
+				HybridManagedSymmetricBatteryInverter.ChannelId.values(),
 				RctCessBatteryInverter.ChannelId.values());
 	}
 
@@ -129,6 +156,14 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 				"Modbus", config.modbus_id())) {
 			return;
 		}
+		if (OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "bms", config.bms_id())) {
+			return;
+		}
+		if (OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "charger", config.charger_ids())) {
+			return;
+		}
+		this.chargers.forEach(charger -> charger.bindInverter(this));
+
 		this._setGridMode(ON_GRID);
 		this._setMaxActivePower(
 				RctCessBatteryInverter.MAX_ACTIVE_POWER);
@@ -147,6 +182,7 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 	@Override
 	@Deactivate
 	protected void deactivate() {
+		this.chargers.forEach(RctCessDcCharger::unbindInverter);
 		super.deactivate();
 	}
 
@@ -186,6 +222,12 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 		// Initialize 'Start-Stop' Channel
 		this._setStartStop(StartStop.UNDEFINED);
 
+		// Calculate the PV Power and battery-only DC Discharge Power from total DC Power.
+		this.calculateDcPower();
+
+		// Calculate the Energy values from DC Discharge Power.
+		this.calculateDcEnergy();
+
 		// Calculate the Energy values from AC Power.
 		this.calculateAcEnergy();
 
@@ -200,6 +242,44 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 		} catch (OpenemsNamedException e) {
 			this._setRunFailed(true);
 			this.logError(this.log, "StateMachine failed: " + e.getMessage());
+		}
+	}
+
+	/**
+	 * Calculates the PV Power and the battery-only DC Discharge Power from the total DC Power.
+	 */
+	private void calculateDcPower() {
+		var dcPower = this.getDcPower().get();
+		if (dcPower == null) {
+			return;
+		}
+		if (this.hasDcChargers()) {
+			var pvPower = 0;
+			for (RctCessDcCharger charger : this.getDcChargers()) {
+				pvPower += charger.getActualPower().orElse(0);
+			}
+			dcPower = subtract(dcPower, pvPower);
+
+			this._setDcPvPower(pvPower);
+		}
+		this._setDcDischargePower(dcPower);
+	}
+
+	/**
+	 * Calculate the Energy values from DC Discharge Power.
+	 */
+	private void calculateDcEnergy() {
+		var dischargePower = this.getDcDischargePowerChannel().getNextValue().get();
+		if (dischargePower == null) {
+			// Not available
+			this.calculateDcChargeEnergy.update(null);
+			this.calculateDcDischargeEnergy.update(null);
+		} else if (dischargePower >= 0) {
+			this.calculateDcChargeEnergy.update(0);
+			this.calculateDcDischargeEnergy.update(dischargePower);
+		} else {
+			this.calculateDcChargeEnergy.update(dischargePower * -1);
+			this.calculateDcDischargeEnergy.update(0);
 		}
 	}
 
@@ -221,6 +301,35 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 			this.calculateAcChargeEnergy.update(dischargePower * -1);
 			this.calculateAcDischargeEnergy.update(0);
 		}
+	}
+
+	@Override
+	public Integer getSurplusPower() {
+		var soc = this.getBatteryManagementSystem().getSoc();
+		var pvPower = this.getDcPvPowerChannel().getNextValue();
+		if (!this.hasDcChargers() || !pvPower.isDefined() || !soc.isDefined()) {
+			return null;
+		}
+		// Is the Battery full?
+		if (soc.get() < 100) {
+			return 0;
+		}
+		return pvPower.get();
+	}
+
+	@Override
+	public boolean hasDcChargers() {
+		return !this.chargers.isEmpty();
+	}
+
+	@Override
+	public List<RctCessDcCharger> getDcChargers() {
+		return this.chargers;
+	}
+
+	@Override
+	public RctCessBattery getBatteryManagementSystem() {
+		return this.bms;
 	}
 
 	@Override
@@ -306,13 +415,13 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 								new SignedWordElement(0x000A), SCALE_FACTOR_2),
 						m(SymmetricComponent.ChannelId.POWER_FACTOR,
 								new UnsignedWordElement(0x000B),
-                                chain(CONVERT_FLOAT, SCALE_FACTOR_MINUS_1)),
-                        m(PowerConversionSystem.ChannelId.DC_VOLTAGE,
-                                new UnsignedWordElement(0x000C), SCALE_FACTOR_2),
-                        m(PowerConversionSystem.ChannelId.DC_CURRENT,
-                                new SignedWordElement(0x000D), SCALE_FACTOR_2),
-                        m(HybridManagedSymmetricBatteryInverter.ChannelId.DC_DISCHARGE_POWER,
-                                new SignedWordElement(0x000E), SCALE_FACTOR_2)),
+								chain(CONVERT_FLOAT, SCALE_FACTOR_MINUS_1)),
+						m(PowerConversionSystem.ChannelId.DC_VOLTAGE,
+								new UnsignedWordElement(0x000C), SCALE_FACTOR_2),
+						m(PowerConversionSystem.ChannelId.DC_CURRENT,
+								new SignedWordElement(0x000D), SCALE_FACTOR_2),
+						m(PowerConversionSystem.ChannelId.DC_POWER,
+								new SignedWordElement(0x000E), SCALE_FACTOR_2)),
 
 				new FC3ReadRegistersTask(0x000F, Priority.LOW,
 						m(RctCessBatteryInverter.ChannelId.IGBT_TEMPERATURE,

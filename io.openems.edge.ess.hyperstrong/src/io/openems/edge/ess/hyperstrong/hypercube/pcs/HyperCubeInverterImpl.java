@@ -33,7 +33,6 @@ import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.battery.api.Battery;
 import io.openems.edge.batteryinverter.api.BatteryInverterConstraint;
-import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
@@ -225,7 +224,7 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 								new SignedWordElement(3011), SCALE_FACTOR_2),
 						m(PowerConversionSystem.ChannelId.DC_CURRENT,
 								new SignedWordElement(3012), SCALE_FACTOR_2),
-						m(HybridManagedSymmetricBatteryInverter.ChannelId.DC_DISCHARGE_POWER,
+						m(PowerConversionSystem.ChannelId.DC_POWER,
 								new SignedWordElement(3013), SCALE_FACTOR_2)),
 
 				new FC4ReadInputRegistersTask(3014, Priority.LOW,

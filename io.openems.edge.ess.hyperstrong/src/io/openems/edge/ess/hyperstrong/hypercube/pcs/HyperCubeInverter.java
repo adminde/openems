@@ -39,20 +39,6 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 		/**
-		 * DC Discharge Power.
-		 *
-		 * <ul>
-		 * <li>Interface: HyperCubeInverter
-		 * <li>Type: {@link OpenemsType#INTEGER}
-		 * <li>Unit: {@link Unit#WATT}
-		 * <li>Range: negative values for Charge; positive for Discharge
-		 * </ul>
-		 */
-		DC_DISCHARGE_POWER(Doc.of(INTEGER)
-				.unit(WATT)
-				.persistencePriority(HIGH)),
-
-		/**
 		 * IGBT Temperature L1.
 		 *
 		 * <ul>
@@ -322,55 +308,6 @@ public interface HyperCubeInverter extends PowerConversionSystem,
 	@Override
 	public default int getPowerPrecision() {
 		return APPARENT_POWER_PRECISION;
-	}
-
-	/**
-	 * Gets the DC Discharge Power in [W]. See
-	 * {@link ChannelId#DC_DISCHARGE_POWER}.
-	 *
-	 * @return the DC Power
-	 */
-	public default Integer getDcPower() {
-		return this.getDcDischargePower().get();
-	}
-
-	/**
-	 * Gets the Channel for {@link ChannelId#DC_DISCHARGE_POWER}.
-	 *
-	 * @return the Channel
-	 */
-	public default IntegerReadChannel getDcDischargePowerChannel() {
-		return this.channel(ChannelId.DC_DISCHARGE_POWER);
-	}
-
-	/**
-	 * Gets the DC Discharge Power in [W]. See
-	 * {@link ChannelId#DC_DISCHARGE_POWER}.
-	 *
-	 * @return the Channel {@link Value}
-	 */
-	public default Value<Integer> getDcDischargePower() {
-		return this.getDcDischargePowerChannel().value();
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#DC_DISCHARGE_POWER} Channel.
-	 *
-	 * @param value the next value
-	 */
-	public default void _setDcDischargePower(Integer value) {
-		this.getDcDischargePowerChannel().setNextValue(value);
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#DC_DISCHARGE_POWER} Channel.
-	 *
-	 * @param value the next value
-	 */
-	public default void _setDcDischargePower(int value) {
-		this.getDcDischargePowerChannel().setNextValue(value);
 	}
 
 	/**

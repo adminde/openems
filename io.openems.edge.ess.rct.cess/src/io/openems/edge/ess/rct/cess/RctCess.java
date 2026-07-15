@@ -1,34 +1,28 @@
 package io.openems.edge.ess.rct.cess;
 
-import java.util.List;
-
-import io.openems.edge.ess.api.HybridEss;
-import io.openems.edge.oros.ess.api.EnergyStorageProtection;
 import org.osgi.service.event.EventHandler;
 
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.Level;
-import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.channel.Doc;
-import io.openems.edge.common.channel.IntegerReadChannel;
 import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.ess.api.EssErrorAcknowledge;
+import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
-import io.openems.edge.ess.dccharger.api.EssDcCharger;
 import io.openems.edge.ess.rct.cess.battery.RctCessBattery;
 import io.openems.edge.ess.rct.cess.batteryinverter.RctCessBatteryInverter;
-import io.openems.edge.ess.rct.cess.charger.RctCessDcCharger;
 import io.openems.edge.ess.rct.cess.statemachine.StateMachine.State;
 import io.openems.edge.oros.bms.api.BatteryManagementProvider;
+import io.openems.edge.oros.ess.api.EnergyStorageProtection;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 import io.openems.edge.timedata.api.TimedataProvider;
@@ -69,10 +63,6 @@ public interface RctCess extends EnergyStorageSystem,
 		SET_REACTIVE_POWER(Doc.of(OpenemsType.INTEGER)
 				.unit(Unit.VOLT_AMPERE_REACTIVE)
 				.accessMode(AccessMode.READ_WRITE)),
-
-		PV_POWER(Doc.of(OpenemsType.INTEGER)
-				.unit(Unit.WATT)
-				.persistencePriority(PersistencePriority.MEDIUM)),
 		;
 
 		private final Doc doc;
@@ -135,42 +125,6 @@ public interface RctCess extends EnergyStorageSystem,
 	}
 
 	/**
-	 * Gets the Channel for {@link ChannelId#PV_POWER}.
-	 *
-	 * @return the Channel
-	 */
-	public default IntegerReadChannel getPvPowerChannel() {
-		return this.channel(ChannelId.PV_POWER);
-	}
-
-	/**
-	 * Gets the Photovoltaics Power in [W]. See {@link ChannelId#PV_POWER}.
-	 *
-	 * @return the Channel {@link Value}
-	 */
-	public default Value<Integer> getPvPower() {
-		return this.getPvPowerChannel().value();
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on {@link ChannelId#PV_POWER} Channel.
-	 *
-	 * @param value the next value
-	 */
-	public default void _setPvPower(Integer value) {
-		this.getPvPowerChannel().setNextValue(value);
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on {@link ChannelId#PV_POWER} Channel.
-	 *
-	 * @param value the next value
-	 */
-	public default void _setPvPower(int value) {
-		this.getPvPowerChannel().setNextValue(value);
-	}
-
-	/**
 	 * Gets the target Start/Stop mode from config or StartStop-Channel.
 	 *
 	 * @return {@link StartStop}
@@ -182,20 +136,5 @@ public interface RctCess extends EnergyStorageSystem,
 
 	@Override
 	public RctCessBatteryInverter getPowerConversionSystem();
-
-	/**
-	 * Returns whether this {@link RctCess} has {@link EssDcCharger} available or
-	 * not.
-	 *
-	 * @return true if at least one DC charger is bound
-	 */
-	public boolean hasDcChargers();
-
-	/**
-	 * Gets the list of {@link RctCessDcCharger} bound to this {@link RctCess}.
-	 *
-	 * @return the list of {@link RctCessDcCharger}
-	 */
-	public List<RctCessDcCharger> getDcChargers();
 
 }

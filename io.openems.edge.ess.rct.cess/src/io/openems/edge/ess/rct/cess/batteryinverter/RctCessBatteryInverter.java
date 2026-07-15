@@ -4,11 +4,14 @@ import static io.openems.common.channel.PersistencePriority.HIGH;
 import static io.openems.common.channel.Unit.WATT;
 import static io.openems.common.types.OpenemsType.INTEGER;
 
+import java.util.List;
+
 import io.openems.common.channel.Level;
 import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.batteryinverter.api.BatteryInverterErrorAcknowledge;
+import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
@@ -20,17 +23,21 @@ import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
+import io.openems.edge.ess.dccharger.api.EssDcCharger;
+import io.openems.edge.ess.rct.cess.RctCess;
+import io.openems.edge.ess.rct.cess.battery.RctCessBattery;
 import io.openems.edge.ess.rct.cess.batteryinverter.enums.RunState;
 import io.openems.edge.ess.rct.cess.batteryinverter.statemachine.StateMachine.State;
+import io.openems.edge.ess.rct.cess.charger.RctCessDcCharger;
+import io.openems.edge.oros.bms.api.BatteryManagementProvider;
 import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 import io.openems.edge.timedata.api.TimedataProvider;
 
-public interface RctCessBatteryInverter extends PowerConversionSystem, 
-		ManagedSymmetricBatteryInverter, SymmetricBatteryInverter,
-		BatteryInverterErrorAcknowledge, SymmetricComponent, 
-		OpenemsComponent, ModbusComponent, ModbusSlave,
-		TimedataProvider, StartStoppable {
+public interface RctCessBatteryInverter extends PowerConversionSystem,
+		HybridManagedSymmetricBatteryInverter, ManagedSymmetricBatteryInverter, SymmetricBatteryInverter,
+		BatteryInverterErrorAcknowledge, SymmetricComponent, OpenemsComponent, ModbusComponent, ModbusSlave,
+		BatteryManagementProvider, TimedataProvider, StartStoppable {
 
 	/** Efficiency factor (%) used for AC/DC conversion. */
 	public static final float EFFICIENCY_FACTOR = 97F;
@@ -59,16 +66,16 @@ public interface RctCessBatteryInverter extends PowerConversionSystem,
 				.persistencePriority(PersistencePriority.HIGH)),
 
 		/**
-		 * DC Discharge Power.
+		 * DC PV Power.
 		 *
 		 * <ul>
-		 * <li>Interface: HyperCubeInverter
+		 * <li>Interface: RctCessBatteryInverter
 		 * <li>Type: {@link OpenemsType#INTEGER}
 		 * <li>Unit: {@link Unit#WATT}
-		 * <li>Range: negative values for Charge; positive for Discharge
+		 * <li>Range: zero or positive value
 		 * </ul>
 		 */
-		DC_DISCHARGE_POWER(Doc.of(INTEGER)
+		DC_PV_POWER(Doc.of(INTEGER)
 				.unit(WATT)
 				.persistencePriority(HIGH)),
 
@@ -266,52 +273,51 @@ public interface RctCessBatteryInverter extends PowerConversionSystem,
 	}
 
 	/**
-	 * Gets the DC Discharge Power in [W]. See
-	 * {@link ChannelId#DC_DISCHARGE_POWER}.
-	 *
-	 * @return the DC Power
-	 */
-	public default Integer getDcPower() {
-		return this.getDcDischargePower().get();
-	}
-
-	/**
-	 * Gets the Channel for {@link ChannelId#DC_DISCHARGE_POWER}.
+	 * Gets the Channel for {@link ChannelId#DC_PV_POWER}.
 	 *
 	 * @return the Channel
 	 */
-	public default IntegerReadChannel getDcDischargePowerChannel() {
-		return this.channel(ChannelId.DC_DISCHARGE_POWER);
+	public default IntegerReadChannel getDcPvPowerChannel() {
+		return this.channel(ChannelId.DC_PV_POWER);
 	}
 
 	/**
-	 * Gets the DC Discharge Power in [W]. See
-	 * {@link ChannelId#DC_DISCHARGE_POWER}.
+	 * Gets the DC PV Power in [W]. See {@link ChannelId#DC_PV_POWER}.
 	 *
 	 * @return the Channel {@link Value}
 	 */
-	public default Value<Integer> getDcDischargePower() {
-		return this.getDcDischargePowerChannel().value();
+	public default Value<Integer> getDcPvPowerValue() {
+		return this.getDcPvPowerChannel().value();
 	}
 
 	/**
-	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#DC_DISCHARGE_POWER} Channel.
+	 * Gets the DC PV Power in [W]. See {@link ChannelId#DC_PV_POWER}.
 	 *
-	 * @param value the next value
+	 * @return the DC PV Power, or 'null' if there is no DC Charger
 	 */
-	public default void _setDcDischargePower(Integer value) {
-		this.getDcDischargePowerChannel().setNextValue(value);
+	@Override
+	public default Integer getDcPvPower() {
+		return this.getDcPvPowerValue().get();
 	}
 
 	/**
-	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#DC_DISCHARGE_POWER} Channel.
+	 * Internal method to set the 'nextValue' on {@link ChannelId#DC_PV_POWER}
+	 * Channel.
 	 *
 	 * @param value the next value
 	 */
-	public default void _setDcDischargePower(int value) {
-		this.getDcDischargePowerChannel().setNextValue(value);
+	public default void _setDcPvPower(Integer value) {
+		this.getDcPvPowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#DC_PV_POWER}
+	 * Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setDcPvPower(int value) {
+		this.getDcPvPowerChannel().setNextValue(value);
 	}
 
 	/**
@@ -333,4 +339,21 @@ public interface RctCessBatteryInverter extends PowerConversionSystem,
 		return this.getIgbtTemperatureChannel().value();
 	}
 
+	/**
+	 * Returns whether this {@link RctCess} has {@link EssDcCharger} available or
+	 * not.
+	 *
+	 * @return true if at least one DC charger is bound
+	 */
+	public boolean hasDcChargers();
+
+	/**
+	 * Gets the list of {@link RctCessDcCharger} bound to this {@link RctCess}.
+	 *
+	 * @return the list of {@link RctCessDcCharger}
+	 */
+	public List<RctCessDcCharger> getDcChargers();
+
+	@Override
+	public RctCessBattery getBatteryManagementSystem();
 }

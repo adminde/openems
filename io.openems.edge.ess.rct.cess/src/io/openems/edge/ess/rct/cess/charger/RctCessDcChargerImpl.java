@@ -24,7 +24,7 @@ import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.modbusslave.ModbusSlaveNatureTable;
 import io.openems.edge.common.modbusslave.ModbusSlaveTable;
 import io.openems.edge.ess.dccharger.api.EssDcCharger;
-import io.openems.edge.ess.rct.cess.RctCess;
+import io.openems.edge.ess.rct.cess.batteryinverter.RctCessBatteryInverter;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
@@ -50,17 +50,18 @@ public class RctCessDcChargerImpl extends AbstractOpenemsComponent implements Rc
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
 	private volatile Timedata timedata = null;
 
-	protected volatile RctCess ess = null;
+	protected volatile RctCessBatteryInverter inverter = null;
 
 	@Override
-	public void bindEss(RctCess ess) {
-		this.ess = ess;
-		RctCessDcCharger.calculateActualPowerFromBindings(this, ess);
+	public void bindInverter(RctCessBatteryInverter inverter) {
+		this.inverter = inverter;
+		RctCessDcCharger.calculateActualPowerFromBindings(this, inverter);
+		RctCessDcCharger.calculateVoltageAndCurrentFromBindings(this, inverter);
 	}
 
 	@Override
-	public void unbindEss() {
-		this.ess = null;
+	public void unbindInverter() {
+		this.inverter = null;
 	}
 
 	public RctCessDcChargerImpl() {
