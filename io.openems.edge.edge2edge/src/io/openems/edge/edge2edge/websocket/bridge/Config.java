@@ -27,6 +27,11 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "Remote Password", type = AttributeType.PASSWORD)
 	String remotePassword();
 
+	@AttributeDefinition(name = "Remote State Summary", //
+			description = "Surface the remote Edge's faults and warnings as this Bridge's own State. "
+					+ "Disable to keep this Bridge's State always OK, regardless of the remote Edge's State.")
+	boolean remoteSumState() default true;
+
 	String webconsole_configurationFactory_nameHint() default "Edge-2-Edge Bridge [{id}]";
 
 }
