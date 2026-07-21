@@ -32,7 +32,10 @@ import io.openems.common.types.MeterType;
 	@AttributeDefinition(name = "Meter-Type", description = "What is measured by this Meter?")
 	MeterType type() default MeterType.PRODUCTION;
 
-	@AttributeDefinition(name = "Invert measurement", description = "Inverts power and current, swaps production and consumption energy")
+	@AttributeDefinition(name = "Phase Wiring", description = "The wiring of the meter (3P4W, 3P3W or 1P2W)")
+	PhaseWiring phaseWiring() default PhaseWiring.THREE_PHASE_FOUR_WIRE;
+
+	@AttributeDefinition(name = "Invert measurement", description = "Inverts power and current, swaps production and consumption as well as and lagging and leading energy")
 	boolean invert() default false;
 
 	String webconsole_configurationFactory_nameHint() default "Meter Phoenix Contact [{id}]";

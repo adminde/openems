@@ -7,12 +7,12 @@ import io.openems.common.utils.ConfigUtils;
 @SuppressWarnings("all")
 public class MyConfig extends AbstractComponentConfig implements Config {
 
-	protected static class Builder {
+	public static class Builder {
 		private String id;
-		private String modbusId = null;
-		private int modbusUnitId;
-		private MeterType meterType;
-		private boolean invert = false;
+		private String modbusId;
+		private MeterType type = MeterType.PRODUCTION;
+		private PhaseWiring phaseWiring;
+		private boolean invert;
 
 		private Builder() {
 		}
@@ -27,13 +27,13 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 			return this;
 		}
 
-		public Builder setModbusUnitId(int modbusUnitId) {
-			this.modbusUnitId = modbusUnitId;
+		public Builder setType(MeterType type) {
+			this.type = type;
 			return this;
 		}
 
-		public Builder setMeterType(MeterType meterType) {
-			this.meterType = meterType;
+		public Builder setPhaseWiring(PhaseWiring phaseWiring) {
+			this.phaseWiring = phaseWiring;
 			return this;
 		}
 
@@ -49,7 +49,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 
 	/**
 	 * Create a Config builder.
-	 * 
+	 *
 	 * @return a {@link Builder}
 	 */
 	public static Builder create() {
@@ -74,18 +74,23 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	}
 
 	@Override
-	public int modbusUnitId() {
-		return this.builder.modbusUnitId;
+	public MeterType type() {
+		return this.builder.type;
 	}
 
 	@Override
-	public MeterType type() {
-		return this.builder.meterType;
+	public PhaseWiring phaseWiring() {
+		return this.builder.phaseWiring;
 	}
 
 	@Override
 	public boolean invert() {
 		return this.builder.invert;
+	}
+
+	@Override
+	public int modbusUnitId() {
+		return 1;
 	}
 
 }
