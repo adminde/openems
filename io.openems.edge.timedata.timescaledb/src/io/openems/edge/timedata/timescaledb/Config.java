@@ -23,20 +23,14 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "Port", description = "TimescaleDB port")
 	int port() default 5432;
 
-	@AttributeDefinition(name = "Retention Days", description = "Days to keep raw high resolution data before deletion")
-	int retentionDays() default 30;
-
-	@AttributeDefinition(name = "Compression Days", description = "Days to wait before compressing raw high resolution data.")
-	int compressionDays() default 1;
-
 	@AttributeDefinition(name = "Database", description = "Database name")
-	String database() default "data";
+	String database() default "openems";
 
 	@AttributeDefinition(name = "Username")
-	String username() default "postgres";
+	String username() default "openems";
 
 	@AttributeDefinition(name = "Password")
-	String password() default "password";
+	String password() default "openems";
 
 	@AttributeDefinition(name = "Pool Size", description = "HikariCP connection pool size")
 	int poolSize() default 10;
@@ -45,10 +39,16 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	int writeWorkers() default 4;
 
 	@AttributeDefinition(name = "No of Cycles", description = "How many OpenEMS cycles between each DB flush")
-	int noOfCycles() default 10;
+	int noOfCycles() default 1;
+
+	@AttributeDefinition(name = "Retention Days", description = "Days to keep raw high resolution data before deletion")
+	int retentionDays() default 7;
+
+	@AttributeDefinition(name = "Compression Days", description = "Days to wait before compressing raw high resolution data.")
+	int compressionDays() default 1;
 
 	@AttributeDefinition(name = "Persistence Priority", description = "Store only Channels with a Persistence Priority above this. Be aware that too many writes can wear-out your flash storage.")
-	io.openems.common.channel.PersistencePriority persistencePriority() default io.openems.common.channel.PersistencePriority.MEDIUM;
+	io.openems.common.channel.PersistencePriority persistencePriority() default io.openems.common.channel.PersistencePriority.HIGH;
 
 	String webconsole_configurationFactory_nameHint() default "Timedata TimescaleDB [{id}]";
 }

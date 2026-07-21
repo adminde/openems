@@ -80,7 +80,7 @@ public class DataPointRouter extends AbstractImmediateWorker {
 				}
 			}
 			this.mergeWorkers.get(info.type())
-					.put(new DataRow(point.timestamp(), info.channelId(), info.rollup(), point.value()));
+					.put(new DataRow(point.timestamp(), info.channelId(), info.aggregate(), point.value()));
 		}
 	}
 

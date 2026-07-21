@@ -9,7 +9,7 @@ public record DataPoint(
 		String componentType,
 		String channelName,
 		Type type,
-		boolean rollup,    // true = Fast Lane false = Slow Lane
+		boolean aggregate, // whether the channel is in the continuous-aggregate layer
 		String unit,       // e.g. "W", "Wh", "%", "V" — may be null
 		Object value       // Long, Double or String, matching the type
 ) {}

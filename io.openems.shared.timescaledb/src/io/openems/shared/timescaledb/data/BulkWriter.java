@@ -109,14 +109,14 @@ public class BulkWriter {
 	private void writeOnce(Type type, List<DataRow> points) throws SQLException {
 		try (var connection = this.dataSource.getConnection()) {
 			var table = new SimpleRowWriter.Table(null, type.rawTableName,
-					new String[] { "time", "channel_id", "rollup", "value" });
+					new String[] { "time", "channel_id", "aggregate", "value" });
 			try (var writer = new SimpleRowWriter(table, PostgreSqlUtils.getPGConnection(connection))) {
 				for (var point : points) {
 					writer.startRow(row -> {
 						row.setTimeStampTz(0, ZonedDateTime.ofInstant(
 								Instant.ofEpochMilli(point.timestamp()), ZoneOffset.UTC));
 						row.setUUID(1, point.channelId());
-						row.setBoolean(2, point.rollup());
+						row.setBoolean(2, point.aggregate());
 						switch (type) {
 						case INTEGER -> row.setLong(3, ((Number) point.value()).longValue());
 						case FLOAT -> row.setDouble(3, ((Number) point.value()).doubleValue());

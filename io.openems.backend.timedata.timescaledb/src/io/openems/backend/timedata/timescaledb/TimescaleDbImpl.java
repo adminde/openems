@@ -44,8 +44,9 @@ import io.openems.common.timedata.Resolution;
 import io.openems.common.types.ChannelAddress;
 import io.openems.common.types.EdgeConfig;
 import io.openems.shared.timescaledb.data.DataPoint;
+import io.openems.shared.timescaledb.schema.Aggregate;
 import io.openems.shared.timescaledb.schema.Tenancy;
-import io.openems.shared.timescaledb.RollupChannels;
+import io.openems.shared.timescaledb.schema.AggregateChannels;
 import io.openems.shared.timescaledb.TimescaleDbConnector;
 import io.openems.shared.timescaledb.Type;
 
@@ -92,10 +93,9 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 		this.config = config;
 		this.timeFilter = TimeFilter.from(config.startDate(), config.endDate());
 		this.channelFilter = ChannelFilter.from(config.blacklistedChannels(), config.blacklistedChannelIds());
-		this.active = true;
-		this.initExecutor = Executors.newSingleThreadScheduledExecutor(
-				r -> new Thread(r, "TimescaleDB-init"));
+		this.initExecutor = Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "TimescaleDB-init"));
 		this.initExecutor.execute(this::tryInitialize);
+		this.active = true;
 	}
 
 	private void tryInitialize() {
@@ -109,17 +109,20 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 					.port(config.port()) //
 					.poolSize(config.poolSize()) //
 					.writeWorkers(config.writeWorkers()) //
-					.rawRetentionDays(config.rawRetentionDays()) //
-					.rawCompressionDays(config.rawCompressionDays()) //
+					.rawRetentionDays(config.retentionDays()) //
+					.rawCompressionDays(config.compressionDays()) //
+					.aggregates(Aggregate.of(Tenancy.MULTI)) //
 					.readOnly(config.isReadOnly()) //
 					.connect();
+
 		} catch (OpenemsNamedException | RuntimeException e) {
 			this.logError(this.log, "TimescaleDB initialization failed; retrying in "
 					+ INIT_RETRY_SECONDS + "s: " + e.getMessage());
 			try {
 				this.initExecutor.schedule(this::tryInitialize, INIT_RETRY_SECONDS, TimeUnit.SECONDS);
-			} catch (RejectedExecutionException ree) {
-				
+
+			} catch (RejectedExecutionException re) {
+				// Do nothing
 			}
 			return;
 		}
@@ -209,27 +212,23 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 			for (var channelEntry : channelEntries) {
 				var channelString = channelEntry.getKey();
 				var element = channelEntry.getValue();
-
 				if (element == null || element.isJsonNull() || !element.isJsonPrimitive()) {
 					continue;
 				}
-
 				if (!this.channelFilter.isValid(channelString)) {
 					continue;
 				}
-
 				if (!shouldWrite.test(edgeId, channelString)) {
 					continue;
 				}
 
 				var primitive = element.getAsJsonPrimitive();
-
 				try {
 					var addr = ChannelAddress.fromString(channelString);
 					var componentId = addr.getComponentId();
 					var channelId = addr.getChannelId();
 
-					boolean rollup = RollupChannels.isRollup(componentId, channelId);
+					boolean aggregate = AggregateChannels.isAggregate(componentId, channelId);
 
 					String componentType = "backend";
 					EdgeConfig.Component.Channel ch = null;
@@ -248,7 +247,7 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 					String unit = ch != null && ch.getUnit() != null ? ch.getUnit().symbol : null;
 
 					points.add(new DataPoint(
-							timestamp, edgeId, componentId, componentType, channelId, type, rollup, unit, value));
+							timestamp, edgeId, componentId, componentType, channelId, type, aggregate, unit, value));
 				} catch (OpenemsNamedException e) {
 					this.logWarn(this.log, "Unable to parse ChannelAddress [" + channelString + "]: " + e.getMessage());
 				}

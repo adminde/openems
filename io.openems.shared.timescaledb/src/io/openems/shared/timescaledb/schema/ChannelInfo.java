@@ -11,7 +11,8 @@ import io.openems.shared.timescaledb.Type;
  *                  UUID v7 — time-ordered, globally unique across backends, safe
  *                  to copy chunk-for-chunk during migration.
  * @param type      The value {@link Type} (INTEGER, FLOAT, or STRING)
- * @param rollup    true = Fast Lane, false = Slow Lane.
+ * @param aggregate whether this channel is included in the continuous-aggregate
+ *                  layer (see {@link AggregateChannels})
  * @param unit      The channel's unit symbol (e.g. "W", "Wh"), or {@code null}
  *                  if not yet known. Cached so a later write carrying a real
  *                  unit can trigger a one-off re-resolve to backfill a
@@ -20,6 +21,6 @@ import io.openems.shared.timescaledb.Type;
 public record ChannelInfo(
 		UUID channelId,
 		Type type,
-		boolean rollup,
+		boolean aggregate,
 		String unit
 ) {}

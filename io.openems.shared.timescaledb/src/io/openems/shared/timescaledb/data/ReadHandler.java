@@ -8,7 +8,9 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -26,7 +28,7 @@ import io.openems.common.timedata.Resolution;
 import io.openems.common.types.ChannelAddress;
 import io.openems.shared.timescaledb.Type;
 import io.openems.shared.timescaledb.Utils;
-import io.openems.shared.timescaledb.schema.AggregateRetention;
+import io.openems.shared.timescaledb.schema.Aggregate;
 import io.openems.shared.timescaledb.schema.ChannelInfo;
 import io.openems.shared.timescaledb.schema.ChannelManager;
 
@@ -39,29 +41,37 @@ public class ReadHandler {
 
 	private final HikariDataSource dataSource;
 	private final ChannelManager channelManager;
-	private final AggregateRetention aggregateRetention;
 
 	/**
-	 * Channels already reported by the missing-rollup warning, so each one is
+	 * The aggregate tiers this deployment's {@code SchemaHandler} built, sorted
+	 * ascending by bucket — the single source of truth for read routing, so
+	 * {@code pickSource()} never targets a tier that does not exist or whose
+	 * retention has already dropped the queried window.
+	 */
+	private final List<Aggregate> aggregates;
+
+	/**
+	 * Channels already reported by the not-aggregated warning, so each one is
 	 * logged only once per runtime.
 	 */
-	private final Set<String> slowLaneWarned = ConcurrentHashMap.newKeySet();
+	private final Set<String> notAggregatedWarned = ConcurrentHashMap.newKeySet();
 
 	/**
 	 * Constructor.
 	 *
-	 * @param dataSource         The Hikari connection pool
-	 * @param channelManager     The ChannelManager to resolve channel metadata
-	 * @param aggregateRetention The aggregate retention horizons this
-	 *                           deployment's SchemaHandler enforces — used by
-	 *                           pickSource() to avoid routing queries into
-	 *                           already-expired tiers
+	 * @param dataSource     The Hikari connection pool
+	 * @param channelManager The ChannelManager to resolve channel metadata
+	 * @param aggregates     The aggregate tiers this deployment's SchemaHandler
+	 *                       enforces — used by pickSource() to route queries and
+	 *                       to avoid already-expired tiers
 	 */
 	public ReadHandler(HikariDataSource dataSource, ChannelManager channelManager,
-			AggregateRetention aggregateRetention) {
+			List<Aggregate> aggregates) {
 		this.dataSource = dataSource;
 		this.channelManager = channelManager;
-		this.aggregateRetention = aggregateRetention;
+		this.aggregates = aggregates.stream()
+				.sorted(Comparator.comparingLong(a -> a.bucket().getSeconds()))
+				.toList();
 	}
 
 	/**
@@ -69,8 +79,8 @@ public class ReadHandler {
 	 *
 	 * <p>
 	 * Used by Timedata.getLatestValue(). Picks the right raw hypertable based
-	 * on the channel's type and rollup flag, then runs a single-row reverse
-	 * scan on the (channel_id, time DESC) index.
+	 * on the channel's type, then runs a single-row reverse scan on the
+	 * (channel_id, time DESC) index.
 	 * 
 	 * @param edgeName The Edge identifier
 	 * @param channel  The ChannelAddress
@@ -137,16 +147,15 @@ public class ReadHandler {
 					continue;
 				}
 
-				// A sub-15m query on a Slow-Lane channel would have used the 1-minute
-				// Fast-Lane tier if the channel were in RollupChannels; warn once per
-				// channel so missing include-list entries surface instead of silently
-				// degrading to raw scans.
-				if (!info.rollup() && approxBucketSecs < 900 && this.slowLaneWarned.add(channel.toString())) {
-					this.log.warn("Channel [{}] queried at [{}s] resolution but not in the Fast Lane; "
-							+ "consider adding it to RollupChannels", channel, approxBucketSecs);
+				// A fine-grained query on a non-aggregated channel degrades to a raw
+				// scan; warn once per channel so missing include-list entries surface
+				// instead of silently running slow.
+				if (!info.aggregate() && approxBucketSecs < 900 && this.notAggregatedWarned.add(channel.toString())) {
+					this.log.warn("Channel [{}] queried at [{}s] resolution but not aggregated; "
+							+ "consider adding it to AggregateChannels", channel, approxBucketSecs);
 				}
 
-				String view = this.pickSource(info.type(), info.rollup(), approxBucketSecs, from);
+				String view = this.pickSource(info.type(), info.aggregate(), approxBucketSecs, from);
 				byView.computeIfAbsent(view, k -> new HashMap<>()).put(info.channelId(), channel);
 			}
 			for (var entry : byView.entrySet()) {
@@ -455,68 +464,41 @@ public class ReadHandler {
 	}
 
 	/**
-	 * Picks the best source view/table for a given resolution: the coarsest view
-	 * whose bucket size is &lt;= the requested resolution.
+	 * Picks the source table/view for a channel at the requested resolution.
 	 *
 	 * <p>
-	 * The choice is also time-aware, based on the same {@link AggregateRetention}
-	 * the SchemaHandler enforces: if the query window reaches further back than
-	 * the picked tier's retention horizon, this routes to the next-longer-lived
-	 * view instead (Fast Lane → Slow Lane → daily Slow Lane), so old history
-	 * remains reachable at the same or the next-coarser resolution instead of
-	 * returning holes.
+	 * The aggregates are a pure acceleration layer over the aggregate-flagged
+	 * channels; the raw hypertable is always the correct fallback (and the
+	 * long-lived source of truth). For an aggregated numeric channel this returns
+	 * the coarsest aggregate tier whose bucket is &lt;= the requested resolution
+	 * and whose retention still covers the query window; if none qualifies — the
+	 * resolution is finer than the finest tier, or the window predates every
+	 * fitting tier's retention — it falls back to raw. Strings and non-aggregated
+	 * channels always use raw.
 	 *
-	 * @param type           INTEGER / FLOAT / STRING
-	 * @param rollup         true = Fast Lane, false = Slow Lane
-	 * @param bucketSeconds  desired bucket size in seconds
-	 * @param from           start of the query window (its oldest point)
+	 * @param type          INTEGER / FLOAT / STRING
+	 * @param aggregate     whether the channel is in the aggregate layer
+	 * @param bucketSeconds desired bucket size in seconds
+	 * @param from          start of the query window (its oldest point)
 	 * @return the unqualified table or materialized-view name
 	 */
-	private String pickSource(Type type, boolean rollup, long bucketSeconds, ZonedDateTime from) {
-		String typePart = type.aggInfix;
-		var ar = this.aggregateRetention;
-
-		// Strings cannot be aggregated mathematically, so they always use raw data.
-		if (type == Type.STRING) {
+	private String pickSource(Type type, boolean aggregate, long bucketSeconds, ZonedDateTime from) {
+		// Strings are never aggregated; non-aggregated channels live in raw only.
+		if (type == Type.STRING || !aggregate) {
 			return type.rawTableName;
 		}
-
-		// Fast Lane (rollup = true): tiers 1m, 15m, 1d, each falling back to the
-		// longer-lived shared view once the window predates its retention.
-		if (rollup) {
-			// Daily tier.
-			if (bucketSeconds >= 86400) {
-				return this.expired(from, ar.rollup1dDays())
-						? "data_1d_" + typePart          // shared Slow Lane
-						: "data_1d_rollup_" + typePart;
+		// Aggregates are ordered ascending by bucket: the last tier that both fits
+		// the requested resolution and still holds the window is the coarsest match.
+		Aggregate chosen = null;
+		for (var agg : this.aggregates) {
+			if (agg.bucket().getSeconds() <= bucketSeconds && !this.expired(from, agg.retentionDays())) {
+				chosen = agg;
 			}
-			// 15-minute tier — also where a sub-15m request lands once it predates
-			// the 1-minute retention (no 1-minute data exists that far back).
-			if (bucketSeconds >= 900 || this.expired(from, ar.rollup1mDays())) {
-				if (!this.expired(from, ar.rollup15mDays())) {
-					return "data_15m_rollup_" + typePart;
-				}
-				return this.expired(from, ar.slowLane15mDays())
-						? "data_1d_" + typePart          // even the shared 15m expired
-						: "data_15m_" + typePart;
-			}
-			// 1-minute tier (recent window only).
-			if (bucketSeconds >= 60) {
-				return "data_1m_rollup_" + typePart;
-			}
-			return "data_" + typePart;
 		}
-
-		// Slow Lane (rollup = false): tiers 15m, 1d. Sub-15m falls back to raw.
-		if (bucketSeconds >= 86400) {
-			return "data_1d_" + typePart;
+		if (chosen == null) {
+			return type.rawTableName;
 		}
-		if (bucketSeconds >= 900) {
-			return this.expired(from, ar.slowLane15mDays())
-					? "data_1d_" + typePart
-					: "data_15m_" + typePart;
-		}
-		return "data_" + typePart;
+		return "data_" + chosen.name() + "_" + type.aggInfix;
 	}
 
 	/**
@@ -544,7 +526,7 @@ public class ReadHandler {
 
 	/**
 	 * Whether {@code from} is older than {@code days} ago — i.e. the query window
-	 * reaches into a region a _rollup view's retention policy may already have
+	 * reaches into a region an aggregate tier's retention policy may already have
 	 * dropped.
 	 */
 	private static boolean reachesBefore(ZonedDateTime from, long days) {

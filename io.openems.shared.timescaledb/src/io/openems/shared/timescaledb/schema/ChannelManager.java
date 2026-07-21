@@ -40,7 +40,7 @@ public class ChannelManager {
 		if (tenancy == Tenancy.MULTI) {
 			warmupQuery.append("e.name AS edgeName, ");
 		}
-		warmupQuery.append("co.name AS componentName, cd.name AS channelName, ch.id, cd.type, ch.rollup, cd.unit ")
+		warmupQuery.append("co.name AS componentName, cd.name AS channelName, ch.id, cd.type, ch.aggregate, cd.unit ")
 				.append("FROM channel ch ")
 				.append("JOIN component co ON co.id = ch.component_id ");
 		if (tenancy == Tenancy.MULTI) {
@@ -50,7 +50,7 @@ public class ChannelManager {
 		warmupQuery.append("JOIN channel_def cd ON cd.id = ch.channel_def_id");
 
 		StringBuilder lookupQuery = new StringBuilder()
-				.append("SELECT ch.id, cd.type, ch.rollup, cd.unit ")
+				.append("SELECT ch.id, cd.type, ch.aggregate, cd.unit ")
 				.append("FROM channel ch ")
 				.append("JOIN component co ON co.id = ch.component_id ");
 		if (tenancy == Tenancy.MULTI) {
@@ -100,7 +100,7 @@ public class ChannelManager {
 						new ChannelInfo(
 								result.getObject("id", UUID.class),
 								Type.valueOf(result.getString("type")),
-								result.getBoolean("rollup"),
+								result.getBoolean("aggregate"),
 								result.getString("unit")
 						)
 				);
@@ -111,7 +111,7 @@ public class ChannelManager {
 	}
 
 	/**
-	 * Looks up the {@link ChannelInfo} (channel id, type, rollup flag, unit)
+	 * Looks up the {@link ChannelInfo} (channel id, type, aggregate flag, unit)
 	 * for one channel address on a given edge.
 	 *
 	 * <p>
@@ -164,7 +164,7 @@ public class ChannelManager {
 	 * Resolves (creating if necessary) the {@link ChannelInfo} for a write.
 	 *
 	 * <p>
-	 * Tries the cache first; on a miss, or when a re-resolve is needed (rollup
+	 * Tries the cache first; on a miss, or when a re-resolve is needed (aggregate
 	 * promotion or unit backfill), calls the {@code get_or_create_channel_id}
 	 * stored function.
 	 *
@@ -197,7 +197,7 @@ public class ChannelManager {
 			statement.setString(i++, data.componentType());
 			statement.setString(i++, data.channelName());
 			statement.setString(i++, data.type().name());
-			statement.setBoolean(i++, data.rollup());
+			statement.setBoolean(i++, data.aggregate());
 			statement.setString(i, data.unit());
 			try (var rs = statement.executeQuery()) {
 				rs.next();
@@ -263,8 +263,8 @@ public class ChannelManager {
 	}
 
 	private static boolean isReresolved(ChannelInfo cached, DataPoint data) {
-		var needsRollupPromotion = data.rollup() && !cached.rollup();
+		var needsAggregatePromotion = data.aggregate() && !cached.aggregate();
 		var needsUnitBackfill = data.unit() != null && !data.unit().equals(cached.unit());
-		return !needsRollupPromotion && !needsUnitBackfill;
+		return !needsAggregatePromotion && !needsUnitBackfill;
 	}
 }

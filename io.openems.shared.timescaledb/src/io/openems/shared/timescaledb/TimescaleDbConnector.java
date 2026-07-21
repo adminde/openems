@@ -25,7 +25,7 @@ import io.openems.common.types.ChannelAddress;
 import io.openems.shared.timescaledb.data.DataPoint;
 import io.openems.shared.timescaledb.data.ReadHandler;
 import io.openems.shared.timescaledb.data.WriteHandler;
-import io.openems.shared.timescaledb.schema.AggregateRetention;
+import io.openems.shared.timescaledb.schema.Aggregate;
 import io.openems.shared.timescaledb.schema.ChannelManager;
 import io.openems.shared.timescaledb.schema.SchemaHandler;
 import io.openems.shared.timescaledb.schema.Tenancy;
@@ -41,7 +41,7 @@ import io.openems.shared.timescaledb.schema.Tenancy;
  *
  * <pre>
  * var db = new TimescaleDbConnector(Tenancy.SINGLE, host, username, password) //
- * 		.database("data") //
+ * 		.database("openems") //
  * 		.port(5432) //
  * 		.poolSize(10) //
  * 		.connect();
@@ -60,13 +60,13 @@ public class TimescaleDbConnector {
 	private final String password;
 
 	// Optional parameters, overridable before connect()
-	private String database = "data";
+	private String database = "openems";
 	private int port = 5432;
 	private int poolSize = 10;
 	private int writeWorkers = 4;
 	private int rawRetentionDays = 30;
 	private int rawCompressionDays = 7;
-	private AggregateRetention aggregateRetention = AggregateRetention.BACKEND_DEFAULTS;
+	private List<Aggregate> aggregates;
 	private boolean readOnly = false;
 
 	// Initialized by connect()
@@ -82,6 +82,7 @@ public class TimescaleDbConnector {
 		this.host = host;
 		this.username = username;
 		this.password = password;
+		this.aggregates = Aggregate.of(tenancy);
 	}
 
 	/**
@@ -134,9 +135,10 @@ public class TimescaleDbConnector {
 	}
 
 	/**
-	 * Sets the days to keep raw data before deletion. Default: 30.
+	 * Sets the days to keep raw data before deletion. Default: 30. A value
+	 * {@code <= 0} keeps raw forever (no retention policy is created).
 	 *
-	 * @param rawRetentionDays the retention in days
+	 * @param rawRetentionDays the retention in days, or {@code <= 0} to keep forever
 	 * @return myself for chaining
 	 */
 	public TimescaleDbConnector rawRetentionDays(int rawRetentionDays) {
@@ -158,17 +160,17 @@ public class TimescaleDbConnector {
 	}
 
 	/**
-	 * Sets the retention horizons of the continuous-aggregate tiers. Default:
-	 * {@link AggregateRetention#BACKEND_DEFAULTS} (90/365/3650 days Fast Lane,
-	 * Slow Lane kept forever). Storage-constrained Edge devices pass shorter
-	 * horizons. Feeds both the schema policies and the read-path routing.
+	 * Sets the continuous-aggregate tiers. Default: {@link Aggregate#of(Tenancy)}
+	 * for this connector's tenancy. Each tier carries its own bucket, source,
+	 * retention and tuning; the same list feeds both the schema build and the
+	 * read-path routing, so they can never disagree.
 	 *
-	 * @param aggregateRetention the {@link AggregateRetention}
+	 * @param aggregates the aggregate tiers
 	 * @return myself for chaining
 	 */
-	public TimescaleDbConnector aggregateRetention(AggregateRetention aggregateRetention) {
+	public TimescaleDbConnector aggregates(List<Aggregate> aggregates) {
 		this.assertNotConnected();
-		this.aggregateRetention = aggregateRetention;
+		this.aggregates = aggregates;
 		return this;
 	}
 
@@ -190,8 +192,7 @@ public class TimescaleDbConnector {
 	 * database schema and starts the write workers.
 	 *
 	 * @return myself for chaining
-	 * @throws OpenemsNamedException on database connection or schema creation
-	 *                               failure
+	 * @throws OpenemsNamedException on database connection or schema creation failure
 	 */
 	public TimescaleDbConnector connect() throws OpenemsNamedException {
 		this.assertNotConnected();
@@ -221,10 +222,10 @@ public class TimescaleDbConnector {
 		// SchemaHandler and ChannelManager derive their SQL from the tenancy;
 		// the read/write handlers stay tenancy-agnostic.
 		var schema = new SchemaHandler(this.tenancy, this.dataSource, this.rawRetentionDays, this.rawCompressionDays,
-				this.aggregateRetention);
+				this.aggregates);
 		this.channelManager = new ChannelManager(this.tenancy);
 		this.writeHandler = new WriteHandler(this.dataSource, this.channelManager, this.writeWorkers);
-		this.readHandler = new ReadHandler(this.dataSource, this.channelManager, this.aggregateRetention);
+		this.readHandler = new ReadHandler(this.dataSource, this.channelManager, this.aggregates);
 
 		// Apply schema on startup
 		try {

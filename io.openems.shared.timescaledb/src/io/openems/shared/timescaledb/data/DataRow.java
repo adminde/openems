@@ -9,12 +9,12 @@ import java.util.UUID;
  *
  * @param timestamp epoch milliseconds
  * @param channelId the resolved {@code channel.id} (UUID v7)
- * @param rollup    true = Fast Lane, false = Slow Lane
+ * @param aggregate whether the channel is in the continuous-aggregate layer
  * @param value     Long, Double or String, matching the target hypertable
  */
 public record DataRow(
 		long timestamp,
 		UUID channelId,
-		boolean rollup,
+		boolean aggregate,
 		Object value
 ) {}

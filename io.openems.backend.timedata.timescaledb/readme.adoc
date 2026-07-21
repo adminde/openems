@@ -36,9 +36,9 @@ and the *TimeFilter* (writes outside the configured date window are dropped;
 queries outside it are answered empty).
 
 Channel metadata (value type, unit) is resolved from the Edge's `EdgeConfig`
-(with type detection from the JSON value as fallback). Fast-Lane membership
-(`rollup`) comes from the shared `RollupChannels` include-list — independent
-of the `EdgeConfig`, so it is correct from the very first point.
+(with type detection from the JSON value as fallback). Aggregate membership
+(`aggregate`) comes from the shared `AggregateChannels` include-list —
+independent of the `EdgeConfig`, so it is correct from the very first point.
 
 ----
  Edge (websocket)
@@ -49,54 +49,52 @@ of the `EdgeConfig`, so it is correct from the very first point.
    '-- resend --------------------------------------------- -> write
                                                                  |
    write:  ChannelFilter / TimeFilter  --reject--> drop + log    |
-           type/unit <- EdgeConfig, rollup <- RollupChannels  <--'
+           type/unit <- EdgeConfig, aggregate <- AggregateChannels <--'
            async pipeline -> PostgreSQL binary COPY
              |
              v
-   multi-tenant RAW hypertables (keep 90 d, compress after 7 d)
+   multi-tenant RAW hypertables (source of truth: kept forever, compress after 7 d)
      |
-     |-- RollupChannels ->  FAST LANE:  1m (90 d) -> 15m (1 y) -> 1d (10 y)
-     |
-     '-- all channels --->  SLOW LANE:  15m + 1d kept forever
+     '-- aggregate-flagged channels -->  1m (90 d) --> 15m (kept forever)
 ----
 
 === Read path
 
-UI history queries pick the coarsest aggregate tier that satisfies the
-requested resolution and the query window's age; once a Fast-Lane tier's
-retention horizon is passed, queries route transparently to the never-expiring
-Slow Lane. A fine-grained query on a channel that is *not* in the Fast Lane
-logs a one-time `WARN … consider adding it to RollupChannels` — the signal to
-extend the include-list.
+The raw hypertables are the source of truth; the continuous aggregates are a
+pure query-acceleration layer over the aggregate-flagged channels. A UI history
+query picks the *coarsest* aggregate tier whose bucket is `<=` the requested
+resolution and whose retention still covers the query window; if none qualifies
+(resolution finer than the finest tier, or a string channel) it falls back to
+raw. Coarser calendar resolutions (day, month, year) are re-bucketed on read
+from the 15-minute tier in the query's timezone — 15 minutes divides every
+real-world UTC offset, so the buckets stay exact. A fine-grained query on a
+channel that is *not* aggregated logs a one-time
+`WARN … consider adding it to AggregateChannels` — the signal to extend the
+include-list.
 
 ----
  historic query --> pickSource(bucket size, window age)
    |
-   |-- >= 1 min and <= 90 d ............ 1m rollup
-   |-- >= 15 min ....................... 15m tiers (rollup 1 y, shared forever)
-   |-- >= 1 d .......................... 1d tiers
-   |-- finer buckets / strings ......... raw
-   |
-   '-- fine bucket, not in Fast Lane ... WARN "consider adding to RollupChannels"
+   |-- aggregated channel, a tier fits & is not expired .. coarsest such tier
+   |-- otherwise (finer than 1m / string) ................ raw
 ----
 
-Energy queries (`queryHistoricEnergy*`) always read raw data with
-counter-reset detection — aggregates would corrupt cumulative totals.
+Energy queries (`queryHistoricEnergy*`) currently read raw data with
+counter-reset detection, to preserve cumulative precision.
 
 == Storage profile
 
-The Backend is the permanent archive — the Slow Lane (15-minute and daily
-aggregates of *all* channels) is kept forever:
+The raw hypertables are the permanent archive: for now the Backend keeps *all*
+raw data of *every* channel forever (only compressed columnar after 7 days).
+The aggregate tiers merely accelerate visualization of the aggregate-flagged
+channels. Bounding raw retention is a deliberate future decision.
 
 |===
 | Tier | Resolution | Retention
 
-| Raw hypertables | as received | 90 d (compressed after 7 d)
-| Fast Lane `data_1m_rollup_*` | 1 minute | 90 d
-| Fast Lane `data_15m_rollup_*` | 15 minutes | 365 d
-| Fast Lane `data_1d_rollup_*` | 1 day | 10 y
-| Slow Lane `data_15m_*` (all channels) | 15 minutes | forever
-| Slow Lane `data_1d_*` (all channels) | 1 day | forever
+| `data_*` | as received | forever (compressed after 7 d)
+| `data_1m_*` (aggregate-flagged channels) | 1 minute | 90 d
+| `data_15m_*` (aggregate-flagged channels) | 15 minutes | forever
 |===
 
 Raw compression waits 7 days (unlike the Edge's 1 day) because resend after
@@ -120,16 +118,18 @@ compressed chunks are expensive.
 | Property | Default | Meaning
 
 | Host / Port / Database / Username / Password | `localhost` / `5432` / `openems` | database connection
-| Raw Retention Days | 90 | days to keep raw high-resolution data
-| Raw Compression Days | 7 | days before raw chunks are compressed columnar
 | Pool Size / Write Workers | 50 / 10 | HikariCP connections / parallel COPY writers — keep Write Workers below Pool Size so reads always get a connection
+| Retention Days | 0 (keep forever) | days to keep raw high-resolution data; 0 or less keeps it forever
+| Compression Days | 7 | days before raw chunks are compressed columnar
 | Read-Only mode | false | discards all writes; use for a second Backend instance that should only serve queries
 | Channel Filter / Time Filter | — | blacklist of channel addresses / component-ids; date window outside which writes are dropped and queries answered empty
 |===
 
-The aggregate horizons use the shared `AggregateRetention.BACKEND_DEFAULTS`;
-they feed both the database policies and the read-path routing from one
-instance — never change the policies directly in SQL.
+The aggregation tiers are the compiled Backend profile
+`Aggregate.of(Tenancy.MULTI)` in the shared bundle (the implementation may edit
+the list before handing it to the connector). The same list feeds both the
+database policies and the read-path routing from one instance — never change
+the policies directly in SQL.
 
 == Debugging
 

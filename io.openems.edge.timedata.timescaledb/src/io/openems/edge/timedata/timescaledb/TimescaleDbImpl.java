@@ -25,10 +25,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 
 import io.openems.shared.timescaledb.data.DataPoint;
-import io.openems.shared.timescaledb.schema.AggregateRetention;
+import io.openems.shared.timescaledb.schema.Aggregate;
 import io.openems.shared.timescaledb.schema.Tenancy;
 import io.openems.shared.timescaledb.TimescaleDbConnector;
-import io.openems.shared.timescaledb.RollupChannels;
+import io.openems.shared.timescaledb.schema.AggregateChannels;
 import io.openems.shared.timescaledb.Type;
 
 import io.openems.common.channel.AccessMode;
@@ -89,7 +89,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 					.writeWorkers(config.writeWorkers()) //
 					.rawRetentionDays(config.retentionDays()) //
 					.rawCompressionDays(config.compressionDays()) //
-					.aggregateRetention(AggregateRetention.EDGE_DEFAULTS) //
+					.aggregates(Aggregate.of(Tenancy.SINGLE)) //
 					.connect();
 			this.log.info("TimescaleDB connected");
 		} catch (OpenemsNamedException e) {
@@ -142,7 +142,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 								}
 
 								var raw = valueOpt.get();
-								boolean rollup = RollupChannels.isRollup(componentAlias, channel.channelId().id());
+								boolean aggregate = AggregateChannels.isAggregate(componentAlias, channel.channelId().id());
 								var type = Type.fromOpenemsType(channel.getType());
 								var value = type.coerce(raw);
 
@@ -150,7 +150,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 								synchronized (this.buffer) {
 									this.buffer.add(new DataPoint(
 											timestamp, null, componentAlias, componentType,
-											channel.channelId().id(), type, rollup, unit, value));
+											channel.channelId().id(), type, aggregate, unit, value));
 								}
 							});
 				});

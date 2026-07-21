@@ -1,30 +1,29 @@
-package io.openems.shared.timescaledb;
+package io.openems.shared.timescaledb.schema;
 
 import java.util.Set;
 
 /**
- * Registry of the channels included in the Fast Lane ({@code rollup = true}):
- * these get the 1-minute continuous aggregate and the dedicated
- * {@code data_*_rollup_*} views. Every other persisted channel remains fully
- * stored and queryable via the Slow Lane ({@code data_15m_*}/{@code data_1d_*},
- * all channels, kept forever) — being absent here only means no 1-minute
- * resolution.
+ * Registry of the channels included in the continuous-aggregate layer
+ * ({@code aggregate = true}): these are materialized into the
+ * {@code data_<name>_*} aggregate tiers for fast frontend visualization. Every
+ * other persisted channel is written to the raw hypertables only (still fully
+ * queryable there, just without the accelerated aggregate tiers) — being absent
+ * here only means "not accelerated", never "not stored".
  *
  * <p>
  * This is an include-list, deliberately compiled into the bundle (same pattern
  * as {@code AllowedChannels} in the official OpenEMS
- * {@code io.openems.backend.timedata.aggregatedinflux}): Fast-Lane membership
+ * {@code io.openems.backend.timedata.aggregatedinflux}): aggregate membership
  * is a fleet-wide schema decision, so all Edges and the Backend must agree —
  * per-site configuration would let deployments drift.
  *
  * <p>
  * GENERATED from {@code OpenEMS-Channel-Priorities.xlsx}, sheet "Nature
- * Channels", column "Proposed Rollup" (2026-07-09). Change the sheet first,
- * then regenerate/edit this list to match. If a channel is queried at fine
- * resolution but missing here, {@code ReadHandler} logs a warning naming it —
- * that is the signal to add it.
+ * Channels" (2026-07-09). Change the sheet first, then regenerate/edit this
+ * list to match. If a channel is queried at fine resolution but missing here,
+ * {@code ReadHandler} logs a warning naming it — that is the signal to add it.
  */
-public final class RollupChannels {
+public final class AggregateChannels {
 
 	/**
 	 * Exact channel addresses of singleton components ({@code _sum}).
@@ -97,19 +96,19 @@ public final class RollupChannels {
 			"meter/ActiveConsumptionEnergyL2", //
 			"meter/ActiveConsumptionEnergyL3");
 
-	private RollupChannels() {
+	private AggregateChannels() {
 	}
 
 	/**
-	 * Whether the given channel belongs in the Fast Lane ({@code rollup = true}).
-	 * Both the Edge and Backend write paths use this single helper so they always
-	 * agree on which lane a channel belongs to.
+	 * Whether the given channel is in the continuous-aggregate layer
+	 * ({@code aggregate = true}). Both the Edge and Backend write paths use this
+	 * single helper so they always agree on which channels are aggregated.
 	 *
 	 * @param componentId the Component-ID, e.g. "_sum" or "meter0"
 	 * @param channelId   the Channel-ID, e.g. "EssSoc"
 	 * @return {@code true} if the channel is in the include-list
 	 */
-	public static boolean isRollup(String componentId, String channelId) {
+	public static boolean isAggregate(String componentId, String channelId) {
 		if (EXACT.contains(componentId + "/" + channelId)) {
 			return true;
 		}

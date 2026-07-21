@@ -2,8 +2,14 @@ package io.openems.shared.timescaledb.schema;
 
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 import com.zaxxer.hikari.HikariDataSource;
+
+import io.openems.shared.timescaledb.Type;
 
 /**
  * Handles the creation and initialization of the TimescaleDB database schema.
@@ -16,6 +22,12 @@ import com.zaxxer.hikari.HikariDataSource;
  * the edge handling in the {@code get_or_create_*} stored functions — are pure
  * data variance, so the SQL is composed dynamically from the {@link Tenancy}
  * instead of subclasses (same concept as {@link ChannelManager}).
+ *
+ * <p>
+ * The continuous-aggregate tiers are built from the {@code List<Aggregate>}
+ * passed in, sorted finest→coarsest, each tier reading from the raw hypertables
+ * ({@code WHERE aggregate}) or cascading from a finer tier.
+ * See {@link Aggregate}.
  */
 public class SchemaHandler {
 
@@ -23,7 +35,7 @@ public class SchemaHandler {
 	private final HikariDataSource dataSource;
 	private final int rawRetentionDays;
 	private final int rawCompressionDays;
-	private final AggregateRetention aggregateRetention;
+	private final List<Aggregate> aggregates;
 
 	/**
 	 * Constructor.
@@ -32,15 +44,15 @@ public class SchemaHandler {
 	 * @param dataSource         The Hikari connection pool
 	 * @param rawRetentionDays   Days to keep raw data before deletion
 	 * @param rawCompressionDays Days to wait before compressing raw data
-	 * @param aggregateRetention The per-deployment aggregate retention horizons
+	 * @param aggregates         The continuous-aggregate tiers to build
 	 */
 	public SchemaHandler(Tenancy tenancy, HikariDataSource dataSource, int rawRetentionDays, int rawCompressionDays,
-			AggregateRetention aggregateRetention) {
+			List<Aggregate> aggregates) {
 		this.tenancy = tenancy;
 		this.dataSource = dataSource;
 		this.rawRetentionDays = rawRetentionDays;
 		this.rawCompressionDays = rawCompressionDays;
-		this.aggregateRetention = aggregateRetention;
+		this.aggregates = aggregates;
 	}
 
 	/**
@@ -93,75 +105,95 @@ public class SchemaHandler {
 			addPolicyIfAbsent(statement, "add_compression_policy", "data_float",   "INTERVAL '" + this.rawCompressionDays + " days'");
 			addPolicyIfAbsent(statement, "add_compression_policy", "data_string",  "INTERVAL '" + (this.rawCompressionDays * 2) + " days'");
 
-			// Retention policies (raw)
-			addPolicyIfAbsent(statement, "add_retention_policy", "data_integer", "INTERVAL '" + this.rawRetentionDays + " days'");
-			addPolicyIfAbsent(statement, "add_retention_policy", "data_float",   "INTERVAL '" + this.rawRetentionDays + " days'");
-			addPolicyIfAbsent(statement, "add_retention_policy", "data_string",  "INTERVAL '" + this.rawRetentionDays + " days'");
-
-			// Layer 3: Continuous Aggregates.
-
-			// Fast Lane (rollup = true)
-			createAgg(statement, "data_1m_rollup_integer",  "1 minute",  "data_integer",           "BIGINT",           false, "WHERE rollup");
-			createAgg(statement, "data_1m_rollup_float",    "1 minute",  "data_float",             "DOUBLE PRECISION", false, "WHERE rollup");
-			createAgg(statement, "data_15m_rollup_integer", "15 minutes","data_1m_rollup_integer", "BIGINT",           true, null);
-			createAgg(statement, "data_15m_rollup_float",   "15 minutes","data_1m_rollup_float",   "DOUBLE PRECISION", true, null);
-			createAgg(statement, "data_1d_rollup_integer",  "1 day", "data_15m_rollup_integer",    "BIGINT",           true, null);
-			createAgg(statement, "data_1d_rollup_float",    "1 day", "data_15m_rollup_float",      "DOUBLE PRECISION", true, null);
-
-			// Slow Lane (all channels)
-			createAgg(statement, "data_15m_integer", "15 minutes", "data_integer",     "BIGINT",           false, null);
-			createAgg(statement, "data_15m_float",   "15 minutes", "data_float",       "DOUBLE PRECISION", false, null);
-			createAgg(statement, "data_1d_integer",  "1 day",      "data_15m_integer", "BIGINT",           true, null);
-			createAgg(statement, "data_1d_float",    "1 day",      "data_15m_float",   "DOUBLE PRECISION", true, null);
-
-			// Chunk sizing
-			setAggChunkInterval(statement, "data_1m_rollup_integer", "7 days");
-			setAggChunkInterval(statement, "data_1m_rollup_float",   "7 days");
-			setAggChunkInterval(statement, "data_15m_rollup_integer", "30 days");
-			setAggChunkInterval(statement, "data_15m_rollup_float",   "30 days");
-			setAggChunkInterval(statement, "data_1d_rollup_integer",  "365 days");
-			setAggChunkInterval(statement, "data_1d_rollup_float",    "365 days");
-			setAggChunkInterval(statement, "data_15m_integer",        "90 days");
-			setAggChunkInterval(statement, "data_15m_float",          "90 days");
-			setAggChunkInterval(statement, "data_1d_integer",         "365 days");
-			setAggChunkInterval(statement, "data_1d_float",           "365 days");
-
-			// Refresh policies (start_offset, end_offset, schedule_interval)
-			addAggPolicyIfAbsent(statement, "data_1m_rollup_integer", "10 minutes", "1 minute", "1 minute");
-			addAggPolicyIfAbsent(statement, "data_1m_rollup_float",   "10 minutes", "1 minute", "1 minute");
-			addAggPolicyIfAbsent(statement, "data_15m_rollup_integer", "1 hour",  "15 minutes", "15 minutes");
-			addAggPolicyIfAbsent(statement, "data_15m_rollup_float",   "1 hour",  "15 minutes", "15 minutes");
-			addAggPolicyIfAbsent(statement, "data_1d_rollup_integer",  "3 days",  "1 day",      "1 day");
-			addAggPolicyIfAbsent(statement, "data_1d_rollup_float",    "3 days",  "1 day",      "1 day");
-			addAggPolicyIfAbsent(statement, "data_15m_integer",        "2 hours", "15 minutes", "1 hour");
-			addAggPolicyIfAbsent(statement, "data_15m_float",          "2 hours", "15 minutes", "1 hour");
-			addAggPolicyIfAbsent(statement, "data_1d_integer",         "3 days",  "1 day",      "1 day");
-			addAggPolicyIfAbsent(statement, "data_1d_float",           "3 days",  "1 day",      "1 day");
-
-			// Retention policies for the aggregate tiers, from the per-deployment
-			// AggregateRetention (Slow Lane: 0 = keep forever, the Backend default).
-			// ReadHandler.pickSource routes queries from the same instance, so the
-			// horizons it assumes are exactly the ones enforced here.
-			var ar = this.aggregateRetention;
-			for (var t : new String[] { "integer", "float" }) {
-				addPolicyIfAbsent(statement, "add_retention_policy", "data_1m_rollup_" + t,
-						"INTERVAL '" + ar.rollup1mDays() + " days'");
-				addPolicyIfAbsent(statement, "add_retention_policy", "data_15m_rollup_" + t,
-						"INTERVAL '" + ar.rollup15mDays() + " days'");
-				addPolicyIfAbsent(statement, "add_retention_policy", "data_1d_rollup_" + t,
-						"INTERVAL '" + ar.rollup1dDays() + " days'");
-				if (ar.slowLane15mDays() > 0) {
-					addPolicyIfAbsent(statement, "add_retention_policy", "data_15m_" + t,
-							"INTERVAL '" + ar.slowLane15mDays() + " days'");
-				}
-				if (ar.slowLane1dDays() > 0) {
-					addPolicyIfAbsent(statement, "add_retention_policy", "data_1d_" + t,
-							"INTERVAL '" + ar.slowLane1dDays() + " days'");
-				}
+			// Retention policies (raw). Raw is the long-lived source of truth; the
+			// aggregate tiers below are a pure query-acceleration layer on top.
+			// rawRetentionDays <= 0 keeps raw forever (no retention policy created) —
+			// the Backend default. Compression above still applies regardless.
+			// Note: on an existing database this only avoids *creating* a policy; it
+			// does not drop one a previous deployment already installed.
+			if (this.rawRetentionDays > 0) {
+				addPolicyIfAbsent(statement, "add_retention_policy", "data_integer", "INTERVAL '" + this.rawRetentionDays + " days'");
+				addPolicyIfAbsent(statement, "add_retention_policy", "data_float",   "INTERVAL '" + this.rawRetentionDays + " days'");
+				addPolicyIfAbsent(statement, "add_retention_policy", "data_string",  "INTERVAL '" + this.rawRetentionDays + " days'");
 			}
+
+			// Layer 3: Continuous Aggregates, built from the configured tiers.
+			this.createAggregates(statement);
 
 			// Stored functions for atomic channel registration.
 			this.createGetOrCreateFunctions(statement);
+		}
+	}
+
+	/**
+	 * Builds the continuous-aggregate tiers from {@link #aggregates}: sorts them
+	 * finest→coarsest, resolves each tier's source (an explicit finer tier by
+	 * name, else the immediate finer predecessor, else the raw hypertable for the
+	 * finest tier), and creates the materialized view, chunk sizing, refresh
+	 * policy and — unless kept forever — the retention policy, for both the
+	 * INTEGER and FLOAT value types. Strings are never aggregated.
+	 *
+	 * @param statement an open JDBC {@link Statement}
+	 * @throws SQLException on database error, or when a tier's source cannot be
+	 *                      resolved / does not evenly divide its bucket
+	 */
+	private void createAggregates(Statement statement) throws SQLException {
+		var sorted = new ArrayList<>(this.aggregates);
+		sorted.sort(Comparator.comparingLong(a -> a.bucket().getSeconds()));
+
+		for (var i = 0; i < sorted.size(); i++) {
+			var agg = sorted.get(i);
+
+			// Resolve the source: explicit reference, else the immediate finer
+			// predecessor, else RAW (the finest tier).
+			Aggregate source = null;
+			if (agg.source() != null) {
+				for (var candidate : sorted) {
+					if (candidate.name().equals(agg.source())) {
+						source = candidate;
+						break;
+					}
+				}
+				if (source == null) {
+					throw new SQLException("Aggregate '" + agg.name() + "' references unknown source '"
+							+ agg.source() + "'");
+				}
+			} else if (i > 0) {
+				source = sorted.get(i - 1);
+			}
+
+			// A cascaded source must be strictly finer and evenly divide this bucket,
+			// or the time_bucket re-aggregation would drift.
+			if (source != null) {
+				var src = source.bucket().getSeconds();
+				var dst = agg.bucket().getSeconds();
+				if (src >= dst || dst % src != 0) {
+					throw new SQLException("Aggregate '" + agg.name() + "' bucket (" + dst
+							+ "s) is not an integer multiple of its source '" + source.name() + "' (" + src + "s)");
+				}
+			}
+
+			var bucket = toInterval(agg.bucket());
+			var refresh = agg.resolvedRefresh();
+			var chunk = toInterval(agg.resolvedChunk());
+			var cascaded = source != null;
+
+			for (var type : new Type[] { Type.INTEGER, Type.FLOAT }) {
+				var view = "data_" + agg.name() + "_" + type.aggInfix;
+				var sourceTable = cascaded
+						? "data_" + source.name() + "_" + type.aggInfix
+						: type.rawTableName;
+
+				createAggregate(statement, view, bucket, sourceTable, cascaded, cascaded ? null : "WHERE aggregate");
+				setAggChunkInterval(statement, view, chunk);
+				addAggPolicyIfAbsent(statement, view,
+						toInterval(refresh.startOffset()), toInterval(refresh.endOffset()),
+						toInterval(refresh.schedule()));
+				if (agg.retentionDays() > 0) {
+					addPolicyIfAbsent(statement, "add_retention_policy", view,
+							"INTERVAL '" + agg.retentionDays() + " days'");
+				}
+			}
 		}
 	}
 
@@ -211,13 +243,13 @@ public class SchemaHandler {
 	}
 
 	private void createChannelTable(Statement statement) throws SQLException {
-		// Rollup: true = Fast Lane, false = Slow Lane.
+		// Aggregate: true = this channel is materialized into the aggregate tiers.
 		statement.execute("""
 				CREATE TABLE IF NOT EXISTS channel (
 					id             UUID    DEFAULT uuid_generate_v7() PRIMARY KEY,
 					component_id   UUID    NOT NULL REFERENCES component(id) ON DELETE CASCADE,
 					channel_def_id UUID    NOT NULL REFERENCES channel_def(id) ON DELETE CASCADE,
-					rollup         BOOLEAN NOT NULL DEFAULT false,
+					aggregate      BOOLEAN NOT NULL DEFAULT false,
 					first_seen     TIMESTAMPTZ NOT NULL DEFAULT now(),
 					UNIQUE (component_id, channel_def_id)
 				)"""
@@ -345,27 +377,27 @@ public class SchemaHandler {
 				CREATE OR REPLACE FUNCTION get_or_create_channel(
 				    input_component_id UUID,
 				    input_channel_def_id UUID,
-				    input_rollup BOOLEAN,
+				    input_aggregate BOOLEAN,
 				    OUT out_id UUID,
-				    OUT out_rollup BOOLEAN
+				    OUT out_aggregate BOOLEAN
 				)
 				LANGUAGE plpgsql AS $$
 				BEGIN
-				    SELECT id, rollup INTO out_id, out_rollup FROM channel
+				    SELECT id, aggregate INTO out_id, out_aggregate FROM channel
 				        WHERE component_id = input_component_id AND channel_def_id = input_channel_def_id;
 				    IF out_id IS NULL THEN
-				        INSERT INTO channel (component_id, channel_def_id, rollup)
-				            VALUES (input_component_id, input_channel_def_id, input_rollup)
+				        INSERT INTO channel (component_id, channel_def_id, aggregate)
+				            VALUES (input_component_id, input_channel_def_id, input_aggregate)
 				            ON CONFLICT (component_id, channel_def_id) DO NOTHING
-				            RETURNING id, rollup INTO out_id, out_rollup;
+				            RETURNING id, aggregate INTO out_id, out_aggregate;
 				        IF out_id IS NULL THEN
-				            SELECT id, rollup INTO out_id, out_rollup FROM channel
+				            SELECT id, aggregate INTO out_id, out_aggregate FROM channel
 				                WHERE component_id = input_component_id AND channel_def_id = input_channel_def_id;
 				        END IF;
 				    END IF;
-				    IF input_rollup AND NOT out_rollup THEN
-				        UPDATE channel SET rollup = true WHERE id = out_id;
-				        out_rollup := true;
+				    IF input_aggregate AND NOT out_aggregate THEN
+				        UPDATE channel SET aggregate = true WHERE id = out_id;
+				        out_aggregate := true;
 				    END IF;
 				END;
 				$$""");
@@ -382,10 +414,10 @@ public class SchemaHandler {
 				.append("input_component_type VARCHAR, ")
 				.append("input_channel_name VARCHAR, ")
 				.append("input_type VARCHAR, ")
-				.append("input_rollup BOOLEAN DEFAULT false, ")
+				.append("input_aggregate BOOLEAN DEFAULT false, ")
 				.append("input_unit VARCHAR DEFAULT NULL ")
 				.append(") ")
-				.append("RETURNS TABLE (out_channel_id UUID, out_type VARCHAR, out_rollup BOOLEAN) ")
+				.append("RETURNS TABLE (out_channel_id UUID, out_type VARCHAR, out_aggregate BOOLEAN) ")
 				.append("LANGUAGE plpgsql AS $$ ")
 				.append("DECLARE ");
 		if (multi) {
@@ -396,7 +428,7 @@ public class SchemaHandler {
 				.append("local_channel_def_id UUID; ")
 				.append("local_type VARCHAR; ")
 				.append("local_channel_id UUID; ")
-				.append("local_rollup BOOLEAN; ")
+				.append("local_aggregate BOOLEAN; ")
 				.append("BEGIN ");
 		if (multi) {
 			conductorQuery
@@ -415,10 +447,10 @@ public class SchemaHandler {
 				.append("RAISE WARNING 'channel_def % type mismatch: stored=%, incoming=% (keeping stored)', ")
 				.append("input_channel_name, local_type, input_type; ")
 				.append("END IF; ")
-				.append("SELECT ch_id, ch_rollup INTO local_channel_id, local_rollup ")
-				.append("FROM get_or_create_channel(local_component_id, local_channel_def_id, input_rollup) ")
-				.append("AS ch(ch_id, ch_rollup); ")
-				.append("RETURN QUERY SELECT local_channel_id, local_type, local_rollup; ")
+				.append("SELECT ch_id, ch_aggregate INTO local_channel_id, local_aggregate ")
+				.append("FROM get_or_create_channel(local_component_id, local_channel_def_id, input_aggregate) ")
+				.append("AS ch(ch_id, ch_aggregate); ")
+				.append("RETURN QUERY SELECT local_channel_id, local_type, local_aggregate; ")
 				.append("END; ")
 				.append("$$ ");
 		statement.execute(conductorQuery.toString());
@@ -430,7 +462,7 @@ public class SchemaHandler {
 				.append("CREATE TABLE IF NOT EXISTS ").append(table).append(" (")
 				.append("time TIMESTAMPTZ NOT NULL, ")
 				.append("channel_id UUID NOT NULL, ")
-				.append("rollup BOOLEAN NOT NULL, ")
+				.append("aggregate BOOLEAN NOT NULL, ")
 				.append("value ").append(valueType).append(" NOT NULL)")
 				.toString());
 		st.execute(new StringBuilder()
@@ -443,8 +475,23 @@ public class SchemaHandler {
 				.toString());
 	}
 
-	private static void createAgg(Statement st, String viewName, String bucket,
-			String source, String valueType, boolean cascaded, String whereClause) throws SQLException {
+	/**
+	 * Creates one continuous aggregate. Real-time aggregation is enabled
+	 * ({@code materialized_only = false}) so the in-progress bucket is served
+	 * live, independent of the installed TimescaleDB version's default.
+	 *
+	 * @param st          an open JDBC {@link Statement}
+	 * @param viewName    the materialized-view name, e.g. {@code data_15m_integer}
+	 * @param bucket      the {@code time_bucket} interval literal
+	 * @param source      the source table: a raw hypertable or a finer aggregate
+	 * @param cascaded    whether {@code source} is a finer aggregate (re-aggregate
+	 *                    its columns) rather than a raw hypertable
+	 * @param whereClause an optional filter (e.g. {@code WHERE aggregate}) applied
+	 *                    when reading from a raw hypertable; ignored when cascaded
+	 * @throws SQLException on database error
+	 */
+	private static void createAggregate(Statement st, String viewName, String bucket,
+			String source, boolean cascaded, String whereClause) throws SQLException {
 		try (var check = st.getConnection().prepareStatement(
 				"SELECT 1 FROM timescaledb_information.continuous_aggregates WHERE view_name = ?")) {
 			check.setString(1, viewName);
@@ -457,7 +504,8 @@ public class SchemaHandler {
 		try {
 			if (!cascaded) {
 				st.execute("""
-						CREATE MATERIALIZED VIEW %s WITH (timescaledb.continuous) AS
+						CREATE MATERIALIZED VIEW %s
+						WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
 						SELECT time_bucket('%s', time) AS bucket, channel_id,
 						       MIN(value) AS min_val, MAX(value) AS max_val,
 						       AVG(value) AS avg_val, last(value,time) AS last_val,
@@ -471,7 +519,8 @@ public class SchemaHandler {
 				// AVG(avg_val) would give every sub-bucket equal weight and drift
 				// whenever the sample density inside the bucket is uneven.
 				st.execute("""
-						CREATE MATERIALIZED VIEW %s WITH (timescaledb.continuous) AS
+						CREATE MATERIALIZED VIEW %s
+						WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
 						SELECT time_bucket('%s', bucket) AS bucket, channel_id,
 						       MIN(min_val) AS min_val, MAX(max_val) AS max_val,
 						       SUM(avg_val * sample_count) / NULLIF(SUM(sample_count), 0) AS avg_val,
@@ -531,5 +580,28 @@ public class SchemaHandler {
 		} catch (SQLException e) {
 			// View does not exist yet or interval already set
 		}
+	}
+
+	/**
+	 * Formats a {@link Duration} as a PostgreSQL interval literal, choosing the
+	 * coarsest whole unit (days / hours / minutes / seconds). All default tiers
+	 * are sub-hour and fixed-width, so no calendar (timezone-aware) bucketing is
+	 * involved.
+	 *
+	 * @param d the duration
+	 * @return the interval literal, e.g. {@code "15 minutes"}
+	 */
+	private static String toInterval(Duration d) {
+		var secs = d.getSeconds();
+		if (secs % 86400 == 0) {
+			return (secs / 86400) + " days";
+		}
+		if (secs % 3600 == 0) {
+			return (secs / 3600) + " hours";
+		}
+		if (secs % 60 == 0) {
+			return (secs / 60) + " minutes";
+		}
+		return secs + " seconds";
 	}
 }

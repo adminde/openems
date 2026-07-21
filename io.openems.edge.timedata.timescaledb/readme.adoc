@@ -19,13 +19,13 @@ all enabled components' channels:
 
 1. *Persistence filter* — only channels with `AccessMode != WRITE_ONLY` and a
    local `PersistencePriority` at or above the configured minimum (default
-   `MEDIUM`) are persisted at all.
-2. *Lane assignment* — channels listed in the shared `RollupChannels`
-   include-list are flagged `rollup = true` (Fast Lane: an extra 1-minute
-   aggregate tier). All other persisted channels take the Slow Lane — still
-   fully stored and aggregated at 15 minutes / 1 day, just without the
-   1-minute tier. Lane membership is a fleet-wide schema decision compiled
-   into the code, *not* a per-site config.
+   `HIGH`) are persisted at all.
+2. *Aggregate flag* — channels listed in the shared `AggregateChannels`
+   include-list are flagged `aggregate = true`, which materializes them into
+   the continuous-aggregate tiers for fast visualization. Every other persisted
+   channel is written to the raw hypertables only — still fully stored and
+   queryable there, just without the accelerated tiers. Membership is a
+   fleet-wide schema decision compiled into the code, *not* a per-site config.
 3. *Buffering* — points collect in an in-memory buffer, flushed to the shared
    write pipeline every *No of Cycles* cycles (default 10) or at 5 000 points.
 4. *Async pipeline* — channel-ids resolve through a warm cache; points are
@@ -44,37 +44,35 @@ all enabled components' channels:
  async pipeline --> PostgreSQL binary COPY
    |
    v
- RAW hypertables (keep 30 d, compress after 1 d)
+ Raw hypertables  (source of truth: keep 7 d, compress after 1 d)
    |
-   |-- RollupChannels ->  FAST LANE:  1m (90 d) -> 15m (180 d) -> 1d (1 y)
-   |
-   '-- all channels --->  SLOW LANE:  15m (3 y) -> 1d (10 y)
+   '-- aggregate-flagged channels -->  1m (90 d) --> 15m (3 y)
 ----
 
 === Read path
 
-Historic queries pick the coarsest aggregate tier that satisfies the requested
-resolution, *and* the query window's age: once a window predates a tier's
-retention horizon, the query is transparently routed to the next-longer-lived
-tier — so history stays reachable (at 15-minute resolution up to 3 years, at
-daily resolution up to 10 years) instead of returning holes. A fine-grained
-query on a channel that is *not* in the Fast Lane logs a one-time
-`WARN … consider adding it to RollupChannels` — that log is the signal to
-extend the include-list.
+The raw hypertables are the long-lived source of truth; the continuous
+aggregates are a pure query-acceleration layer over the aggregate-flagged
+channels. A historic query picks the *coarsest* aggregate tier whose bucket is
+`<=` the requested resolution and whose retention still covers the query
+window; if none qualifies (resolution finer than the finest tier, the window
+older than every fitting tier's retention, or a string channel) it falls back
+to raw. Coarser calendar resolutions (day, month, year) are re-bucketed on read
+from the 15-minute tier in the query's timezone — 15 minutes divides every
+real-world UTC offset, so the buckets stay exact. A fine-grained query on a
+channel that is *not* aggregated logs a one-time
+`WARN … consider adding it to AggregateChannels` — the signal to extend the
+include-list.
 
 ----
  historic query --> pickSource(bucket size, window age)
    |
-   |-- >= 1 min and <= 90 d ............ 1m rollup
-   |-- >= 15 min ....................... 15m tiers
-   |-- >= 1 d, or older window ......... 1d tiers
-   |-- finer buckets / strings ......... raw
-   |
-   '-- fine bucket, not in Fast Lane ... WARN "consider adding to RollupChannels"
+   |-- aggregated channel, a tier fits & is not expired .. coarsest such tier
+   |-- otherwise (finer than 1m / expired / string) ...... raw
 ----
 
-Energy queries (`queryHistoricEnergy*`) always read raw data with
-counter-reset detection — aggregates would corrupt cumulative totals.
+Energy queries (`queryHistoricEnergy*`) currently read raw data with
+counter-reset detection, to preserve cumulative precision.
 
 === Resend
 
@@ -84,18 +82,15 @@ never reached the Backend (not-sent marker convention) so
 
 == Storage profile
 
-Sized for 32 GB eMMC devices; a typical ~300-channel installation reaches
-roughly 11–13 GB steady state:
+Sized for 32 GB eMMC devices. The raw hypertables are the source of truth; the
+aggregate tiers accelerate visualization of the aggregate-flagged channels:
 
 |===
 | Tier | Resolution | Retention
 
-| Raw hypertables | every cycle (~1 s) | 30 d (compressed after 1 d)
-| Fast Lane `data_1m_rollup_*` | 1 minute | 90 d
-| Fast Lane `data_15m_rollup_*` | 15 minutes | 180 d
-| Fast Lane `data_1d_rollup_*` | 1 day | 1 y
-| Slow Lane `data_15m_*` (all channels) | 15 minutes | 3 y
-| Slow Lane `data_1d_*` (all channels) | 1 day | 10 y
+| `data_*` | every cycle (~1 s) | 7 d (compressed after 1 d)
+| `data_1m_*` (aggregate-flagged channels) | 1 minute | 90 d
+| `data_15m_*` (aggregate-flagged channels) | 15 minutes | 3 y
 |===
 
 Keep *Compression Days* at 1 on flash hardware: uncompressed raw data needs
@@ -115,7 +110,7 @@ Quick start with Docker:
 ----
 docker run -d --name tsdb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb-ha:pg16
 # install pg_uuidv7 into the container, then:
-docker exec tsdb psql -U postgres -c "CREATE DATABASE data;"
+docker exec tsdb psql -U postgres -c "CREATE DATABASE openems;"
 ----
 
 == Configuration
@@ -124,15 +119,16 @@ docker exec tsdb psql -U postgres -c "CREATE DATABASE data;"
 | Property | Default | Meaning
 
 | Host / Port / Database / Username / Password | `localhost` / `5432` / `data` | database connection
-| Retention Days | 30 | days to keep raw high-resolution data
-| Compression Days | 1 | days before raw chunks are compressed columnar
 | Pool Size / Write Workers | 10 / 4 | HikariCP connections / parallel COPY writers — keep Write Workers below Pool Size so reads always get a connection
-| No of Cycles | 10 | Cycles between buffer flushes
-| Persistence Priority | `MEDIUM` | minimum local `PersistencePriority` a Channel needs to be persisted at all
+| No of Cycles | 1 | Cycles between buffer flushes
+| Retention Days | 7 | days to keep raw high-resolution data
+| Compression Days | 1 | days before raw chunks are compressed columnar
+| Persistence Priority | `HIGH` | minimum local `PersistencePriority` a Channel needs to be persisted at all
 |===
 
-The aggregate retention horizons are deliberately *not* configurable: they are
-the compiled Edge profile `AggregateRetention.EDGE_DEFAULTS` in the shared
-bundle, which feeds both the database policies *and* the read-path routing
-from one instance — never change the policies directly in SQL, or queries will
-be routed into tiers that no longer hold data.
+The aggregation tiers are the compiled Edge profile
+`Aggregate.of(Tenancy.SINGLE)` in the shared bundle (the implementation may edit
+the list before handing it to the connector). The same list feeds both the
+database policies *and* the read-path routing from one instance — never change
+the policies directly in SQL, or queries will be routed into tiers that no
+longer hold data.
