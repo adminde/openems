@@ -97,6 +97,20 @@ public class AcrelAdl400MeterImpl extends AbstractOpenemsModbusComponent
 	@Override
 	protected ModbusProtocol defineModbusProtocol() {
 		var modbusProtocol = new ModbusProtocol(this, //
+				new FC3ReadRegistersTask(0x05DD, Priority.LOW, //
+						m(AcrelAdl400Meter.ChannelId.VOLTAGE_HARMONIC_DISTORTION_L1, new UnsignedWordElement(0x05DD),
+								SCALE_FACTOR_MINUS_3),
+						m(AcrelAdl400Meter.ChannelId.VOLTAGE_HARMONIC_DISTORTION_L2, new UnsignedWordElement(0x05DE),
+								SCALE_FACTOR_MINUS_3),
+						m(AcrelAdl400Meter.ChannelId.VOLTAGE_HARMONIC_DISTORTION_L3, new UnsignedWordElement(0x05DF),
+								SCALE_FACTOR_MINUS_3),
+						m(AcrelAdl400Meter.ChannelId.CURRENT_HARMONIC_DISTORTION_L1, new UnsignedWordElement(0x05E0),
+								SCALE_FACTOR_MINUS_3),
+						m(AcrelAdl400Meter.ChannelId.CURRENT_HARMONIC_DISTORTION_L2, new UnsignedWordElement(0x05E1),
+								SCALE_FACTOR_MINUS_3),
+						m(AcrelAdl400Meter.ChannelId.CURRENT_HARMONIC_DISTORTION_L3, new UnsignedWordElement(0x05E2),
+								SCALE_FACTOR_MINUS_3)
+				),
 				new FC3ReadRegistersTask(0x084C, Priority.LOW, //
 						m(this.invert ? ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY
 								: ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY,
@@ -115,30 +129,20 @@ public class AcrelAdl400MeterImpl extends AbstractOpenemsModbusComponent
 								UINT32(0x0874), SCALE_FACTOR_2)
 				)
 		);
-
-		modbusProtocol.addTask(new FC3ReadRegistersTask(0x05DD, Priority.LOW, //
-				m(AcrelAdl400Meter.ChannelId.VOLTAGE_HARMONIC_DISTORTION_L1, new UnsignedWordElement(0x05DD),
-						SCALE_FACTOR_MINUS_3),
-				m(AcrelAdl400Meter.ChannelId.VOLTAGE_HARMONIC_DISTORTION_L2, new UnsignedWordElement(0x05DE),
-						SCALE_FACTOR_MINUS_3),
-				m(AcrelAdl400Meter.ChannelId.VOLTAGE_HARMONIC_DISTORTION_L3, new UnsignedWordElement(0x05DF),
-						SCALE_FACTOR_MINUS_3),
-				m(AcrelAdl400Meter.ChannelId.CURRENT_HARMONIC_DISTORTION_L1, new UnsignedWordElement(0x05E0),
-						SCALE_FACTOR_MINUS_3),
-				m(AcrelAdl400Meter.ChannelId.CURRENT_HARMONIC_DISTORTION_L2, new UnsignedWordElement(0x05E1),
-						SCALE_FACTOR_MINUS_3),
-				m(AcrelAdl400Meter.ChannelId.CURRENT_HARMONIC_DISTORTION_L3, new UnsignedWordElement(0x05E2),
-						SCALE_FACTOR_MINUS_3)
-		));
 		if (this.phaseWiring == PhaseWiring.THREE_PHASE_FOUR_WIRE) {
 			modbusProtocol.addTask(new FC3ReadRegistersTask(0x0800, Priority.HIGH, //
 					m(ElectricityMeter.ChannelId.VOLTAGE_L1, FLOAT32(0x0800), SCALE_FACTOR_3),
 					m(ElectricityMeter.ChannelId.VOLTAGE_L2, FLOAT32(0x0802), SCALE_FACTOR_3),
 					m(ElectricityMeter.ChannelId.VOLTAGE_L3, FLOAT32(0x0804), SCALE_FACTOR_3),
-					new DummyRegisterElement(0x0806, 0x080B),
-					m(ElectricityMeter.ChannelId.CURRENT_L1, FLOAT32(0x080C), SCALE_FACTOR_3),
-					m(ElectricityMeter.ChannelId.CURRENT_L2, FLOAT32(0x080E), SCALE_FACTOR_3),
-					m(ElectricityMeter.ChannelId.CURRENT_L3, FLOAT32(0x0810), SCALE_FACTOR_3),
+					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L1_L2, FLOAT32(0x0806), SCALE_FACTOR_3),
+					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L2_L3, FLOAT32(0x0808), SCALE_FACTOR_3),
+					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L3_L1, FLOAT32(0x080A), SCALE_FACTOR_3),
+					m(ElectricityMeter.ChannelId.CURRENT_L1, FLOAT32(0x080C),
+							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
+					m(ElectricityMeter.ChannelId.CURRENT_L2, FLOAT32(0x080E),
+							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
+					m(ElectricityMeter.ChannelId.CURRENT_L3, FLOAT32(0x0810),
+							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
 					new DummyRegisterElement(0x0812, 0x0813),
 					m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1, FLOAT32(0x0814),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
@@ -164,15 +168,18 @@ public class AcrelAdl400MeterImpl extends AbstractOpenemsModbusComponent
 					m(ElectricityMeter.ChannelId.FREQUENCY, FLOAT32(0x0834), SCALE_FACTOR_3)
 			));
 		} else {
-			// 3P3W: no per-phase voltage, power or power-factor; only line-to-line voltage and totals.
+			// 3P3W: No per-phase voltage, -power or power-factors. Only line-to-line voltage and totals.
 			modbusProtocol.addTask(new FC3ReadRegistersTask(0x0800, Priority.HIGH, //
 					new DummyRegisterElement(0x0800, 0x0805),
 					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L1_L2, FLOAT32(0x0806), SCALE_FACTOR_3),
 					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L2_L3, FLOAT32(0x0808), SCALE_FACTOR_3),
 					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L3_L1, FLOAT32(0x080A), SCALE_FACTOR_3),
-					m(ElectricityMeter.ChannelId.CURRENT_L1, FLOAT32(0x080C), SCALE_FACTOR_3),
-					m(ElectricityMeter.ChannelId.CURRENT_L2, FLOAT32(0x080E), SCALE_FACTOR_3),
-					m(ElectricityMeter.ChannelId.CURRENT_L3, FLOAT32(0x0810), SCALE_FACTOR_3),
+					m(ElectricityMeter.ChannelId.CURRENT_L1, FLOAT32(0x080C),
+							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
+					m(ElectricityMeter.ChannelId.CURRENT_L2, FLOAT32(0x080E),
+							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
+					m(ElectricityMeter.ChannelId.CURRENT_L3, FLOAT32(0x0810),
+							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
 					new DummyRegisterElement(0x0812, 0x0819),
 					m(ElectricityMeter.ChannelId.ACTIVE_POWER, FLOAT32(0x081A),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
