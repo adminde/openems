@@ -55,16 +55,8 @@ public interface AcrelAdl400Meter extends ElectricityMeter, OpenemsComponent {
 				.text("Power Factor L2")), //
 		POWER_FACTOR_L3(Doc.of(OpenemsType.FLOAT) //
 				.unit(Unit.NONE) //
-				.text("Power Factor L3")), //
-
-		REACTIVE_LAGGING_ENERGY(Doc.of(OpenemsType.LONG) //
-				.unit(Unit.VOLT_AMPERE_REACTIVE_HOURS) //
-				.persistencePriority(PersistencePriority.HIGH) //
-				.text("Lagging Reactive Energy (integral over positive/inductive reactive power)")), //
-		REACTIVE_LEADING_ENERGY(Doc.of(OpenemsType.LONG) //
-				.unit(Unit.VOLT_AMPERE_REACTIVE_HOURS) //
-				.persistencePriority(PersistencePriority.HIGH) //
-				.text("Leading Reactive Energy (integral over negative/capacitive reactive power)"));
+				.text("Power Factor L3"))
+		;
 
 		private final io.openems.edge.common.channel.Doc doc;
 
@@ -397,86 +389,6 @@ public interface AcrelAdl400Meter extends ElectricityMeter, OpenemsComponent {
 	 */
 	public default void _setPowerFactorL3(float value) {
 		this.getPowerFactorL3Channel().setNextValue(value);
-	}
-
-	/**
-	 * Gets the Channel for {@link ChannelId#REACTIVE_LAGGING_ENERGY}.
-	 *
-	 * @return the Channel
-	 */
-	public default LongReadChannel getReactiveLaggingEnergyChannel() {
-		return this.channel(ChannelId.REACTIVE_LAGGING_ENERGY);
-	}
-
-	/**
-	 * Gets the Reactive Lagging Energy in [varh]. This relates to positive
-	 * (lagging/inductive) REACTIVE_POWER. See
-	 * {@link ChannelId#REACTIVE_LAGGING_ENERGY}.
-	 *
-	 * @return the Channel {@link Value}
-	 */
-	public default Value<Long> getReactiveLaggingEnergy() {
-		return this.getReactiveLaggingEnergyChannel().value();
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#REACTIVE_LAGGING_ENERGY} Channel.
-	 *
-	 * @param value the next value
-	 */
-	public default void _setReactiveLaggingEnergy(Long value) {
-		this.getReactiveLaggingEnergyChannel().setNextValue(value);
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#REACTIVE_LAGGING_ENERGY} Channel.
-	 *
-	 * @param value the next value
-	 */
-	public default void _setReactiveLaggingEnergy(long value) {
-		this.getReactiveLaggingEnergyChannel().setNextValue(value);
-	}
-
-	/**
-	 * Gets the Channel for {@link ChannelId#REACTIVE_LEADING_ENERGY}.
-	 *
-	 * @return the Channel
-	 */
-	public default LongReadChannel getReactiveLeadingEnergyChannel() {
-		return this.channel(ChannelId.REACTIVE_LEADING_ENERGY);
-	}
-
-	/**
-	 * Gets the Reactive Leading Energy in [varh]. This relates to negative
-	 * (leading/capacitive) REACTIVE_POWER. See
-	 * {@link ChannelId#REACTIVE_LEADING_ENERGY}.
-	 *
-	 * @return the Channel {@link Value}
-	 */
-	public default Value<Long> getReactiveLeadingEnergy() {
-		return this.getReactiveLeadingEnergyChannel().value();
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#REACTIVE_LEADING_ENERGY} Channel.
-	 *
-	 * @param value the next value
-	 */
-	public default void _setReactiveLeadingEnergy(Long value) {
-		this.getReactiveLeadingEnergyChannel().setNextValue(value);
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#REACTIVE_LEADING_ENERGY} Channel.
-	 *
-	 * @param value the next value
-	 */
-	public default void _setReactiveLeadingEnergy(long value) {
-		this.getReactiveLeadingEnergyChannel().setNextValue(value);
 	}
 
 	public static void calculatePhaseVoltages(AcrelAdl400Meter meter) {

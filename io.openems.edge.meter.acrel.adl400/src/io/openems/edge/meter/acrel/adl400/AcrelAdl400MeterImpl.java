@@ -121,12 +121,12 @@ public class AcrelAdl400MeterImpl extends AbstractOpenemsModbusComponent
 								: ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY,
 								UINT32(0x0856), SCALE_FACTOR_2),
 						new DummyRegisterElement(0x0858, 0x0869),
-						m(this.invert ? AcrelAdl400Meter.ChannelId.REACTIVE_LEADING_ENERGY
-								: AcrelAdl400Meter.ChannelId.REACTIVE_LAGGING_ENERGY,
+						m(this.invert ? ElectricityMeter.ChannelId.REACTIVE_LEADING_ENERGY
+								: ElectricityMeter.ChannelId.REACTIVE_LAGGING_ENERGY,
 								UINT32(0x086A), SCALE_FACTOR_2),
 						new DummyRegisterElement(0x086C, 0x0873),
-						m(this.invert ? AcrelAdl400Meter.ChannelId.REACTIVE_LAGGING_ENERGY
-								: AcrelAdl400Meter.ChannelId.REACTIVE_LEADING_ENERGY,
+						m(this.invert ? ElectricityMeter.ChannelId.REACTIVE_LAGGING_ENERGY
+								: ElectricityMeter.ChannelId.REACTIVE_LEADING_ENERGY,
 								UINT32(0x0874), SCALE_FACTOR_2)
 				)
 		);
