@@ -7,7 +7,7 @@ import io.openems.common.types.MeterType;
 
 @ObjectClassDefinition(//
 		name = "Meter Phoenix Contact", //
-		description = "Implements the Phoenix Contact meter." //
+		description = "Implements the Phoenix Contact meter" //
 )
 @interface Config {
 
