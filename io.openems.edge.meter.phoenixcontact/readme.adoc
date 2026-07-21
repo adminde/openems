@@ -34,7 +34,6 @@ This bundle implements the following OpenEMS Component:
 .Additional Channels (beyond the standard ElectricityMeter)
 * `VOLTAGE_L1_L2`, `VOLTAGE_L2_L3`, `VOLTAGE_L3_L1`: line-to-line voltages (used under 3P4W and 3P3W wiring; under 3P3W the standard `VOLTAGE_L1/L2/L3` channels are derived from these as L-L / √3, assuming a symmetrical system)
 * `VOLTAGE_HARMONIC_DISTORTION_L1/L2/L3`, `CURRENT_HARMONIC_DISTORTION_L1/L2/L3`: voltage and current total harmonic distortion per phase (3P4W; L1 only under 1P2W)
-* `VOLTAGE_HARMONIC_DISTORTION_L1_L2`, `VOLTAGE_HARMONIC_DISTORTION_L2_L3`: line-to-line voltage total harmonic distortion (3P3W only)
 * `POWER_FACTOR`: total power factor (all wirings)
 * `POWER_FACTOR_L1/L2/L3`: per-phase power factor (3P4W; L1 only under 1P2W)
 * `PHASE_ANGLE`: total phase angle U-I (all wirings)

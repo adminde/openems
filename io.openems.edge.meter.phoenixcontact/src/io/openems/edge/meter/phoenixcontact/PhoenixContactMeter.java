@@ -32,12 +32,6 @@ public interface PhoenixContactMeter extends ElectricityMeter, OpenemsComponent 
 		VOLTAGE_HARMONIC_DISTORTION_L3(Doc.of(OpenemsType.FLOAT) //
 				.unit(Unit.PERCENT) //
 				.text("Voltage Harmonic Distortion L3")), //
-		VOLTAGE_HARMONIC_DISTORTION_L1_L2(Doc.of(OpenemsType.FLOAT) //
-				.unit(Unit.PERCENT) //
-				.text("Voltage Harmonic Distortion L1-L2")), //
-		VOLTAGE_HARMONIC_DISTORTION_L2_L3(Doc.of(OpenemsType.FLOAT) //
-				.unit(Unit.PERCENT) //
-				.text("Voltage Harmonic Distortion L2-L3")), //
 		CURRENT_HARMONIC_DISTORTION_L1(Doc.of(OpenemsType.FLOAT) //
 				.unit(Unit.PERCENT) //
 				.text("Current Harmonic Distortion L1")), //
@@ -261,64 +255,6 @@ public interface PhoenixContactMeter extends ElectricityMeter, OpenemsComponent 
 	 */
 	public default void _setVoltageHarmonicDistortionL3(Float value) {
 		this.getVoltageHarmonicDistortionL3Channel().setNextValue(value);
-	}
-
-	/**
-	 * Gets the Channel for {@link ChannelId#VOLTAGE_HARMONIC_DISTORTION_L1_L2}.
-	 *
-	 * @return the Channel
-	 */
-	public default FloatReadChannel getVoltageHarmonicDistortionL1L2Channel() {
-		return this.channel(ChannelId.VOLTAGE_HARMONIC_DISTORTION_L1_L2);
-	}
-
-	/**
-	 * Gets the Voltage Harmonic Distortion L1-L2 in [%]. See
-	 * {@link ChannelId#VOLTAGE_HARMONIC_DISTORTION_L1_L2}.
-	 *
-	 * @return the Channel {@link Value}
-	 */
-	public default Value<Float> getVoltageHarmonicDistortionL1L2() {
-		return this.getVoltageHarmonicDistortionL1L2Channel().value();
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#VOLTAGE_HARMONIC_DISTORTION_L1_L2} Channel.
-	 *
-	 * @param value the next value
-	 */
-	public default void _setVoltageHarmonicDistortionL1L2(Float value) {
-		this.getVoltageHarmonicDistortionL1L2Channel().setNextValue(value);
-	}
-
-	/**
-	 * Gets the Channel for {@link ChannelId#VOLTAGE_HARMONIC_DISTORTION_L2_L3}.
-	 *
-	 * @return the Channel
-	 */
-	public default FloatReadChannel getVoltageHarmonicDistortionL2L3Channel() {
-		return this.channel(ChannelId.VOLTAGE_HARMONIC_DISTORTION_L2_L3);
-	}
-
-	/**
-	 * Gets the Voltage Harmonic Distortion L2-L3 in [%]. See
-	 * {@link ChannelId#VOLTAGE_HARMONIC_DISTORTION_L2_L3}.
-	 *
-	 * @return the Channel {@link Value}
-	 */
-	public default Value<Float> getVoltageHarmonicDistortionL2L3() {
-		return this.getVoltageHarmonicDistortionL2L3Channel().value();
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#VOLTAGE_HARMONIC_DISTORTION_L2_L3} Channel.
-	 *
-	 * @param value the next value
-	 */
-	public default void _setVoltageHarmonicDistortionL2L3(Float value) {
-		this.getVoltageHarmonicDistortionL2L3Channel().setNextValue(value);
 	}
 
 	/**
@@ -688,5 +624,24 @@ public interface PhoenixContactMeter extends ElectricityMeter, OpenemsComponent 
 	 */
 	public default void _setReactiveLeadingEnergy(Long value) {
 		this.getReactiveLeadingEnergyChannel().setNextValue(value);
+	}
+
+	public static void calculatePhaseVoltages(PhoenixContactMeter meter) {
+		meter.getVoltageL1L2Channel().onSetNextValue(value -> {
+			meter._setVoltageL1(calculatePhaseVoltage(value.get()));
+		});
+		meter.getVoltageL2L3Channel().onSetNextValue(value -> {
+			meter._setVoltageL2(calculatePhaseVoltage(value.get()));
+		});
+		meter.getVoltageL3L1Channel().onSetNextValue(value -> {
+			meter._setVoltageL3(calculatePhaseVoltage(value.get()));
+		});
+	}
+
+	private static Integer calculatePhaseVoltage(Integer phaseToPhaseVoltage) {
+		if (phaseToPhaseVoltage == null) {
+			return null;
+		}
+		return (int) Math.round(phaseToPhaseVoltage / Math.sqrt(3));
 	}
 }

@@ -73,9 +73,8 @@ public class PhoenixContactMeterImpl extends AbstractOpenemsModbusComponent
 				"Modbus", config.modbus_id())) {
 			return;
 		}
-
 		if (this.phaseWiring == PhaseWiring.THREE_PHASE_THREE_WIRE) {
-			this.calculatePhaseVoltagesFromLineToLine();
+			PhoenixContactMeter.calculatePhaseVoltages(this);
 		}
 		ElectricityMeter.calculateAverageVoltageFromPhases(this);
 		ElectricityMeter.calculateSumCurrentFromPhases(this);
@@ -86,25 +85,9 @@ public class PhoenixContactMeterImpl extends AbstractOpenemsModbusComponent
 		super.deactivate();
 	}
 
-	/**
-	 * Under 3P3W the device provides no phase (L-N) voltages. Derive them from the
-	 * line-to-line voltages as L-L / √3, assuming a symmetrical system.
-	 */
-	private void calculatePhaseVoltagesFromLineToLine() {
-		this.getVoltageL1L2Channel().onSetNextValue(v -> this._setVoltageL1(divideBySqrt3(v.get())));
-		this.getVoltageL2L3Channel().onSetNextValue(v -> this._setVoltageL2(divideBySqrt3(v.get())));
-		this.getVoltageL3L1Channel().onSetNextValue(v -> this._setVoltageL3(divideBySqrt3(v.get())));
-	}
-
-	private static Integer divideBySqrt3(Integer value) {
-		if (value == null) {
-			return null;
-		}
-		return (int) Math.round(value / Math.sqrt(3));
-	}
-
-	private static FloatDoublewordElement FLOAT32(int address) {
-		return new FloatDoublewordElement(address).wordOrder(LSWMSW);
+	@Override
+	public MeterType getMeterType() {
+		return this.type;
 	}
 
 	@Override
@@ -192,15 +175,6 @@ public class PhoenixContactMeterImpl extends AbstractOpenemsModbusComponent
 			modbusProtocol.addTask(new FC4ReadInputRegistersTask(0x8043, Priority.LOW, //
 					m(PhoenixContactMeter.ChannelId.PHASE_ANGLE, FLOAT32(0x8043))
 			));
-			// 3P3W: THD of U31 (0x8804) and I2 (0x880E) are not provided by the device.
-			modbusProtocol.addTask(new FC4ReadInputRegistersTask(0x8800, Priority.LOW, //
-					m(PhoenixContactMeter.ChannelId.VOLTAGE_HARMONIC_DISTORTION_L1_L2, FLOAT32(0x8800)),
-					m(PhoenixContactMeter.ChannelId.VOLTAGE_HARMONIC_DISTORTION_L2_L3, FLOAT32(0x8802)),
-					new DummyRegisterElement(0x8804, 0x880B),
-					m(PhoenixContactMeter.ChannelId.CURRENT_HARMONIC_DISTORTION_L1, FLOAT32(0x880C)),
-					new DummyRegisterElement(0x880E, 0x880F),
-					m(PhoenixContactMeter.ChannelId.CURRENT_HARMONIC_DISTORTION_L3, FLOAT32(0x8810))
-			));
 		}
 		case SINGLE_PHASE_TWO_WIRE -> {
 			// 1P2W (e.g. EEM-XM157): only L1 values are available.
@@ -231,18 +205,7 @@ public class PhoenixContactMeterImpl extends AbstractOpenemsModbusComponent
 			));
 		}
 		}
-
 		return modbusProtocol;
-	}
-
-	@Override
-	public String debugLog() {
-		return "L:" + this.getActivePower().asString();
-	}
-
-	@Override
-	public MeterType getMeterType() {
-		return this.type;
 	}
 
 	@Override
@@ -252,5 +215,14 @@ public class PhoenixContactMeterImpl extends AbstractOpenemsModbusComponent
 				ElectricityMeter.getModbusSlaveNatureTable(accessMode), //
 				ModbusSlaveNatureTable.of(PhoenixContactMeter.class, accessMode, 100) //
 						.build());
+	}
+
+	@Override
+	public String debugLog() {
+		return "L:" + this.getActivePower().asString();
+	}
+
+	private static FloatDoublewordElement FLOAT32(int address) {
+		return new FloatDoublewordElement(address).wordOrder(LSWMSW);
 	}
 }
