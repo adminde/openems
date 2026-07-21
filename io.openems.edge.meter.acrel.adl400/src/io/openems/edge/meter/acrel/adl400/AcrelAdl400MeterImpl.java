@@ -69,13 +69,14 @@ public class AcrelAdl400MeterImpl extends AbstractOpenemsModbusComponent
 
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
+		this.type = config.type();
+		this.invert = config.invert();
+		this.phaseWiring = config.phaseWiring();
+
 		if (super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId(), this.cm,
 				"Modbus", config.modbus_id())) {
 			return;
 		}
-		this.type = config.type();
-		this.invert = config.invert();
-		this.phaseWiring = config.phaseWiring();
 
 		if (this.phaseWiring == PhaseWiring.THREE_PHASE_THREE_WIRE) {
 			AcrelAdl400Meter.calculatePhaseVoltages(this);

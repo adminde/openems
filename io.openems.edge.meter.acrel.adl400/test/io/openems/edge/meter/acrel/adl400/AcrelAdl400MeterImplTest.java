@@ -58,14 +58,14 @@ public class AcrelAdl400MeterImplTest {
 						// Contiguous float block 0x0800..0x0835 (primary-side data)
 						.withRegisters(0x0800, //
 								f(230f), f(230f), f(230f), // phase voltages L1, L2, L3
-								dummy(6), // line-to-line voltages A-B, C-B, A-C
+								f(400f), f(400f), f(400f), // line-to-line voltages A-B, C-B, A-C
 								f(10f), f(10f), f(10f), // currents L1, L2, L3
 								dummy(2), // zero-line current
 								f(0.3f), f(0.3f), f(0.4f), f(1.0f), // active power L1, L2, L3, total
 								f(0.1f), f(0.1f), f(0.1f), f(0.3f), // reactive power L1, L2, L3, total
 								dummy(8), // apparent power A, B, C, total
 								f(0.95f), f(0.96f), f(0.97f), // power factor L1, L2, L3
-								dummy(2), // total power factor
+								f(0.98f), // total power factor
 								f(50f))) // frequency
 				.activate(MyConfig.create() //
 						.setId(METER_ID) //
@@ -81,6 +81,10 @@ public class AcrelAdl400MeterImplTest {
 						.output(ElectricityMeter.ChannelId.VOLTAGE_L2, 230000) //
 						.output(ElectricityMeter.ChannelId.VOLTAGE_L3, 230000) //
 						.output(ElectricityMeter.ChannelId.VOLTAGE, 230000) // average of phases
+						// Line-to-line voltages: V -> mV
+						.output(AcrelAdl400Meter.ChannelId.VOLTAGE_L1_L2, 400000) //
+						.output(AcrelAdl400Meter.ChannelId.VOLTAGE_L2_L3, 400000) //
+						.output(AcrelAdl400Meter.ChannelId.VOLTAGE_L3_L1, 400000) //
 						// Frequency: Hz -> mHz
 						.output(ElectricityMeter.ChannelId.FREQUENCY, 50000) //
 						// Current: A -> mA
@@ -98,6 +102,7 @@ public class AcrelAdl400MeterImplTest {
 						.output(AcrelAdl400Meter.ChannelId.POWER_FACTOR_L1, 0.95f) //
 						.output(AcrelAdl400Meter.ChannelId.POWER_FACTOR_L2, 0.96f) //
 						.output(AcrelAdl400Meter.ChannelId.POWER_FACTOR_L3, 0.97f) //
+						.output(AcrelAdl400Meter.ChannelId.POWER_FACTOR, 0.98f) //
 						// Energy: 0.1 kWh -> Wh (SCALE_FACTOR_2); forward -> PRODUCTION
 						.output(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY, 10000L) //
 						.output(ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY, 20000L) //
@@ -138,8 +143,11 @@ public class AcrelAdl400MeterImplTest {
 						.output(AcrelAdl400Meter.ChannelId.VOLTAGE_L1_L2, 400000) //
 						.output(AcrelAdl400Meter.ChannelId.VOLTAGE_L2_L3, 400000) //
 						.output(AcrelAdl400Meter.ChannelId.VOLTAGE_L3_L1, 400000) //
-						.output(ElectricityMeter.ChannelId.VOLTAGE, 400000) // average of phases
-						.output(ElectricityMeter.ChannelId.VOLTAGE_L1, null) // No L-N voltage
+						// Phase voltages derived from line-to-line: 400000 / sqrt(3)
+						.output(ElectricityMeter.ChannelId.VOLTAGE_L1, 230940) //
+						.output(ElectricityMeter.ChannelId.VOLTAGE_L2, 230940) //
+						.output(ElectricityMeter.ChannelId.VOLTAGE_L3, 230940) //
+						.output(ElectricityMeter.ChannelId.VOLTAGE, 230940) // average of phases
 						// Power: kW -> W (SCALE_FACTOR_3)
 						.output(ElectricityMeter.ChannelId.ACTIVE_POWER, 1000) //
 						.output(ElectricityMeter.ChannelId.REACTIVE_POWER, 300) //
