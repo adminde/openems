@@ -16,24 +16,26 @@ public class AcrelAdl400MeterImplTest {
 	private static final String MODBUS_ID = "modbus0";
 
 	/**
-	 * Encodes a float as two 16-bit Modbus words in LSWMSW order (low word first).
+	 * Encodes a float as two 16-bit Modbus words in MSWLSW order (high word first),
+	 * as transmitted by the ADL400.
 	 *
 	 * @param value the float value
-	 * @return the two words {@code [lsw, msw]}
+	 * @return the two words {@code [msw, lsw]}
 	 */
 	private static int[] f(float value) {
 		var bits = Float.floatToIntBits(value);
-		return new int[] { bits & 0xFFFF, (bits >>> 16) & 0xFFFF };
+		return new int[] { (bits >>> 16) & 0xFFFF, bits & 0xFFFF };
 	}
 
 	/**
-	 * Encodes an int (energy) as two 16-bit Modbus words in LSWMSW order.
+	 * Encodes an int (energy) as two 16-bit Modbus words in MSWLSW order (high word
+	 * first), as transmitted by the ADL400.
 	 *
 	 * @param value the int value
-	 * @return the two words {@code [lsw, msw]}
+	 * @return the two words {@code [msw, lsw]}
 	 */
 	private static int[] i32(int value) {
-		return new int[] { value & 0xFFFF, (value >>> 16) & 0xFFFF };
+		return new int[] { (value >>> 16) & 0xFFFF, value & 0xFFFF };
 	}
 
 	/**

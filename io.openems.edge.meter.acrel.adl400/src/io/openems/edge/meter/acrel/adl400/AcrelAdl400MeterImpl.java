@@ -4,7 +4,6 @@ import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3_AND_INVERT_IF_TRUE;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_3;
-import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;
 
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
@@ -115,80 +114,80 @@ public class AcrelAdl400MeterImpl extends AbstractOpenemsModbusComponent
 				new FC3ReadRegistersTask(0x084C, Priority.LOW, //
 						m(this.invert ? ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY
 								: ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY,
-								UINT32(0x084C), SCALE_FACTOR_2),
+								new UnsignedDoublewordElement(0x084C), SCALE_FACTOR_2),
 						new DummyRegisterElement(0x084E, 0x0855),
 						m(this.invert ? ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY
 								: ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY,
-								UINT32(0x0856), SCALE_FACTOR_2),
+								new UnsignedDoublewordElement(0x0856), SCALE_FACTOR_2),
 						new DummyRegisterElement(0x0858, 0x0869),
 						m(this.invert ? AcrelAdl400Meter.ChannelId.REACTIVE_LEADING_ENERGY
 								: AcrelAdl400Meter.ChannelId.REACTIVE_LAGGING_ENERGY,
-								UINT32(0x086A), SCALE_FACTOR_2),
+								new UnsignedDoublewordElement(0x086A), SCALE_FACTOR_2),
 						new DummyRegisterElement(0x086C, 0x0873),
 						m(this.invert ? AcrelAdl400Meter.ChannelId.REACTIVE_LAGGING_ENERGY
 								: AcrelAdl400Meter.ChannelId.REACTIVE_LEADING_ENERGY,
-								UINT32(0x0874), SCALE_FACTOR_2)
+								new UnsignedDoublewordElement(0x0874), SCALE_FACTOR_2)
 				)
 		);
 		if (this.phaseWiring == PhaseWiring.THREE_PHASE_FOUR_WIRE) {
 			modbusProtocol.addTask(new FC3ReadRegistersTask(0x0800, Priority.HIGH, //
-					m(ElectricityMeter.ChannelId.VOLTAGE_L1, FLOAT32(0x0800), SCALE_FACTOR_3),
-					m(ElectricityMeter.ChannelId.VOLTAGE_L2, FLOAT32(0x0802), SCALE_FACTOR_3),
-					m(ElectricityMeter.ChannelId.VOLTAGE_L3, FLOAT32(0x0804), SCALE_FACTOR_3),
-					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L1_L2, FLOAT32(0x0806), SCALE_FACTOR_3),
-					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L2_L3, FLOAT32(0x0808), SCALE_FACTOR_3),
-					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L3_L1, FLOAT32(0x080A), SCALE_FACTOR_3),
-					m(ElectricityMeter.ChannelId.CURRENT_L1, FLOAT32(0x080C),
+					m(ElectricityMeter.ChannelId.VOLTAGE_L1, new FloatDoublewordElement(0x0800), SCALE_FACTOR_3),
+					m(ElectricityMeter.ChannelId.VOLTAGE_L2, new FloatDoublewordElement(0x0802), SCALE_FACTOR_3),
+					m(ElectricityMeter.ChannelId.VOLTAGE_L3, new FloatDoublewordElement(0x0804), SCALE_FACTOR_3),
+					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L1_L2, new FloatDoublewordElement(0x0806), SCALE_FACTOR_3),
+					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L2_L3, new FloatDoublewordElement(0x0808), SCALE_FACTOR_3),
+					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L3_L1, new FloatDoublewordElement(0x080A), SCALE_FACTOR_3),
+					m(ElectricityMeter.ChannelId.CURRENT_L1, new FloatDoublewordElement(0x080C),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
-					m(ElectricityMeter.ChannelId.CURRENT_L2, FLOAT32(0x080E),
+					m(ElectricityMeter.ChannelId.CURRENT_L2, new FloatDoublewordElement(0x080E),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
-					m(ElectricityMeter.ChannelId.CURRENT_L3, FLOAT32(0x0810),
+					m(ElectricityMeter.ChannelId.CURRENT_L3, new FloatDoublewordElement(0x0810),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
 					new DummyRegisterElement(0x0812, 0x0813),
-					m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1, FLOAT32(0x0814),
+					m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1, new FloatDoublewordElement(0x0814),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
-					m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2, FLOAT32(0x0816),
+					m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2, new FloatDoublewordElement(0x0816),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
-					m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3, FLOAT32(0x0818),
+					m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3, new FloatDoublewordElement(0x0818),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
-					m(ElectricityMeter.ChannelId.ACTIVE_POWER, FLOAT32(0x081A),
+					m(ElectricityMeter.ChannelId.ACTIVE_POWER, new FloatDoublewordElement(0x081A),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
-					m(ElectricityMeter.ChannelId.REACTIVE_POWER_L1, FLOAT32(0x081C),
+					m(ElectricityMeter.ChannelId.REACTIVE_POWER_L1, new FloatDoublewordElement(0x081C),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
-					m(ElectricityMeter.ChannelId.REACTIVE_POWER_L2, FLOAT32(0x081E),
+					m(ElectricityMeter.ChannelId.REACTIVE_POWER_L2, new FloatDoublewordElement(0x081E),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
-					m(ElectricityMeter.ChannelId.REACTIVE_POWER_L3, FLOAT32(0x0820),
+					m(ElectricityMeter.ChannelId.REACTIVE_POWER_L3, new FloatDoublewordElement(0x0820),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
-					m(ElectricityMeter.ChannelId.REACTIVE_POWER, FLOAT32(0x0822),
+					m(ElectricityMeter.ChannelId.REACTIVE_POWER, new FloatDoublewordElement(0x0822),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
 					new DummyRegisterElement(0x0824, 0x082B),
-					m(AcrelAdl400Meter.ChannelId.POWER_FACTOR_L1, FLOAT32(0x082C)),
-					m(AcrelAdl400Meter.ChannelId.POWER_FACTOR_L2, FLOAT32(0x082E)),
-					m(AcrelAdl400Meter.ChannelId.POWER_FACTOR_L3, FLOAT32(0x0830)),
-					m(AcrelAdl400Meter.ChannelId.POWER_FACTOR, FLOAT32(0x0832)),
-					m(ElectricityMeter.ChannelId.FREQUENCY, FLOAT32(0x0834), SCALE_FACTOR_3)
+					m(AcrelAdl400Meter.ChannelId.POWER_FACTOR_L1, new FloatDoublewordElement(0x082C)),
+					m(AcrelAdl400Meter.ChannelId.POWER_FACTOR_L2, new FloatDoublewordElement(0x082E)),
+					m(AcrelAdl400Meter.ChannelId.POWER_FACTOR_L3, new FloatDoublewordElement(0x0830)),
+					m(AcrelAdl400Meter.ChannelId.POWER_FACTOR, new FloatDoublewordElement(0x0832)),
+					m(ElectricityMeter.ChannelId.FREQUENCY, new FloatDoublewordElement(0x0834), SCALE_FACTOR_3)
 			));
 		} else {
 			// 3P3W: No per-phase voltage, -power or power-factors. Only line-to-line voltage and totals.
 			modbusProtocol.addTask(new FC3ReadRegistersTask(0x0800, Priority.HIGH, //
 					new DummyRegisterElement(0x0800, 0x0805),
-					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L1_L2, FLOAT32(0x0806), SCALE_FACTOR_3),
-					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L2_L3, FLOAT32(0x0808), SCALE_FACTOR_3),
-					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L3_L1, FLOAT32(0x080A), SCALE_FACTOR_3),
-					m(ElectricityMeter.ChannelId.CURRENT_L1, FLOAT32(0x080C),
+					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L1_L2, new FloatDoublewordElement(0x0806), SCALE_FACTOR_3),
+					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L2_L3, new FloatDoublewordElement(0x0808), SCALE_FACTOR_3),
+					m(AcrelAdl400Meter.ChannelId.VOLTAGE_L3_L1, new FloatDoublewordElement(0x080A), SCALE_FACTOR_3),
+					m(ElectricityMeter.ChannelId.CURRENT_L1, new FloatDoublewordElement(0x080C),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
-					m(ElectricityMeter.ChannelId.CURRENT_L2, FLOAT32(0x080E),
+					m(ElectricityMeter.ChannelId.CURRENT_L2, new FloatDoublewordElement(0x080E),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
-					m(ElectricityMeter.ChannelId.CURRENT_L3, FLOAT32(0x0810),
+					m(ElectricityMeter.ChannelId.CURRENT_L3, new FloatDoublewordElement(0x0810),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
 					new DummyRegisterElement(0x0812, 0x0819),
-					m(ElectricityMeter.ChannelId.ACTIVE_POWER, FLOAT32(0x081A),
+					m(ElectricityMeter.ChannelId.ACTIVE_POWER, new FloatDoublewordElement(0x081A),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
 					new DummyRegisterElement(0x081C, 0x0821),
-					m(ElectricityMeter.ChannelId.REACTIVE_POWER, FLOAT32(0x0822),
+					m(ElectricityMeter.ChannelId.REACTIVE_POWER, new FloatDoublewordElement(0x0822),
 							SCALE_FACTOR_3_AND_INVERT_IF_TRUE(this.invert)),
 					new DummyRegisterElement(0x0824, 0x0833),
-					m(ElectricityMeter.ChannelId.FREQUENCY, FLOAT32(0x0834), SCALE_FACTOR_3)
+					m(ElectricityMeter.ChannelId.FREQUENCY, new FloatDoublewordElement(0x0834), SCALE_FACTOR_3)
 			));
 		}
 		return modbusProtocol;
@@ -208,11 +207,4 @@ public class AcrelAdl400MeterImpl extends AbstractOpenemsModbusComponent
 		return "L:" + this.getActivePower().asString();
 	}
 
-	private static FloatDoublewordElement FLOAT32(int address) {
-		return new FloatDoublewordElement(address).wordOrder(LSWMSW);
-	}
-
-	private static UnsignedDoublewordElement UINT32(int address) {
-		return new UnsignedDoublewordElement(address).wordOrder(LSWMSW);
-	}
 }
