@@ -12,6 +12,22 @@
 
 <ion-content>
   @if (!loading) {
+    @if ((edge.currentData | async)['channel']; as currentData) {
+      <ion-card-content class="underline">
+        @if (component.properties['ess.id']; as essId) {
+          <table class="full_width">
+            <tr>
+              <td style="width: 65%" translate>
+                GENERAL.SOC
+              </td>
+              <td style="width: 35%" class="align_right">
+                {{ currentData[essId + '/Soc'] | unitvalue:'%' }}
+              </td>
+            </tr>
+          </table>
+        }
+      </ion-card-content>
+    }
     @if (edge.roleIsAtLeast('owner')) {
       <ion-card-content>
         <form [formGroup]="formGroup">
