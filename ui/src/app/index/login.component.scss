@@ -1,0 +1,69 @@
+// Native credential inputs are styled to mimic a Material `ion-input` (floating label +
+// underline) purely via Ionic design tokens, so the look tracks the active theme without
+// forking Ionic's shadow-DOM stylesheet. See login.component.html for why native inputs
+// are used instead of ion-input.
+
+$label-scale: 0.75;
+$float-distance: 20px;
+
+.login-field {
+    position: relative;
+    margin-top: $float-distance;
+    padding-top: 2px;
+}
+
+.login-input {
+    width: 100%;
+    padding: 6px 0;
+    border: none;
+    border-bottom: 1px solid var(--ion-color-step-300, #b3b3b3);
+    outline: none;
+    background: transparent;
+    color: var(--ion-text-color, #000);
+    font: inherit;
+    font-size: 1rem;
+    caret-color: var(--ion-color-primary, #3880ff);
+}
+
+// Hide the (space) placeholder that only exists to drive the :placeholder-shown state;
+// the floating label acts as the visible placeholder.
+.login-input::placeholder {
+    color: transparent;
+}
+
+.login-input:focus {
+    // Emulate the Material focus highlight (a second pixel on the underline).
+    border-bottom-color: var(--ion-color-primary, #3880ff);
+    box-shadow: 0 1px 0 0 var(--ion-color-primary, #3880ff);
+}
+
+.login-label {
+    position: absolute;
+    left: 0;
+    top: 8px;
+    // Keep the label above any browser autofill background (mirrors Ionic's ion-input).
+    z-index: 2;
+    transform-origin: left top;
+    color: var(--ion-color-medium, #92949c);
+    transition: transform 0.2s ease, color 0.2s ease;
+    pointer-events: none;
+}
+
+// Float the label up when the field is focused, holds a value, or was autofilled.
+.login-input:focus ~ .login-label,
+.login-input:not(:placeholder-shown) ~ .login-label,
+.login-input:-webkit-autofill ~ .login-label {
+    transform: translateY(-#{$float-distance}) scale($label-scale);
+}
+
+.login-input:focus ~ .login-label {
+    color: var(--ion-color-primary, #3880ff);
+}
+
+// Match Ionic's own ion-input handling of the autofill state: request a transparent
+// background (honored by Firefox). Chrome keeps its autofill background via a UA
+// !important rule, so — as Ionic does — the floating label sits above it via z-index
+// rather than fighting it with a hack.
+.login-input:-webkit-autofill {
+    background-color: transparent;
+}
