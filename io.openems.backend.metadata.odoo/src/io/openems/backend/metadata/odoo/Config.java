@@ -51,6 +51,9 @@ public @interface Config {
 	@AttributeDefinition(name = "Number of Threads for Requests", description = "Pool-Size: the number of threads dedicated to handle the request tasks")
 	int requestPoolSize() default 30;
 
+	@AttributeDefinition(name = "User Cache TTL [s]", description = "Seconds to cache the external user-id to Odoo user mapping. Serves repeated authentications (e.g. UI reloads) without querying Odoo. Entering 0 disables caching.")
+	int userCacheTtl() default 60;
+
 	@AttributeDefinition(name = "Number of Threads", description = "Pool-Size: the maximum number of concurrent connections")
 	int pgConnectionPoolSize() default 40;
 
