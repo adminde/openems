@@ -11,6 +11,8 @@ import static io.openems.common.utils.ThreadPoolUtils.shutdownAndAwaitTerminatio
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import java.sql.SQLException;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.HashMap;
@@ -117,10 +119,10 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 	public static final int EXPECTED_NUMBER_OF_EDGES = 1_000;
 	
 	private final Logger log = LoggerFactory.getLogger(MetadataOdoo.class);
-	private final EdgeCache edgeCache;
 	private final OdooEdgeHandler edgeHandler = new OdooEdgeHandler(this);
-	/** Maps User-ID to {@link User}. */
-	private final ConcurrentHashMap<String, User> users = new ConcurrentHashMap<>();
+	private final EdgeCache edgeCache;
+	private final UserCache userCache;
+	private Duration userCacheTtl;
 
 	// Maps User-ID to Edge-ID Roles
 	private final Map<String, Map<String, Role>> userRoles = new ConcurrentHashMap<>();
@@ -155,6 +157,7 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 		super("Metadata.Odoo");
 
 		this.edgeCache = new EdgeCache(this);
+		this.userCache = new UserCache();
 	}
 
 	@Activate
@@ -168,6 +171,7 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 
 		this.debugMode = config.debugMode();
 		this.authOAuthProviderName = config.authOAuthProviderName();
+		this.userCacheTtl = Duration.ofSeconds(config.userCacheTtl());
 
 		this.bridgeHttp = this.bridgeHttpFactory.get();
 		this.bridgeHttp.setDebugMode(config.debugMode());
@@ -250,7 +254,7 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 	@Override
 	public CompletableFuture<Void> logout(String token) {
 		return this.authenticate(token).thenAccept(user -> {
-			this.users.remove(user.getId());
+			this.userCache.remove(user.getUserId());
 			this.odooHandler.logout(user.getToken());
 		});
 	}
@@ -280,8 +284,7 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 
 				var user = new MyUser(odooUserId, externalUserId, login, name, "", language, globalRole,
 						hasMultipleEdges, settings);
-				this.users.put(login, user);
-				return user;
+				return this.userCache.addOrUpdate(user, Instant.now().plus(this.userCacheTtl));
 			} catch (OpenemsNamedException e) {
 				throw new CompletionException(e);
 			}
@@ -313,19 +316,26 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 
 	@Override
 	public Optional<User> getUser(String userId) {
-		return Optional.ofNullable(this.users.get(userId));
+		return Optional.ofNullable(this.userCache.getUserFromExternalId(userId));
 	}
 
 	@Override
 	public CompletableFuture<User> getUserByExternalId(String userId) {
+		final var cached = this.userCache.getUserFromExternalId(userId, Instant.now());
+		if (cached != null) {
+			return CompletableFuture.completedFuture(cached);
+		}
+		return this.requestUserByExternalId(userId);
+	}
+
+	private CompletableFuture<User> requestUserByExternalId(String userId) {
 		return this.httpBridgeOdooService.getUserInfo(new OdooGetUserInfoRequest(userId))
 				.thenApply(getUserInfoResponse -> {
 					var user = new MyUser(getUserInfoResponse.odooUserId(), userId, getUserInfoResponse.login(),
 							getUserInfoResponse.name(), "", getUserInfoResponse.language(),
 							getUserInfoResponse.globalRole(), getUserInfoResponse.hasMultipleEdges(),
 							getUserInfoResponse.settings());
-					this.users.put(getUserInfoResponse.login(), user);
-					return user;
+					return this.userCache.addOrUpdate(user, Instant.now().plus(this.userCacheTtl));
 				});
 	}
 
