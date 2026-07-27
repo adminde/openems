@@ -23,6 +23,15 @@ $float-distance: 20px;
     font: inherit;
     font-size: 1rem;
     caret-color: var(--ion-color-primary, #3880ff);
+    // Reset the browser's native control chrome (mirrors ion-input's native-input).
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+// Firefox draws a red box-shadow glow on :invalid (i.e. empty required) fields; suppress it
+// as ion-input does. Placed before :focus so the focus highlight still wins while focused.
+.login-input:invalid {
+    box-shadow: none;
 }
 
 // Hide the (space) placeholder that only exists to drive the :placeholder-shown state;
@@ -43,8 +52,8 @@ $float-distance: 20px;
     top: 8px;
     // Keep the label above any browser autofill background (mirrors Ionic's ion-input).
     z-index: 2;
-    transform-origin: left top;
     color: var(--ion-color-medium, #92949c);
+    transform-origin: left top;
     transition: transform 0.2s ease, color 0.2s ease;
     pointer-events: none;
 }
