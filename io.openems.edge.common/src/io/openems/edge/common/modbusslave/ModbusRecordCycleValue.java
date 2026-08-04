@@ -46,12 +46,12 @@ public class ModbusRecordCycleValue<T extends OpenemsComponent> extends ModbusRe
 
 	/**
 	 * Update the Value of this ModbusRecord.
-	 * 
+	 *
 	 * <p>
 	 * This method is called on every cycle by the run()-method of the
 	 * Modbus-TCP-Api-Controller. Value is set to 'null' if provided 'component' is
 	 * null.
-	 * 
+	 *
 	 * @param component the {@link OpenemsComponent}
 	 */
 	public void updateValue(T component) {

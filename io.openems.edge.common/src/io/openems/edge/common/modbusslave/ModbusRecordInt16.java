@@ -5,8 +5,7 @@ import io.openems.common.types.OptionsEnum;
 import io.openems.edge.common.type.TypeUtils;
 
 public class ModbusRecordInt16 extends ModbusRecordConstant {
-
-	public static final int UNDEFINED_VALUE = Short.MIN_VALUE;
+	public static final int UNDEFINED_VALUE = Short.MAX_VALUE;
 	public static final byte[] UNDEFINED_BYTE_ARRAY = toByteArray(UNDEFINED_VALUE);
 	public static final int BYTE_LENGTH = 2;
 
@@ -19,7 +18,7 @@ public class ModbusRecordInt16 extends ModbusRecordConstant {
 
 	@Override
 	public String toString() {
-		return generateToString("ModbusRecordInt16", this.value, v -> Integer.toHexString(v));
+		return generateToString("ModbusRecordInt16", this.value, Integer::toHexString);
 	}
 
 	/**
@@ -30,7 +29,7 @@ public class ModbusRecordInt16 extends ModbusRecordConstant {
 	 */
 	public static byte[] toByteArray(int value) {
 		return new byte[] { //
-				(byte) (value >>> 8), //
+				(byte) (value >> 8), //
 				(byte) (value) //
 		};
 	}
@@ -50,7 +49,8 @@ public class ModbusRecordInt16 extends ModbusRecordConstant {
 
 	@Override
 	public String getValueDescription() {
-		return this.value != null ? "\"" + Integer.toString(this.value) + "\"" : "";
+		return this.value != null //
+				? "\"" + Integer.toString(this.value) + "\""
+				: "";
 	}
-
 }

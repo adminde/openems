@@ -6,7 +6,7 @@ import io.openems.edge.common.type.TypeUtils;
 
 public class ModbusRecordInt32 extends ModbusRecordConstant {
 
-	public static final long UNDEFINED_VALUE = Integer.MIN_VALUE;
+	public static final long UNDEFINED_VALUE = Integer.MAX_VALUE;
 	public static final byte[] UNDEFINED_BYTE_ARRAY = toByteArray(UNDEFINED_VALUE);
 	public static final int BYTE_LENGTH = 4;
 

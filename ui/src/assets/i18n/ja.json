@@ -162,9 +162,6 @@
       },
       "WIDGETS": {
         "AUTARCHY_INFO": "自給自足は、発電と蓄電池放電によってカバーできる現在の電力の割合を示します。",
-        "BALANCING": {
-          "GRID_SETPOINT_TARGET": "Grid draw setpoint"
-        },
         "CHANNELTRESHOLD": {
           "ACTIVE_TIME_OVER_PERIOD": "アクティブ時間",
           "OUTPUT": "出力",

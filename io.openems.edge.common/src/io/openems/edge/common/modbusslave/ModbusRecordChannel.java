@@ -3,6 +3,7 @@ package io.openems.edge.common.modbusslave;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +21,7 @@ public class ModbusRecordChannel extends ModbusRecord {
 
 	private final ChannelId channelId;
 	private final AccessMode accessMode;
+	private final UnaryOperator<Number> mapValue;
 
 	protected Consumer<Object> onWriteValueCallback = null;
 
@@ -29,10 +31,12 @@ public class ModbusRecordChannel extends ModbusRecord {
 	 */
 	private final Byte[] writeValueBuffer;
 
-	public ModbusRecordChannel(int offset, ModbusType type, ChannelId channelId, AccessMode modbusApiAccessMode) {
+	public ModbusRecordChannel(int offset, ModbusType type, ChannelId channelId, AccessMode modbusApiAccessMode,
+			UnaryOperator<Number> mapValue) {
 		super(offset, type);
 		this.channelId = channelId;
 		this.accessMode = evaluateActualAccessMode(channelId, modbusApiAccessMode);
+		this.mapValue = mapValue;
 
 		// initialize buffer
 		var byteLength = switch (this.getType()) {
@@ -101,7 +105,7 @@ public class ModbusRecordChannel extends ModbusRecord {
 
 				case READ_ONLY, READ_WRITE -> {
 					try {
-						yield channel.value().get();
+						yield this.getMappedValueOrChannelValue(channel);
 					} catch (IllegalArgumentException e) {
 						this.log.warn("Channel [" + channel.address() + "] is not available: " + e.getMessage());
 						yield null;
@@ -169,7 +173,7 @@ public class ModbusRecordChannel extends ModbusRecord {
 
 	/**
 	 * Add a onWriteValue callback.
-	 * 
+	 *
 	 * @param onWriteValueCallback the callback
 	 */
 	public void onWriteValue(Consumer<Object> onWriteValueCallback) {
@@ -245,4 +249,19 @@ public class ModbusRecordChannel extends ModbusRecord {
 		return this.accessMode;
 	}
 
+	private Object getMappedValueOrChannelValue(final Channel<?> channel) {
+		final var channelValue = channel.value().get();
+		if (channelValue == null || this.mapValue == null) {
+			return channelValue;
+		}
+		return this.applyValueMapper(channelValue);
+	}
+
+	private Object applyValueMapper(Object value) {
+		if (value instanceof Number number) {
+			return this.mapValue.apply(number);
+		}
+		throw new IllegalArgumentException(
+				"Mapper can only be applied to Number values, but got [" + value.getClass().getName() + "]");
+	}
 }

@@ -147,9 +147,6 @@
       },
       "WIDGETS": {
         "AUTARCHY_INFO": "L'AUtarcie indique le pourcentage de la puissance actuelle qui peut être couverte par la production et la décharge du stockage.",
-        "BALANCING": {
-          "GRID_SETPOINT_TARGET": "Grid draw setpoint"
-        },
         "CHANNELTRESHOLD": {
           "OUTPUT": "Output"
         },

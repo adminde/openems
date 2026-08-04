@@ -143,9 +143,6 @@
       },
       "WIDGETS": {
         "AUTARCHY_INFO": "Autarky geeft het percentage huidig ​​vermogen aan dat kan worden gedekt door opwekking en ontlading van de opslag.",
-        "BALANCING": {
-          "GRID_SETPOINT_TARGET": "Grid draw setpoint"
-        },
         "CHANNELTRESHOLD": {
           "OUTPUT": "uitgang"
         },

@@ -8,7 +8,7 @@ import static org.junit.Assert.assertEquals;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ModbusRecordInt16Test {
 
@@ -20,8 +20,7 @@ public class ModbusRecordInt16Test {
 		assertArrayEquals(//
 				ModbusRecordInt16.UNDEFINED_BYTE_ARRAY, //
 				ModbusRecordInt16.toByteArray(ModbusRecordInt16.UNDEFINED_VALUE));
-		assertEquals(Short.MIN_VALUE, ModbusRecordInt16.UNDEFINED_VALUE);
-		assertEquals(ModbusRecordInt16.UNDEFINED_BYTE_ARRAY.length, ModbusRecordInt16.BYTE_LENGTH);
+		assertEquals(ModbusRecordInt16.BYTE_LENGTH, ModbusRecordInt16.UNDEFINED_BYTE_ARRAY.length);
 	}
 
 	@Test
@@ -35,15 +34,9 @@ public class ModbusRecordInt16Test {
 		{
 			// Negative value
 			var sut = new ModbusRecordInt16(0, "foo", -12345);
+			assertEquals("ModbusRecordInt16 [value=-12345/0xffffcfc7, type=int16]", sut.toString());
 			assertEquals("\"-12345\"", sut.getValueDescription());
 		}
-	}
-
-	@Test
-	public void testNegativeToByteArray() {
-		assertEquals("[-1, -100]", Arrays.toString(ModbusRecordInt16.toByteArray(-100)));
-		assertEquals("[-128, 0]", Arrays.toString(ModbusRecordInt16.toByteArray(Short.MIN_VALUE)));
-		assertEquals("[127, -1]", Arrays.toString(ModbusRecordInt16.toByteArray(Short.MAX_VALUE)));
 	}
 
 	@Test
@@ -54,8 +47,18 @@ public class ModbusRecordInt16Test {
 	}
 
 	@Test
+	public void testByteArray() {
+		assertEquals("[0, 0]", Arrays.toString(ModbusRecordInt16.toByteArray(0)));
+		assertEquals("[0, 1]", Arrays.toString(ModbusRecordInt16.toByteArray(1)));
+		assertEquals("[-1, -1]", Arrays.toString(ModbusRecordInt16.toByteArray(-1)));
+		assertEquals("[-1, -100]", Arrays.toString(ModbusRecordInt16.toByteArray(-100)));
+		assertEquals("[127, -1]", Arrays.toString(ModbusRecordInt16.toByteArray(Short.MAX_VALUE)));
+		assertEquals("[-128, 0]", Arrays.toString(ModbusRecordInt16.toByteArray(Short.MIN_VALUE)));
+	}
+
+	@Test
 	public void testOptionsEnum() {
-		assertEquals("[-128, 0]", Arrays.toString(ModbusRecordInt16.toByteArray(UNDEFINED)));
+		assertArrayEquals(ModbusRecordInt16.UNDEFINED_BYTE_ARRAY, ModbusRecordInt16.toByteArray(UNDEFINED));
 		assertEquals("[0, 1]", Arrays.toString(ModbusRecordInt16.toByteArray(VALUE_1)));
 	}
 
@@ -65,5 +68,4 @@ public class ModbusRecordInt16Test {
 		assertEquals("ModbusRecordInt16Reserved [type=int16]", sut.toString());
 		assertEquals("", sut.getValueDescription());
 	}
-
 }

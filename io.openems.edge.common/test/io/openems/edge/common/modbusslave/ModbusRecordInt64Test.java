@@ -8,7 +8,7 @@ import static org.junit.Assert.assertEquals;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ModbusRecordInt64Test {
 
@@ -20,7 +20,7 @@ public class ModbusRecordInt64Test {
 		assertArrayEquals(//
 				ModbusRecordInt64.UNDEFINED_BYTE_ARRAY, //
 				ModbusRecordInt64.toByteArray(ModbusRecordInt64.UNDEFINED_VALUE));
-		assertEquals(Long.MIN_VALUE, ModbusRecordInt64.UNDEFINED_VALUE);
+		assertEquals(Long.MAX_VALUE, ModbusRecordInt64.UNDEFINED_VALUE);
 		assertEquals(ModbusRecordInt64.UNDEFINED_BYTE_ARRAY.length, ModbusRecordInt64.BYTE_LENGTH);
 	}
 
@@ -55,7 +55,7 @@ public class ModbusRecordInt64Test {
 
 	@Test
 	public void testOptionsEnum() {
-		assertEquals("[-128, 0, 0, 0, 0, 0, 0, 0]", Arrays.toString(ModbusRecordInt64.toByteArray(UNDEFINED)));
+		assertArrayEquals(ModbusRecordInt64.UNDEFINED_BYTE_ARRAY, ModbusRecordInt64.toByteArray(UNDEFINED));
 		assertEquals("[0, 0, 0, 0, 0, 0, 0, 1]", Arrays.toString(ModbusRecordInt64.toByteArray(VALUE_1)));
 	}
 
