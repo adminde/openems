@@ -17,7 +17,7 @@ import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.jsonrpc.request.QueryHistoricTimeseriesDataRequest;
 import io.openems.common.jsonrpc.request.QueryHistoricTimeseriesEnergyPerPeriodRequest;
 import io.openems.common.jsonrpc.request.QueryHistoricTimeseriesEnergyRequest;
-import io.openems.common.jsonrpc.request.QueryHistoricTimeseriesExportXlxsRequest;
+import io.openems.common.jsonrpc.request.QueryHistoricTimeseriesExportXlsxRequest;
 import io.openems.common.jsonrpc.response.QueryHistoricTimeseriesDataResponse;
 import io.openems.common.jsonrpc.response.QueryHistoricTimeseriesEnergyPerPeriodResponse;
 import io.openems.common.jsonrpc.response.QueryHistoricTimeseriesEnergyResponse;
@@ -71,15 +71,20 @@ public class QueryRequestHandler implements JsonApi {
 					request.getFromDate(), request.getToDate(), request.getChannels(), request.getResolution());
 			return new QueryHistoricTimeseriesEnergyPerPeriodResponse(request.getId(), data);
 		});
-		builder.handleRequest(QueryHistoricTimeseriesExportXlxsRequest.METHOD, call -> {
-			final var request = QueryHistoricTimeseriesExportXlxsRequest.from(call.getRequest());
-			return this.handleQueryHistoricTimeseriesExportXlxsRequest(request,
-					call.get(EdgeKeys.USER_KEY).getLanguage());
-		});
+
+		for (var method : new String[] {
+				QueryHistoricTimeseriesExportXlsxRequest.METHOD,
+				QueryHistoricTimeseriesExportXlsxRequest.METHOD_ALIAS }) {
+			builder.handleRequest(method, call -> {
+				final var request = QueryHistoricTimeseriesExportXlsxRequest.from(call.getRequest());
+				return this.handleQueryHistoricTimeseriesExportXlsxRequest(request,
+						call.get(EdgeKeys.USER_KEY).getLanguage());
+			});
+		}
 	}
 
-	private QueryHistoricTimeseriesExportXlsxResponse handleQueryHistoricTimeseriesExportXlxsRequest(
-			QueryHistoricTimeseriesExportXlxsRequest request, Language language) throws OpenemsNamedException {
+	private QueryHistoricTimeseriesExportXlsxResponse handleQueryHistoricTimeseriesExportXlsxRequest(
+			QueryHistoricTimeseriesExportXlsxRequest request, Language language) throws OpenemsNamedException {
 		final var powerChannels = new TreeSet<ChannelAddress>(QueryHistoricTimeseriesExportXlsxResponse.POWER_CHANNELS);
 		final var energyChannels = new TreeSet<ChannelAddress>(
 				QueryHistoricTimeseriesExportXlsxResponse.ENERGY_CHANNELS);
@@ -100,7 +105,7 @@ public class QueryRequestHandler implements JsonApi {
 					request.getToDate(), powerData, energyData, language, detailData);
 
 		} catch (IOException e) {
-			throw new OpenemsException("QueryHistoricTimeseriesExportXlxsRequest failed: " + e.getMessage());
+			throw new OpenemsException("QueryHistoricTimeseriesExportXlsxRequest failed: " + e.getMessage());
 		}
 	}
 

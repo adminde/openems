@@ -7,14 +7,14 @@ import java.time.format.DateTimeFormatter;
 
 import io.openems.common.jsonrpc.serialization.EndpointRequestType;
 import io.openems.common.jsonrpc.serialization.JsonSerializer;
-import io.openems.common.jsonrpc.type.QueryHistoricTimeseriesExportXlxs.Request;
+import io.openems.common.jsonrpc.type.QueryHistoricTimeseriesExportXlsx.Request;
 import io.openems.common.utils.JsonUtils;
 
-public class QueryHistoricTimeseriesExportXlxs implements EndpointRequestType<Request, Base64RequestType> {
+public class QueryHistoricTimeseriesExportXlsx implements EndpointRequestType<Request, Base64RequestType> {
 
 	@Override
 	public String getMethod() {
-		return "queryHistoricTimeseriesExportXlxs";
+		return "queryHistoricTimeseriesExportXlsx";
 	}
 
 	@Override
@@ -34,7 +34,7 @@ public class QueryHistoricTimeseriesExportXlxs implements EndpointRequestType<Re
 
 		/**
 		 * Returns a {@link JsonSerializer} for a
-		 * {@link QueryHistoricTimeseriesExportXlxs}.
+		 * {@link QueryHistoricTimeseriesExportXlsx}.
 		 * 
 		 * @return the created {@link JsonSerializer}
 		 */
