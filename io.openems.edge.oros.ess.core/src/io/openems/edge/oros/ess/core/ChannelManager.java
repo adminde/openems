@@ -80,7 +80,9 @@ public class ChannelManager extends AbstractChannelListenerManager {
 	 * @param inverter                   the {@link PowerConversionSystem}
 	 */
 	public void activate(ClockProvider clock, PowerConversionSystem inverter, BatteryManagementSystem battery) {
-		this.stateOfChargeLimiter = new StateOfChargeLimiter(this.parent, battery);
+		if (this.stateOfChargeLimiter == null) {
+			this.stateOfChargeLimiter = new StateOfChargeLimiter(this.parent, battery);
+		}
 
 		this.addBatteryListener(clock, battery);
 		this.addInverterListener(inverter);
@@ -115,7 +117,11 @@ public class ChannelManager extends AbstractChannelListenerManager {
 	}
 
 	private void addEssSocListener(ClockProvider clock, BatteryManagementSystem battery) {
-		final Consumer<Value<Integer>> trigger = ignored -> getStateOfChargeLimiter().accept(clock);
+		if (this.stateOfChargeLimiter == null) {
+			this.stateOfChargeLimiter = new StateOfChargeLimiter(this.parent, battery);
+		}
+		final Consumer<Value<Integer>> trigger = ignored -> stateOfChargeLimiter.accept(clock);
+
 		battery.getSocChannel().onSetNextValue(trigger);
 		battery.getChargeMaxCurrentChannel().onSetNextValue(trigger);
 		battery.getDischargeMaxCurrentChannel().onSetNextValue(trigger);
