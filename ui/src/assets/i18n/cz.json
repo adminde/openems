@@ -145,9 +145,6 @@
       },
       "WIDGETS": {
         "AUTARCHY_INFO": "Autarky označuje procento aktuální energie, kterou lze pokrýt vybitím z výroby a skladování.",
-        "BALANCING": {
-          "GRID_SETPOINT_TARGET": "Grid draw setpoint"
-        },
         "CHANNELTRESHOLD": {
           "ACTIVE_TIME_OVER_PERIOD": "Čas",
           "OUTPUT": "Výstup",

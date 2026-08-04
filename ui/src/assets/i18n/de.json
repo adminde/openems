@@ -263,9 +263,6 @@
             "SYSTEMUPDATE": "Systemupdate",
             "WIDGETS": {
                 "AUTARCHY_INFO": "Die Autarkie gibt an zu wie viel Prozent die aktuell genutzte Leistung durch Erzeugung und Speicherentladung gedeckt wird.",
-                "BALANCING": {
-                    "GRID_SETPOINT_TARGET": "Netzbezug Sollwert"
-                },
                 "CHANNELTRESHOLD": {
                     "ACTIVE_TIME_OVER_PERIOD": "Aktive Zeit",
                     "OUTPUT": "Ausgang",

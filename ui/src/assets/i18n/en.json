@@ -263,9 +263,6 @@
             "SYSTEMUPDATE": "System update",
             "WIDGETS": {
                 "AUTARCHY_INFO": "Autarchy indicates the percentage of current power that can be covered by generation and storage discharge.",
-                "BALANCING": {
-                    "GRID_SETPOINT_TARGET": "Grid draw setpoint"
-                },
                 "CHANNELTRESHOLD": {
                     "ACTIVE_TIME_OVER_PERIOD": "Time",
                     "OUTPUT": "Output",

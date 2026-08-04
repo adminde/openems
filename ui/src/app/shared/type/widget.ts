@@ -43,8 +43,8 @@ export enum WidgetFactory {
     "Controller.IO.Heating.Room",
     "Controller.Io.HeatPump.SgReady",
     "Controller.Heat.Heatingelement",
-    "Controller.Symmetric.Balancing",
     "Controller.Symmetric.PeakShaving",
+    "Controller.Symmetric.Balancing",
     "Controller.TimeslotPeakshaving",
     "Evcs.Cluster.PeakShaving",
     "Evcs.Cluster.SelfConsumption",
@@ -158,13 +158,6 @@ export class Widgets {
                     // Clever-PV Widget should be shown only if readOnly property is explicitely set to false
                     const readOnly = config.getPropertyFromComponent<boolean>(component, "readOnly");
                     if (readOnly !== false) {
-                        continue;
-                    }
-                }
-                if (factory === "Controller.Symmetric.Balancing") {
-                    // Balancing Widget should be shown only above a configured Grid-Connection-Point fuse limit
-                    const gridConnectionPointFuseLimit = config.getComponentProperties("_meta")?.["gridConnectionPointFuseLimit"];
-                    if (!gridConnectionPointFuseLimit || gridConnectionPointFuseLimit <= 100) {
                         continue;
                     }
                 }
