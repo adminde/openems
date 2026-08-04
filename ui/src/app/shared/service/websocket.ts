@@ -265,7 +265,9 @@ export class Websocket implements WebsocketInterface {
                         const token = this.cookieService.get("token");
                         const oAuthRedirectState = this.cookieService.get("oauthredirectstate");
                         const refreshToken = this.cookieService.get("refresh_token");
-                        if (token) {
+                        // In OAuth mode the short-lived access token must not be replayed.
+                        // The refresh-token flow is authoritative for re-authentication.
+                        if (token && !OAuthService.isOAuth(this.cookieService)) {
                             this.state.set(States.AUTHENTICATING_WITH_TOKEN);
 
                             // Login with Session Token
