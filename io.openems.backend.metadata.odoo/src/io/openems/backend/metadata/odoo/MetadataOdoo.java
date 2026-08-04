@@ -20,6 +20,7 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -43,7 +44,6 @@ import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -68,6 +68,7 @@ import io.openems.backend.common.metadata.Metadata;
 import io.openems.backend.common.metadata.User;
 import io.openems.backend.metadata.odoo.odoo.Credentials;
 import io.openems.backend.metadata.odoo.odoo.FieldValue;
+import io.openems.backend.metadata.odoo.odoo.HttpBridgeOdooAuthenticationServiceDefinition;
 import io.openems.backend.metadata.odoo.odoo.HttpBridgeOdooService;
 import io.openems.backend.metadata.odoo.odoo.HttpBridgeOdooServiceDefinition;
 import io.openems.backend.metadata.odoo.odoo.OdooHandler;
@@ -80,6 +81,9 @@ import io.openems.backend.metrics.prometheus.DebugExecutor;
 import io.openems.backend.metrics.prometheus.httpbridge.HttpBridgePrometheusMetricServiceDefinition;
 import io.openems.common.bridge.http.api.BridgeHttp;
 import io.openems.common.bridge.http.api.BridgeHttpFactory;
+import io.openems.common.bridge.http.authentication.HttpBridgeAuthenticationServiceDefinition;
+import io.openems.common.bridge.http.logging.HttpBridgeLoggingServiceConfiguration;
+import io.openems.common.bridge.http.logging.HttpBridgeLoggingServiceDefinition;
 import io.openems.common.channel.Level;
 import io.openems.common.event.EventBuilder;
 import io.openems.common.event.EventReader;
@@ -117,7 +121,7 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 	public static final String ODOO_EDGE_NAME = "edge";
 	public static final String ODOO_SETUP_PROTOCOL_EDGE_FIELD = "device_id";
 	public static final int EXPECTED_NUMBER_OF_EDGES = 1_000;
-	
+
 	private final Logger log = LoggerFactory.getLogger(MetadataOdoo.class);
 	private final OdooEdgeHandler edgeHandler = new OdooEdgeHandler(this);
 	private final EdgeCache edgeCache;
@@ -177,8 +181,16 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 		this.bridgeHttp.setDebugMode(config.debugMode());
 		this.bridgeHttp.setMaximumPoolSize(config.requestPoolSize());
 
+		this.bridgeHttp.createService(
+				new HttpBridgeLoggingServiceDefinition(HttpBridgeLoggingServiceConfiguration.contextId(ID) //
+						.withSanitizeHeader(HttpBridgeLoggingServiceConfiguration.SANITIZE_COOKIE)));
 		this.bridgeHttp.createService(HttpBridgePrometheusMetricServiceDefinition.byPath(ID));
-		this.httpBridgeOdooService = this.bridgeHttp
+		final var httpBridgeOdooAuthService = this.bridgeHttp
+				.createService(new HttpBridgeOdooAuthenticationServiceDefinition(Credentials.fromConfig(config)));
+		var authenticationService = this.bridgeHttp
+				.createService(new HttpBridgeAuthenticationServiceDefinition<>(httpBridgeOdooAuthService));
+
+		this.httpBridgeOdooService = authenticationService
 				.createService(new HttpBridgeOdooServiceDefinition(Credentials.fromConfig(config)));
 
 		this.eventExecutor = new DebugExecutor(MetadataOdoo.ID, //
@@ -705,20 +717,21 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 		});
 	}
 
+	private static final Set<String> freeApps = Set.of(//
+			"App.Hardware.KMtronic8Channel", //
+			"App.Cloud.Clever-PV", //
+			"App.Prediction.Weather", //
+			"App.Meter.Shelly", //
+			"App.Evse.ElectricVehicle.Generic", //
+			"App.Tariff.Manual.EEG2025.GridSell" //
+	);
+
 	@Override
 	public CompletableFuture<Boolean> isAppFree(//
 			final User user, //
 			final String appId //
 	) {
-		return this.requestExecutor.submit("isAppFree", () -> {
-			return Sets.newHashSet(//
-					"App.Hardware.KMtronic8Channel", //
-					"App.Cloud.Clever-PV", //
-					"App.Prediction.Weather", //
-					"App.Meter.Shelly", //
-					"App.Evse.ElectricVehicle.Generic" //
-			).contains(appId);
-		});
+		return this.requestExecutor.submit("isAppFree", () -> freeApps.contains(appId));
 	}
 
 	@Override
