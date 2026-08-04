@@ -33,12 +33,6 @@
 		</dependency>
 		<!-- com -->
 		<dependency>
-			<!-- cron expression parsing (UNIX 5-field format) -->
-			<groupId>com.cronutils</groupId>
-			<artifactId>cron-utils</artifactId>
-			<version>9.2.1</version>
-		</dependency>
-		<dependency>
 			<groupId>com.fazecast</groupId>
 			<artifactId>jSerialComm</artifactId>
 			<version>2.11.4</version>
