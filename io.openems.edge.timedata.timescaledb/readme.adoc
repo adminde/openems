@@ -1,84 +1,52 @@
-= Timedata TimescaleDB (Edge)
+= Timedata TimescaleDB
 
-Persists OpenEMS Edge Channel data locally into a
-https://www.timescale.com/[TimescaleDB] timeseries database (PostgreSQL +
-TimescaleDB extension), serves historic queries for the local UI, and provides
+OpenEMS Edge implementation for https://www.timescale.com/[TimescaleDB]
+(PostgreSQL + TimescaleDB extension). Persists the Channel data of *this* Edge
+into a local database, serves historic queries for the local UI and provides
 the data for resending to the OpenEMS Backend after connection outages.
 
-The database schema — hypertables, continuous aggregates, compression and
-retention policies — is created automatically and idempotently on every start.
-The full design (schema, pipeline, failure handling) is documented in
-`io.openems.shared.timescaledb/ARCHITECTURE.md`.
+NOTE: Schema, write pipeline, read routing, aggregation tiers and the database
+prerequisites are shared with the Backend implementation and documented in
+https://github.com/OpenEMS/openems/tree/develop/io.openems.shared.timescaledb[Shared TimescaleDB].
+This page only covers what is specific to the Edge.
 
 == How it works
 
 === Write path
 
 Every OpenEMS Cycle (`TOPIC_CYCLE_AFTER_PROCESS_IMAGE`) the component snapshots
-all enabled components' channels:
+the channels of all enabled components:
 
-1. *Persistence filter* — only channels with `AccessMode != WRITE_ONLY` and a
+1. *Persistence filter*: only channels with `AccessMode != WRITE_ONLY` and a
    local `PersistencePriority` at or above the configured minimum (default
    `HIGH`) are persisted at all.
-2. *Aggregate flag* — channels listed in the shared `AggregateChannels`
-   include-list are flagged `aggregate = true`, which materializes them into
-   the continuous-aggregate tiers for fast visualization. Every other persisted
-   channel is written to the raw hypertables only — still fully stored and
-   queryable there, just without the accelerated tiers. Membership is a
-   fleet-wide schema decision compiled into the code, *not* a per-site config.
-3. *Buffering* — points collect in an in-memory buffer, flushed to the shared
-   write pipeline every *No of Cycles* cycles (default 10) or at 5 000 points.
-4. *Async pipeline* — channel-ids resolve through a warm cache; points are
-   batched per value type and written with the PostgreSQL *binary COPY*
-   protocol. Every queue is bounded and blocking: under overload the pipeline
-   back-pressures instead of dropping data.
+2. *Aggregate flag*: set from the shared `AggregateChannels` include-list.
+3. *Buffering*: points collect in an in-memory buffer, flushed to the shared
+   write pipeline every *No of Cycles* cycles (default 1) or at 5 000 points,
+   whichever comes first. The buffer is also flushed on deactivate.
 
 ----
  Cycle (~1 s)
    |
-   |  PersistencePriority >= config?   --no-->  (not stored)
+   |  AccessMode / PersistencePriority >= config?  --no-->  (not stored)
    v
- buffer (flush: 10 cycles / 5000 pts)
+ buffer (flush: No of Cycles / 5000 pts)
    |
    v
- async pipeline --> PostgreSQL binary COPY
-   |
-   v
- Raw hypertables  (source of truth: keep 7 d, compress after 1 d)
-   |
-   '-- aggregate-flagged channels -->  1m (90 d) --> 15m (3 y)
+ shared write pipeline (Tenancy.SINGLE)
 ----
 
 === Read path
 
-The raw hypertables are the long-lived source of truth; the continuous
-aggregates are a pure query-acceleration layer over the aggregate-flagged
-channels. A historic query picks the *coarsest* aggregate tier whose bucket is
-`<=` the requested resolution and whose retention still covers the query
-window; if none qualifies (resolution finer than the finest tier, the window
-older than every fitting tier's retention, or a string channel) it falls back
-to raw. Coarser calendar resolutions (day, month, year) are re-bucketed on read
-from the 15-minute tier in the query's timezone — 15 minutes divides every
-real-world UTC offset, so the buckets stay exact. A fine-grained query on a
-channel that is *not* aggregated logs a one-time
-`WARN … consider adding it to AggregateChannels` — the signal to extend the
-include-list.
-
-----
- historic query --> pickSource(bucket size, window age)
-   |
-   |-- aggregated channel, a tier fits & is not expired .. coarsest such tier
-   |-- otherwise (finer than 1m / expired / string) ...... raw
-----
-
-Energy queries (`queryHistoricEnergy*`) currently read raw data with
-counter-reset detection, to preserve cumulative precision.
+Routing between raw hypertables and the aggregate tiers is entirely in the
+shared bundle. The Edge runs it single-tenant, so queries carry no Edge-ID and
+`queryHistoricData(edgeId, …)` simply ignores it.
 
 === Resend
 
-`getResendTimestamps()` / `queryResendData()` reconstruct the cycles that
-never reached the Backend (not-sent marker convention) so
-`Controller.Api.Backend` can resend them after an outage.
+`getResendTimeranges()` / `queryResendData()` reconstruct the cycles that never
+reached the Backend (not-sent marker convention), so `Controller.Api.Backend`
+can resend them after an outage.
 
 == Storage profile
 
@@ -93,32 +61,34 @@ aggregate tiers accelerate visualization of the aggregate-flagged channels:
 | `data_15m_*` (aggregate-flagged channels) | 15 minutes | 3 y
 |===
 
+The tiers are the compiled profile `Aggregate.of(Tenancy.SINGLE)`.
+
 Keep *Compression Days* at 1 on flash hardware: uncompressed raw data needs
-roughly 35x the disk of compressed data, and compressed chunks stay
-transparently queryable.
+roughly 35x the disk of compressed data, and compressed chunks stay transparently queryable.
 
-== Prerequisites
+== Installation
 
-* PostgreSQL with the `timescaledb` extension (>= 2.8) and the
-  https://github.com/fboulnois/pg_uuidv7[`pg_uuidv7`] extension installed on
-  the server.
-* An empty database (default name: `data`) the configured user may write to.
+. Set up the database as described in
+  https://github.com/OpenEMS/openems/tree/develop/io.openems.shared.timescaledb[Shared TimescaleDB].
+  The default database name on the Edge is `openems`.
 
-Quick start with Docker:
+. Start OpenEMS Edge via `EdgeApp.bndrun`. The bundle is already part of the runtime configuration.
 
-[source,shell]
-----
-docker run -d --name tsdb -p 5432:5432 -e POSTGRES_PASSWORD=password timescale/timescaledb-ha:pg16
-# install pg_uuidv7 into the container, then:
-docker exec tsdb psql -U postgres -c "CREATE DATABASE openems;"
-----
+. Open the Apache Felix Web Console
+  (http://localhost:8080/system/console/configMgr).
+
+. Add a configuration for `Timedata TimescaleDB` and set at least Host,
+  Database, Username and Password.
+
+On the first activation the bundle creates its schema (hypertables, continuous
+aggregates, retention and compression policies) and logs `TimescaleDB connected`.
 
 == Configuration
 
 |===
 | Property | Default | Meaning
 
-| Host / Port / Database / Username / Password | `localhost` / `5432` / `data` | database connection
+| Host / Port / Database / Username / Password | `localhost` / `5432` / `openems` / `openems` / `openems` | database connection
 | Pool Size / Write Workers | 10 / 4 | HikariCP connections / parallel COPY writers — keep Write Workers below Pool Size so reads always get a connection
 | No of Cycles | 1 | Cycles between buffer flushes
 | Retention Days | 7 | days to keep raw high-resolution data
@@ -126,9 +96,16 @@ docker exec tsdb psql -U postgres -c "CREATE DATABASE openems;"
 | Persistence Priority | `HIGH` | minimum local `PersistencePriority` a Channel needs to be persisted at all
 |===
 
-The aggregation tiers are the compiled Edge profile
-`Aggregate.of(Tenancy.SINGLE)` in the shared bundle (the implementation may edit
-the list before handing it to the connector). The same list feeds both the
-database policies *and* the read-path routing from one instance — never change
-the policies directly in SQL, or queries will be routed into tiers that no
-longer hold data.
+== Debugging
+
+The component logs `TimescaleDB connected` on successful activation and the
+connection error otherwise. The shared pipeline logs queue depth and drain rate
+on its own cadence, and a fine-grained query on a channel outside the aggregate
+include-list logs the one-time
+`WARN … consider adding it to AggregateChannels`.
+
+NOTE: The shared `WriteHandler` exposes `debugLog()` (queue fill level, total
+written points) and per-hypertable sizes, but the Edge implementation does not
+surface them yet — unlike the Backend implementation.
+
+https://github.com/OpenEMS/openems/tree/develop/io.openems.edge.timedata.timescaledb[Source Code icon:github[]]

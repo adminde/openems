@@ -18,7 +18,7 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	int port() default 5432;
 
 	@AttributeDefinition(name = "Database", description = "Database name")
-	String database() default "data";
+	String database() default "openems";
 
 	@AttributeDefinition(name = "Username")
 	String username() default "openems";

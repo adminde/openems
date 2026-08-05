@@ -1,93 +1,78 @@
-= Timedata TimescaleDB (Backend)
+= Timedata TimescaleDB
 
 OpenEMS Backend implementation for https://www.timescale.com/[TimescaleDB]
-(PostgreSQL + TimescaleDB extension). Stores the channel data of *many* Edges
-in one multi-tenant database: every measurement is scoped to its Edge through
-a normalized `edge` dimension table.
+(PostgreSQL + TimescaleDB extension). Stores the Channel data of *many* Edges
+in one multi-tenant database: every measurement is scoped to its Edge through a
+normalized `edge` dimension table.
 
-The database schema — dimension tables, hypertables, continuous aggregates,
-compression and retention policies — is created automatically and idempotently
-on every start. If the database is unreachable on activation, initialization
-retries every 10 seconds; the component stays alive. The full design (schema,
-pipeline, failure handling) is documented in
-`io.openems.shared.timescaledb/ARCHITECTURE.md`.
+NOTE: Schema, write pipeline, read routing, aggregation tiers and the database
+prerequisites are shared with the Edge implementation and documented in
+https://github.com/OpenEMS/openems/tree/develop/io.openems.shared.timescaledb[Shared TimescaleDB].
+This page only covers what is specific to the Backend.
 
 == How it works
 
-=== Ingestion
+=== Write path
 
 Data arrives per Edge over websocket (`Controller.Api.Backend`) in three
 notification flavors:
 
-1. *Timestamped* — high-resolution samples of the channels the Edge sends
-   on-change (priority ≥ `HIGH`). Receiving a channel this way marks it as
+1. *Timestamped*: high-resolution samples of the channels the Edge sends
+   on-change (e.g. for priority >= `HIGH`). Receiving a channel this way marks it as
    "arrives timestamped" for that Edge.
-2. *Aggregated* — 5-minute aggregates covering a wider channel set (priority ≥
+2. *Aggregated*: 5-minute aggregates covering a wider channel set (priority >=
    the Edge's aggregated floor). To avoid double-writing, aggregated values of
    channels that already arrive timestamped are *skipped* (deduplication); the
    marker set is cleared when the Edge goes offline, so after a reconnect the
    aggregated stream fills in until timestamped data flows again.
-3. *Resend* — historical gap-filler after connection outages; always written.
+3. *Resend*: historical gap-filler after connection outages.
 
-Before writing, every point passes two configurable filters — the
-*ChannelFilter* (blacklist of channel addresses / component-ids, plus
-rejection of malformed component-ids that would pollute the dimension tables)
-and the *TimeFilter* (writes outside the configured date window are dropped;
-queries outside it are answered empty).
+Before reaching the shared pipeline, every point passes three steps:
 
-Channel metadata (value type, unit) is resolved from the Edge's `EdgeConfig`
-(with type detection from the JSON value as fallback). Aggregate membership
-(`aggregate`) comes from the shared `AggregateChannels` include-list —
-independent of the `EdgeConfig`, so it is correct from the very first point.
+1. *ChannelFilter*: blacklist of channel addresses / channel-ids, plus
+   rejection of malformed component-ids that would pollute the dimension
+   tables.
+2. *TimeFilter*: writes outside the configured date window are dropped;
+   queries outside it are answered empty.
+3. *Metadata*: value type and unit are resolved from the Edge's `EdgeConfig`
+   (with type detection from the JSON value as fallback). The `aggregate` flag
+   comes from the shared `AggregateChannels` include-list, independent of the
+   `EdgeConfig`, so it is correct from the very first point.
 
 ----
  Edge (websocket)
    |
-   |-- timestamped ------------------------------------------> write
-   |-- aggregated ---> channel already timestamped? --yes----> skip (dedup)
-   |                                                 '-no----> write
-   '-- resend --------------------------------------------- -> write
-                                                                 |
-   write:  ChannelFilter / TimeFilter  --reject--> drop + log    |
-           type/unit <- EdgeConfig, aggregate <- AggregateChannels <--'
-           async pipeline -> PostgreSQL binary COPY
-             |
-             v
-   multi-tenant RAW hypertables (source of truth: kept forever, compress after 7 d)
-     |
-     '-- aggregate-flagged channels -->  1m (90 d) --> 15m (kept forever)
+   |-- timestamped -------------------------------------------> write
+   |-- aggregated ---> channel already timestamped? --yes-----> skip (dedup)
+   |                                                 '-no-----> write
+   '-- resend ------------------------------------------------> write
+                                                                  |
+   ChannelFilter / TimeFilter  --reject--> drop + log             |
+   type/unit <- EdgeConfig, aggregate <- AggregateChannels <------'
+   |
+   v
+ shared write pipeline (Tenancy.MULTI)
 ----
 
 === Read path
 
-The raw hypertables are the source of truth; the continuous aggregates are a
-pure query-acceleration layer over the aggregate-flagged channels. A UI history
-query picks the *coarsest* aggregate tier whose bucket is `<=` the requested
-resolution and whose retention still covers the query window; if none qualifies
-(resolution finer than the finest tier, or a string channel) it falls back to
-raw. Coarser calendar resolutions (day, month, year) are re-bucketed on read
-from the 15-minute tier in the query's timezone — 15 minutes divides every
-real-world UTC offset, so the buckets stay exact. A fine-grained query on a
-channel that is *not* aggregated logs a one-time
-`WARN … consider adding it to AggregateChannels` — the signal to extend the
-include-list.
+Routing between raw hypertables and the aggregate tiers is entirely in the
+shared bundle. The Backend runs it multi-tenant, so every query resolves
+through the `edge` dimension table and the Edge-ID is part of the channel cache
+key.
 
-----
- historic query --> pickSource(bucket size, window age)
-   |
-   |-- aggregated channel, a tier fits & is not expired .. coarsest such tier
-   |-- otherwise (finer than 1m / string) ................ raw
-----
+=== Resend
 
-Energy queries (`queryHistoricEnergy*`) currently read raw data with
-counter-reset detection, to preserve cumulative precision.
+Resend notifications are the counterpart of the Edge's resend path: they carry
+the cycles that never reached the Backend during an outage and bypass the
+deduplication, so historical gaps are always filled.
 
 == Storage profile
 
 The raw hypertables are the permanent archive: for now the Backend keeps *all*
 raw data of *every* channel forever (only compressed columnar after 7 days).
-The aggregate tiers merely accelerate visualization of the aggregate-flagged
-channels. Bounding raw retention is a deliberate future decision.
+Bounding raw retention is a deliberate future decision. The aggregate tiers
+accelerate visualization of the aggregate-flagged channels:
 
 |===
 | Tier | Resolution | Retention
@@ -97,41 +82,51 @@ channels. Bounding raw retention is a deliberate future decision.
 | `data_15m_*` (aggregate-flagged channels) | 15 minutes | forever
 |===
 
+The tiers are the compiled profile `Aggregate.of(Tenancy.MULTI)`.
+
 Raw compression waits 7 days (unlike the Edge's 1 day) because resend after
 Edge outages routinely writes days into the past, and late writes into
 compressed chunks are expensive.
 
-[NOTE]
-====
-* Requires PostgreSQL with the `timescaledb` extension (>= 2.8) and the
-  https://github.com/fboulnois/pg_uuidv7[`pg_uuidv7`] extension.
-* Create the database manually before connecting, e.g.:
-  `psql -U postgres -c "CREATE DATABASE openems;"`
-* A great OpenSource tool to visualize the data is
-  https://grafana.com/[Grafana] — connect it as a regular PostgreSQL data
-  source.
-====
+== Installation
+
+. Set up the database as described in
+  https://github.com/OpenEMS/openems/tree/develop/io.openems.shared.timescaledb[Shared TimescaleDB].
+  The default database name on the Backend is `openems`.
+
+. Start OpenEMS Backend via `BackendApp.bndrun`. The bundle is already part of the runtime configuration.
+
+. Open the Apache Felix Web Console
+  (http://localhost:8079/system/console/configMgr).
+
+. Add a configuration for `Timedata TimescaleDB` and set at least Host,
+  Database, Username and Password.
+
+On the first activation the bundle creates its schema
+(hypertables, continuous aggregates, retention and compression policies).
+
+TIP: A great OpenSource tool to visualize the data is
+https://grafana.com/[Grafana]. Connect it as a regular PostgreSQL data source.
 
 == Configuration
 
 |===
 | Property | Default | Meaning
 
-| Host / Port / Database / Username / Password | `localhost` / `5432` / `openems` | database connection
+| Host / Port / Database / Username / Password | `localhost` / `5432` / `openems` / `openems` / `openems` | database connection
 | Pool Size / Write Workers | 50 / 10 | HikariCP connections / parallel COPY writers — keep Write Workers below Pool Size so reads always get a connection
 | Retention Days | 0 (keep forever) | days to keep raw high-resolution data; 0 or less keeps it forever
 | Compression Days | 7 | days before raw chunks are compressed columnar
 | Read-Only mode | false | discards all writes; use for a second Backend instance that should only serve queries
-| Channel Filter / Time Filter | — | blacklist of channel addresses / component-ids; date window outside which writes are dropped and queries answered empty
+| Start date / End date | — | date window outside which writes are dropped and queries answered empty
+| Blacklisted Channel Addresses / Channel IDs | — | channels that are never written, e.g. `kacoCore0/Serialnumber` / `_PropertyAlias`
 |===
-
-The aggregation tiers are the compiled Backend profile
-`Aggregate.of(Tenancy.MULTI)` in the shared bundle (the implementation may edit
-the list before handing it to the connector). The same list feeds both the
-database policies and the read-path routing from one instance — never change
-the policies directly in SQL.
 
 == Debugging
 
-`debugLog` reports the write-queue fill level and total written points each
-debug cycle; `debugMetrics` reports the size of each hypertable in MB.
+`debugLog` reports the write-queue fill level and the total written points each
+debug cycle; `debugMetrics` reports the size of each hypertable in MB. A
+fine-grained query on a channel outside the aggregate include-list logs the
+one-time `WARN … consider adding it to AggregateChannels`.
+
+https://github.com/OpenEMS/openems/tree/develop/io.openems.backend.timedata.timescaledb[Source Code icon:github[]]

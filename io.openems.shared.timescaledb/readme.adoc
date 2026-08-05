@@ -1,0 +1,197 @@
+= Shared TimescaleDB
+
+Common persistence layer for https://www.timescale.com/[TimescaleDB]
+(PostgreSQL + TimescaleDB extension), used by both
+https://github.com/OpenEMS/openems/tree/develop/io.openems.edge.timedata.timescaledb[Timedata TimescaleDB (Edge)]
+and
+https://github.com/OpenEMS/openems/tree/develop/io.openems.backend.timedata.timescaledb[Timedata TimescaleDB (Backend)].
+
+This bundle is a plain library. It registers no OSGi component and has no
+configuration of its own. Everything below (schema, write pipeline, read
+routing, aggregation tiers) is identical on Edge and Backend and tenancy is configured in the bundles.
+
+`TimescaleDbConnector` is the single entry point: required parameters
+(tenancy, credentials) go into the constructor, everything else is an optional
+fluent setter, and `connect()` ends the configuration phase by opening the
+connection pool, applying the schema and starting the write workers.
+
+[source,java]
+----
+var db = new TimescaleDbConnector(Tenancy.SINGLE, host, username, password)
+        .database("openems")
+        .port(5432)
+        .poolSize(10)
+        .aggregates(Aggregate.of(Tenancy.SINGLE))
+        .connect();
+----
+
+== Tenancy
+
+`Tenancy` decides how many Edges one database holds. It is pure data variance,
+so `SchemaHandler` and `ChannelManager` compose their SQL from it instead of
+using subclasses:
+
+|===
+| | `SINGLE` (Edge) | `MULTI` (Backend)
+
+| Edges per database | exactly one | many
+| `edge` dimension table | not created | `component` references `edge(id)`
+| Component-ID uniqueness | `component.name` | `(edge_id, component.name)`
+| Channel cache key | `component/channel` | `edge/component/channel`
+|===
+
+== Schema
+
+The schema is created on first `connect()` (`CREATE TABLE IF NOT EXISTS`
+throughout), so no migration step is needed. Channel metadata is normalized
+into dimension tables, the measurements themselves go into one hypertable per
+value type:
+
+|===
+| Table | Purpose
+
+| `edge` | Edge identity — multi-tenant only
+| `component` | Component-ID and factory-PID, scoped to the Edge in multi-tenant
+| `channel_def` | Channel-ID, value type (`INTEGER`/`FLOAT`/`STRING`) and unit — shared across all components
+| `channel` | The actual channel instance: component x definition, plus the `aggregate` flag
+| `data_integer` / `data_float` / `data_string` | Raw hypertables `(time, channel_id, aggregate, value)`, indexed on `(channel_id, time DESC)`
+| `data_<tier>_<type>` | Continuous aggregates, e.g. `data_15m_integer`
+|===
+
+`Type` maps every `OpenemsType` onto one of the three value types (`BOOLEAN`,
+`SHORT`, `INTEGER`, `LONG` → `BIGINT`; `FLOAT`, `DOUBLE` → `DOUBLE PRECISION`;
+`STRING` → `TEXT`) and owns all conversions between Java, JSON and SQL.
+
+Raw chunks are compressed columnar (`compress_segmentby = channel_id`,
+`compress_orderby = time DESC`) after the configured number of days — strings
+get twice that grace period. Compressed chunks stay transparently queryable.
+Registration of new channels happens through `get_or_create_*` stored
+functions, so concurrent writers cannot create duplicates.
+
+== Write path
+
+`writeBatch()` hands points to an asynchronous pipeline; the calling thread
+(OSGi event or websocket) never waits for database IO:
+
+----
+ writeBatch(List<DataPoint>)
+   |
+   v
+ source queue (1 000 000)
+   |
+   v
+ DataPointRouter        resolve channel -> UUID via ChannelManager cache;
+   |                    only genuinely new channels hit the database
+   v
+ MergePointsWorker      one per value type: batch up to 10 000 points
+   |                    or 10 s, so a slow lane cannot delay the others
+   v
+ BulkWriter             PostgreSQL binary COPY (pgBulkInsert)
+   |
+   v
+ data_integer / data_float / data_string
+----
+
+Every queue is bounded and every stage blocks when its successor is full, so
+overload back-pressures the producers instead of dropping data or growing
+unbounded. A scheduled monitor logs queue depth and drain rate every 30
+seconds. Alerting is quiet below 1 % fill, `WARN` above 50 %.
+
+Failure handling distinguishes two cases: *connection* errors are retried
+indefinitely with backoff, so a batch survives a database restart, while
+*data* errors get a small bounded number of retries so a poison batch cannot
+stall the pipeline forever.
+
+== Read path
+
+The raw hypertables are the source of truth; the continuous aggregates are a
+pure query-acceleration layer over the aggregate-flagged channels. A historic
+query picks the *coarsest* aggregate tier whose bucket is `<=` the requested
+resolution and whose retention still covers the query window; if none qualifies
+(resolution finer than the finest tier, the window older than every fitting tier's
+retention, or a string channel) it falls back to raw. Coarser calendar resolutions
+(day, month, year) are re-bucketed on read from the 15-minute tier in the query's
+timezone. 15 minutes divides every real-world UTC offset, so the buckets stay exact.
+
+----
+ historic query --> pickSource(bucket size, window age)
+   |
+   |-- aggregated channel, a tier fits & is not expired .. coarsest such tier
+   |-- otherwise (finer than 1m / expired / string) ...... raw
+----
+
+Re-bucketing aggregate rows weights by `sample_count`, so a coarse bucket is
+not skewed by buckets that carry fewer samples. Energy queries
+(`queryHistoricEnergy*`) currently read raw data with counter-reset detection,
+to preserve cumulative precision.
+
+A fine-grained query on a channel that is *not* aggregated logs a one-time
+`WARN … consider adding it to AggregateChannels`.
+
+== Aggregation tiers
+
+`Aggregate` describes one continuous-aggregate tier: bucket width, source tier,
+retention and refresh/chunk tuning. `Aggregate.of(Tenancy)` ships the default
+profile each deployment uses — both keep a 1-minute tier for zoomed-in recent
+charts and a 15-minute tier for everything coarser:
+
+|===
+| Tier | Bucket | Reads from | Retention (Edge) | Retention (Backend)
+
+| `1m` | 1 minute | raw, `WHERE aggregate` | 90 d | 90 d
+| `15m` | 15 minutes | `1m` | 3 y | forever
+|===
+
+Tiers are linked finest→coarsest and the build fails fast if a source's bucket
+does not evenly divide the next one's, because the `time_bucket` cascade would
+otherwise drift. Real-time aggregation is enabled (`materialized_only = false`),
+so the in-progress bucket is served live.
+
+The same `List<Aggregate>` instance feeds both the database policies *and* the
+read-path routing — never change the policies directly in SQL, or queries will
+be routed into tiers that no longer hold data.
+
+== AggregateChannels
+
+`AggregateChannels.isAggregate()` decides which channels enter the aggregate
+tiers. Both write paths call this one helper, so Edge and Backend always agree.
+
+Membership is a fleet-wide schema decision compiled into the code, *not* a
+per-site configuration. Being absent from the list only means "not
+accelerated", never "not stored": every persisted channel is written to the raw
+hypertables and stays fully queryable there.
+
+The list has two parts. `SUM` holds exact addresses of singleton components
+(`_sum/EssSoc`). `COMPONENTS` holds `<nature>/<channel-id>` entries that match
+every instance of a component nature — the trailing instance number is stripped
+before the lookup, so `meter/ActiveProductionEnergy` covers `meter0`, `meter1`,
+… A `Namespace` additionally folds alias prefixes onto the canonical nature, so
+`pvMeter0` resolves to `meter` and `pvCharger0` to `charger`.
+
+== Prerequisites
+
+* PostgreSQL with the `timescaledb` (>= 2.8) and the
+  https://github.com/fboulnois/pg_uuidv7[`pg_uuidv7`] extension available on
+  the server.
+* An empty database the configured user may write to.
+* On startup the bundle issues `CREATE EXTENSION IF NOT EXISTS` for both
+  extensions, so the configured user needs the privilege to do that —
+  alternatively create them once as superuser.
+
+== Database setup
+
+Quick start with Docker; replace `<database>` with the name the timedata bundle
+is configured for:
+
+[source,shell]
+----
+docker run -d --name tsdb -p 5432:5432 -e POSTGRES_PASSWORD=postgres timescale/timescaledb-ha:pg17
+docker exec tsdb psql -U postgres -c "CREATE DATABASE <database>;"
+docker exec tsdb psql -U postgres -c "CREATE USER openems WITH PASSWORD 'openems' SUPERUSER;"
+----
+
+NOTE: `SUPERUSER` is a quick-start shortcut so the bundle may create the
+extensions itself. For production create the extensions once as superuser and
+grant the bundle user plain write rights instead.
+
+https://github.com/OpenEMS/openems/tree/develop/io.openems.shared.timescaledb[Source Code icon:github[]]
