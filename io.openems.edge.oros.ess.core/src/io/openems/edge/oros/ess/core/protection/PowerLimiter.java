@@ -104,15 +104,26 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 		var allowedDischargePower = Math.round(this.lastAllowedDischargePower);
 
 		if (this.parent instanceof HybridEss ess) {
-			var pvProduction = Math.max(
-					TypeUtils.orElse(
-							TypeUtils.subtract(ess.getActivePower().get(), ess.getDcDischargePower().get()),
-							0),
-					0);
-			allowedDischargePower += pvProduction;
+			allowedDischargePower += calculatePvProduction(ess);
 		}
 		setValue(this.parent, ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER, allowedChargePower);
 		setValue(this.parent, ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER, allowedDischargePower);
+	}
+
+	/**
+	 * Calculates the share of the Active Power that is produced by the DC sources instead of
+	 * the Battery. This power is available for discharge independently of the Battery state.
+	 *
+	 * @param ess the {@link HybridEss}
+	 * @return the production in [W], never negative
+	 */
+	public static int calculatePvProduction(HybridEss ess) {
+		return max(TypeUtils.orElse(//
+				TypeUtils.subtract(//
+						ess.getActivePower().get(), //
+						ess.getDcDischargePower().get()), //
+						0), //
+				0);
 	}
 
 	/**

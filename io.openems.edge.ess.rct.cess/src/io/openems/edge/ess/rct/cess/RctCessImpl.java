@@ -143,6 +143,8 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 		this.channelManager.activate(this.getComponentManager(),
 				this.getPowerConversionSystem(),
 				this.getBatteryManagementSystem());
+
+		StateOfChargeClipper.clipAllowedPowerByStateOfCharge(this);
 	}
 
 	@Override
