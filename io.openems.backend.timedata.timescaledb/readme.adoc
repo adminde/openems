@@ -34,10 +34,13 @@ Before reaching the shared pipeline, every point passes three steps:
    tables.
 2. *TimeFilter*: writes outside the configured date window are dropped;
    queries outside it are answered empty.
-3. *Metadata*: value type and unit are resolved from the Edge's `EdgeConfig`
-   (with type detection from the JSON value as fallback). The `aggregate` flag
-   comes from the shared `AggregateChannels` include-list, independent of the
-   `EdgeConfig`, so it is correct from the very first point.
+3. *Metadata*: value type and unit come from the shared channel cache. Only a
+   channel that has never been resolved falls back to the Edge's `EdgeConfig`
+   (and, failing that, to type detection from the JSON value). A component that
+   is not registered yet and whose factory-ID cannot be determined has its points
+   dropped, logged once. The `aggregate` flag comes from the shared `AggregateChannels`
+   include-list, independent of the `EdgeConfig`, so it is correct from the very first
+   point.
 
 ----
  Edge (websocket)

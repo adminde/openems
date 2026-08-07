@@ -2,7 +2,6 @@ package io.openems.shared.timescaledb.schema;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,8 +16,8 @@ import io.openems.shared.timescaledb.Type;
 import io.openems.shared.timescaledb.data.DataPoint;
 
 /**
- * Resolves OpenEMS channel addresses to database channel ids and caches the
- * results in memory to avoid costly Database JOINs.
+ * Resolves OpenEMS channel addresses to database channel ids, backed by a
+ * {@link ChannelCache} so a resolved channel costs no further round-trip.
  *
  * <p>
  * The only difference between the tenancy variants is the SQL: multi-tenant
@@ -31,11 +30,10 @@ public class ChannelManager {
 
 	private final Logger log = LoggerFactory.getLogger(ChannelManager.class);
 
+	private final ChannelCache cache;
+
 	/** Components already reported as un-registerable, to log each one once. */
 	private final Set<String> unknownNatureWarned = ConcurrentHashMap.newKeySet();
-
-	// Key: "[edgeName/]componentName/channelName"
-	private final Map<String, ChannelInfo> cache = new ConcurrentHashMap<>();
 
 	private final Tenancy tenancy;
 	private final String warmupQuery;
@@ -44,6 +42,7 @@ public class ChannelManager {
 
 	public ChannelManager(Tenancy tenancy) {
 		this.tenancy = tenancy;
+		this.cache = new ChannelCache(tenancy);
 
 		StringBuilder warmupQuery = new StringBuilder().append("SELECT ");
 		if (tenancy == Tenancy.MULTI) {
@@ -72,8 +71,8 @@ public class ChannelManager {
 			lookupQuery.append("WHERE co.name = ? AND cd.name = ?");
 		}
 
-		String resolveQuery = "SELECT * FROM get_or_create_channel_id" +
-				IntStream.range(0, tenancy == Tenancy.MULTI ? 7 : 6)
+		String resolveQuery = "SELECT * FROM get_or_create_channel_id"
+				+ IntStream.range(0, tenancy == Tenancy.MULTI ? 7 : 6)
 						.mapToObj(i -> "?")
 						.collect(Collectors.joining(",", "(", ")"));
 
@@ -88,7 +87,7 @@ public class ChannelManager {
 	 *
 	 * <p>
 	 * Cache keys are built exactly like {@link #lookupChannel} and
-	 * {@link #encodeChannelKey} build them; in single-tenant mode the edge name is
+	 * {@link #encodeChannelKey} build them. In single-tenant mode the edge name is
 	 * {@code null} there, so it is {@code null} here too.
 	 *
 	 * @param connection An open JDBC connection
@@ -101,11 +100,9 @@ public class ChannelManager {
 				var result = statement.executeQuery()) {
 			while (result.next()) {
 				String edgeName = this.tenancy == Tenancy.MULTI ? result.getString("edgeName") : null;
-				this.cache.putIfAbsent(
-						this.encodeChannelKey(edgeName,
-								result.getString("componentName"),
-								result.getString("channelName")
-						),
+				this.cache.putIfAbsent(edgeName, //
+						result.getString("componentName"), //
+						result.getString("channelName"), //
 						new ChannelInfo(
 								result.getObject("id", UUID.class),
 								Type.valueOf(result.getString("type")),
@@ -137,14 +134,13 @@ public class ChannelManager {
 	public ChannelInfo lookupChannel(Connection connection, String edgeName, ChannelAddress channel)
 			throws SQLException {
 		this.assertEdgeName(edgeName, channel.toString());
-		var key = this.encodeChannelKey(edgeName, channel.getComponentId(), channel.getChannelId());
-		var cached = this.cache.get(key);
+		var cached = this.cache.get(edgeName, channel.getComponentId(), channel.getChannelId());
 		if (cached != null) {
 			return cached;
 		}
 		var info = this.doLookupChannel(connection, edgeName, channel);
 		if (info != null) {
-			this.cache.put(key, info);
+			this.cache.put(edgeName, channel.getComponentId(), channel.getChannelId(), info);
 		}
 		return info;
 	}
@@ -195,9 +191,8 @@ public class ChannelManager {
 	 */
 	public ChannelInfo resolveChannel(Connection connection, DataPoint data) throws SQLException {
 		this.assertEdgeName(data.edgeName(), data.componentName() + "/" + data.channelName());
-		var key = this.encodeChannelKey(data);
-		var cached = this.cache.get(key);
-		if (cached != null && isReresolved(cached, data)) {
+		var cached = this.cache.peek(data);
+		if (cached != null) {
 			return cached;
 		}
 		var info = this.doResolveChannel(connection, data);
@@ -211,7 +206,7 @@ public class ChannelManager {
 			}
 			return null;
 		}
-		this.cache.put(key, info);
+		this.cache.put(data.edgeName(), data.componentName(), data.channelName(), info);
 		return info;
 	}
 
@@ -249,33 +244,44 @@ public class ChannelManager {
 	 *         is needed
 	 */
 	public ChannelInfo peekResolved(DataPoint data) {
-		var cached = this.cache.get(this.encodeChannelKey(data));
-		return cached != null && isReresolved(cached, data) ? cached : null;
+		return this.cache.peek(data);
 	}
 
 	/**
-	 * Builds the cache key ("[edgeName/]componentName/channelName") for a {@link DataPoint}.
+	 * Cache-only lookup by address, for a producer that wants to know a channel's
+	 * value type and unit before building its {@link DataPoint} — and can skip
+	 * consulting its own metadata source when the channel is already registered.
+	 *
+	 * @param edgeName    the Edge identifier; ignored in single-tenant mode
+	 * @param componentId the Component-ID
+	 * @param channelId   the Channel-ID
+	 * @return the cached entry, or {@code null} if the channel is not cached
+	 */
+	public ChannelInfo peekChannel(String edgeName, String componentId, String channelId) {
+		return this.cache.get(edgeName, componentId, channelId);
+	}
+
+	/**
+	 * Drops every cached channel of one Edge. The next write re-resolves them, so
+	 * a changed unit or value type in the Edge's configuration takes effect.
+	 *
+	 * @param edgeName the Edge identifier
+	 */
+	public void invalidateEdge(String edgeName) {
+		this.cache.invalidateEdge(edgeName);
+	}
+
+	/**
+	 * Describes a channel for log messages: "[edgeName/]componentName/channelName".
 	 *
 	 * @param data The DataPoint
-	 * @return the cache key
+	 * @return the channel description
 	 */
 	public String encodeChannelKey(DataPoint data) {
-		return this.encodeChannelKey(data.edgeName(), data.componentName(), data.channelName());
-	}
-
-	/**
-	 * Builds the cache key ("[edgeName/]componentName/channelName").
-	 *
-	 * @param edgeName The DataPoint
-	 * @param componentName The DataPoint
-	 * @param channelName The DataPoint
-	 * @return the cache key
-	 */
-	private String encodeChannelKey(String edgeName, String componentName, String channelName) {
 		if (this.tenancy == Tenancy.SINGLE) {
-			return componentName + "/" + channelName;
+			return data.componentName() + "/" + data.channelName();
 		}
-		return edgeName + "/" + componentName + "/" + channelName;
+		return data.edgeName() + "/" + data.componentName() + "/" + data.channelName();
 	}
 
 	/**
@@ -294,9 +300,4 @@ public class ChannelManager {
 		}
 	}
 
-	private static boolean isReresolved(ChannelInfo cached, DataPoint data) {
-		var needsAggregatePromotion = data.aggregate() && !cached.aggregate();
-		var needsUnitBackfill = data.unit() != null && !data.unit().equals(cached.unit());
-		return !needsAggregatePromotion && !needsUnitBackfill;
-	}
 }

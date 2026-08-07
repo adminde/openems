@@ -57,7 +57,8 @@ import io.openems.shared.timescaledb.Type;
 		immediate = true
 )
 @EventTopics({ //
-		Edge.Events.ON_SET_ONLINE //
+		Edge.Events.ON_SET_ONLINE, //
+		Edge.Events.ON_SET_CONFIG //
 })
 public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements Timedata, EventHandler, DebugLoggable {
 
@@ -200,8 +201,8 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 
 	private void writeData(String edgeId, AbstractDataNotification notification,
 			BiPredicate<String, String> shouldWrite) {
-		var handler = this.connector;
-		if (handler == null) {
+		var connector = this.connector;
+		if (connector == null) {
 			return;
 		}
 		// dealing with JSON
@@ -213,21 +214,14 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 
 		var points = new ArrayList<DataPoint>();
 
-		// The EdgeConfig supplies value type, unit and the component nature. It can
-		// be missing for two different reasons — the Edge never sent one, or the
-		// metadata database is unreachable — and OdooEdgeHandler reports both as
-		// the same exception, so they cannot be told apart here. Either way this
-		// only costs metadata for components that are already registered; a
-		// component that is not gets its points dropped.
+		// The EdgeConfig is only needed for a channel that has never been resolved:
+		// once it is registered, its value type and unit come from the channel
+		// cache. Reading it costs a query against the metadata database, so it is
+		// fetched lazily and at most once per notification — after warm-up that
+		// means never. A changed configuration invalidates the cache through
+		// ON_SET_CONFIG, so a stale unit cannot survive there.
 		EdgeConfig edgeConfig = null;
-		try {
-			edgeConfig = this.metadata.edge().getEdgeConfig(edgeId);
-		} catch (OpenemsNamedException e) {
-			if (this.missingConfigWarned.add(edgeId)) {
-				this.logWarn(this.log, "No EdgeConfig for [" + edgeId
-						+ "]; unregistered channels of this Edge are dropped: " + e.getMessage());
-			}
-		}
+		var edgeConfigResolved = false;
 
 		for (var dataEntry : dataEntries) {
 			var timestamp = dataEntry.getKey();
@@ -261,20 +255,40 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 					// registered; a component that is not gets its points dropped,
 					// because channel_def is scoped by the nature.
 					String componentType = null;
-					EdgeConfig.Component.Channel ch = null;
-					if (edgeConfig != null) {
-						var componentOpt = edgeConfig.getComponent(componentId);
-						if (componentOpt.isPresent()) {
-							var component = componentOpt.get();
-							componentType = component.getFactoryId();
-							ch = component.getChannels().get(channelId);
+					Type type;
+					String unit;
+
+					var known = connector.peekChannel(edgeId, componentId, channelId);
+					if (known != null) {
+						type = known.type();
+						unit = known.unit();
+
+					} else {
+						if (!edgeConfigResolved) {
+							edgeConfigResolved = true;
+							try {
+								edgeConfig = this.metadata.edge().getEdgeConfig(edgeId);
+							} catch (OpenemsNamedException e) {
+								if (this.missingConfigWarned.add(edgeId)) {
+									this.logWarn(this.log, "No EdgeConfig for [" + edgeId
+											+ "]; unregistered channels of this Edge are dropped: " + e.getMessage());
+								}
+							}
 						}
+						EdgeConfig.Component.Channel ch = null;
+						if (edgeConfig != null) {
+							var componentOpt = edgeConfig.getComponent(componentId);
+							if (componentOpt.isPresent()) {
+								var component = componentOpt.get();
+								componentType = component.getFactoryId();
+								ch = component.getChannels().get(channelId);
+							}
+						}
+						type = ch != null ? Type.fromOpenemsType(ch.getType()) : Type.detect(primitive);
+						unit = ch != null && ch.getUnit() != null ? ch.getUnit().symbol : null;
 					}
 
-					Type type = ch != null ? Type.fromOpenemsType(ch.getType()) : Type.detect(primitive);
 					Object value = type.coerce(primitive);
-
-					String unit = ch != null && ch.getUnit() != null ? ch.getUnit().symbol : null;
 
 					points.add(new DataPoint(
 							timestamp, edgeId, componentId, componentType, channelId, type, aggregate, unit, value));
@@ -284,18 +298,32 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 			}
 		}
 
-		handler.writeBatch(points);
+		connector.writeBatch(points);
 	}
 
 	@Override
 	public void handleEvent(Event event) {
+		var reader = new EventReader(event);
+
 		// Drop an Edge's classification when it goes offline; rebuilt on reconnect.
 		if (Edge.Events.ON_SET_ONLINE.equals(event.getTopic())) {
-			var reader = new EventReader(event);
 			var edgeId = reader.getString(Edge.Events.OnSetOnline.EDGE_ID);
 			var isOnline = reader.getBoolean(Edge.Events.OnSetOnline.IS_ONLINE);
 			if (!isOnline) {
 				this.timestampedChannelsForEdge.remove(edgeId);
+			}
+			return;
+		}
+
+		// A new configuration is the only way a channel's unit or value type can
+		// change without the data showing it. Drop the Edge's cached channels so
+		// the next write resolves them against the fresh EdgeConfig.
+		if (Edge.Events.ON_SET_CONFIG.equals(event.getTopic())) {
+			var edge = (Edge) reader.getProperty(Edge.Events.OnSetConfig.EDGE);
+			var connector = this.connector;
+			if (edge != null && connector != null) {
+				connector.invalidateEdge(edge.getId());
+				this.missingConfigWarned.remove(edge.getId());
 			}
 		}
 	}

@@ -27,6 +27,7 @@ import io.openems.shared.timescaledb.data.ReadHandler;
 import io.openems.shared.timescaledb.data.RefreshHandler;
 import io.openems.shared.timescaledb.data.WriteHandler;
 import io.openems.shared.timescaledb.schema.Aggregate;
+import io.openems.shared.timescaledb.schema.ChannelInfo;
 import io.openems.shared.timescaledb.schema.ChannelManager;
 import io.openems.shared.timescaledb.schema.SchemaHandler;
 import io.openems.shared.timescaledb.schema.Tenancy;
@@ -382,6 +383,37 @@ public class TimescaleDbConnector {
 		}
 		this.refreshHandler.schedule(//
 				Instant.ofEpochMilli(fromEpochMillis), Instant.ofEpochMilli(toEpochMillis));
+	}
+
+	/**
+	 * Cache-only lookup of a channel's resolved metadata. A producer that gets a
+	 * non-null answer already knows the value type and unit and does not have to
+	 * consult its own metadata source (on the Backend: the Edge's
+	 * {@code EdgeConfig}, which costs a query against the metadata database).
+	 *
+	 * @param edgeName    the Edge identifier; ignored in single-tenant mode
+	 * @param componentId the Component-ID
+	 * @param channelId   the Channel-ID
+	 * @return the cached metadata, or {@code null} if the channel is not cached
+	 */
+	public ChannelInfo peekChannel(String edgeName, String componentId, String channelId) {
+		if (this.channelManager == null) {
+			return null;
+		}
+		return this.channelManager.peekChannel(edgeName, componentId, channelId);
+	}
+
+	/**
+	 * Drops every cached channel of one Edge, so the next write re-resolves them.
+	 * Call this when the Edge's configuration changed: a channel's unit or value
+	 * type can change there without the data itself showing it.
+	 *
+	 * @param edgeName the Edge identifier
+	 */
+	public void invalidateEdge(String edgeName) {
+		if (this.channelManager != null) {
+			this.channelManager.invalidateEdge(edgeName);
+		}
 	}
 
 	public void deactivate() {
