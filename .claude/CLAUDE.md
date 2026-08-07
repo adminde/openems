@@ -10,7 +10,10 @@ This is an open-source project. Every comment is addressed to the general open-s
 - NEVER write comments that narrate your own work, reasoning, or the reason a change was made in this session (e.g. "changed this because…", "as requested", "now uses X instead of Y"). Such context belongs in the commit message / PR description, not in the code.
 - Only write an inline comment when it adds genuine, lasting value by documenting something that would otherwise be misinterpreted or is non-obvious (e.g. a subtle invariant, a non-obvious CSS/DOM requirement, a domain rule). If the code is self-explanatory, add no comment.
 - Keep comments generic, factual, and timeless. Describe what the code does or why the constraint exists, not the history of how it got there.
-- Write every comment as a proper sentence starting with a capital letter (applies to `//`, `/* */`, JSDoc, and HTML `<!-- -->` comments alike).
+- Write every comment as a proper sentence starting with a capital letter.
+- Avoid the use of dashes and semicolons in comments.
+
+This applies to `//`, `/* */`, JSDoc, and HTML `<!-- -->` comments alike.
 
 
 ## Build Commands
@@ -152,6 +155,7 @@ Mirror this exact pattern (channel ID block + the four default-method blocks) fo
 #### Naming: no unit suffixes
 
 ChannelId constants, getters/setters, and Config-Property method names must NOT carry unit suffixes such as `*Deci`, `*Mv`, `*Wh`, `*Sec`, `*KWh`, `*Liters`, `*Celsius`. The unit is expressed exclusively by the channel's `Unit` (e.g. `Unit.DEZIDEGREE_CELSIUS`) and the `Doc`/Config description.
+This also extends to internal fields/variables. For durations and timestamps, prefer `Duration`/`Instant` over a raw `long`. This drops `*Millis`/`*Sec` suffixes entirely and reads better (e.g. `Duration userCacheTtl` + `Instant expiresAt`, not `long userCacheTtlMillis` + `long expiresAtMillis`).
 
 Examples:
 - `temperature` — not `tempDeci`
@@ -167,6 +171,8 @@ Examples:
 - Use `float`/`double` config types where fractional values are meaningful
 
 Scaled units (e.g. `Unit.DEZIDEGREE_CELSIUS` channels) are an internal channel representation only; the conversion (e.g. `× 10`) happens inside the component implementation — typically in `activate()` or the cycle logic — never in the user's head. State the unit in the `@AttributeDefinition` name or description (e.g. `"Temperature"` / `"... [°C]"`).
+
+Keep the `description` to the essential. One sentence stating what the parameter does (and its default/disable semantics if non-obvious). Do not spell out rationale, trade-offs, or background; that belongs in code comments or the PR, not in a config tooltip. Put the unit in the `name` (e.g. `"... [s]"`).
 
 ### Edge Execution Cycle
 
