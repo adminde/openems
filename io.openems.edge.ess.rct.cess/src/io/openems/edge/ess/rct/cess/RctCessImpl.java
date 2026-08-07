@@ -138,7 +138,7 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 				new PowerLimiter(this,
 						this.getPowerConversionSystem(),
 						this.getBatteryManagementSystem()));
-		this.channelManager.setStateOfChargeLimiter(
+		this.channelManager.setStateOfChargeListener(
 				new StateOfChargeClipper(this, this.getBatteryManagementSystem()));
 		this.channelManager.activate(this.getComponentManager(),
 				this.getPowerConversionSystem(),

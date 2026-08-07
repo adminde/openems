@@ -24,6 +24,40 @@ public interface BatteryManagementSystem extends
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 		/**
+		 * State of Energy.
+		 *
+		 * <ul>
+		 * <li>Interface: BatteryManagementSystem
+		 * <li>Type: Integer
+		 * <li>Unit: %
+		 * <li>Range: 0..100
+		 * </ul>
+		 */
+		SOE(Doc.of(OpenemsType.INTEGER)
+				.unit(Unit.PERCENT)
+				.persistencePriority(PersistencePriority.HIGH)),
+		/**
+		 * Rack State of Energy in Thousandths [‰].
+		 *
+		 * <ul>
+		 * <li>Interface: BatteryManagementSystem
+		 * <li>Type: Integer
+		 * <li>Unit: ‰
+		 * <li>Range: 0..1000
+		 * <li>Implementation Note: mirrored to {@link BatteryManagementSystem.ChannelId#SOE} as percent.
+		 * </ul>
+		 */
+		RACK_SOE(new IntegerDoc()
+				.unit(Unit.THOUSANDTH)
+				.persistencePriority(PersistencePriority.HIGH)
+				.onChannelSetNextValue((self, value) -> {
+					value.ifPresent(newValue -> {
+						Channel<Integer> soeChannel = self.channel(BatteryManagementSystem.ChannelId.SOE);
+						soeChannel.setNextValue(IntUtils.roundToPrecision(newValue / 10.0,
+								IntUtils.Round.HALF_UP, 1));
+					});
+				})),
+		/**
 		 * Rack State of Charge in Thousandths [‰].
 		 *
 		 * <ul>
@@ -64,19 +98,6 @@ public interface BatteryManagementSystem extends
 								IntUtils.Round.HALF_UP, 1));
 					});
 				})),
-		/**
-		 * Rack State of Energy in Thousandths [‰].
-		 *
-		 * <ul>
-		 * <li>Interface: BatteryManagementSystem
-		 * <li>Type: Integer
-		 * <li>Unit: ‰
-		 * <li>Range: 0..1000
-		 * </ul>
-		 */
-		RACK_SOE(Doc.of(OpenemsType.FLOAT)
-				.unit(Unit.THOUSANDTH)
-				.persistencePriority(PersistencePriority.HIGH)),
 
 		/**
 		 * Rack Voltage in Millivolts [mV].
@@ -193,6 +214,78 @@ public interface BatteryManagementSystem extends
 		public Doc doc() {
 			return this.doc;
 		}
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#SOE}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getSoeChannel() {
+		return this.channel(ChannelId.SOE);
+	}
+
+	/**
+	 * Gets the State of Energy in [%]. See {@link ChannelId#SOE}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getSoe() {
+		return this.getSoeChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#SOE} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setSoe(Integer value) {
+		this.getSoeChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#SOE} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setSoe(int value) {
+		this.getSoeChannel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#RACK_SOE}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getRackSoeChannel() {
+		return this.channel(ChannelId.RACK_SOE);
+	}
+
+	/**
+	 * Gets the Rack State of Energy in [‰]. See {@link ChannelId#RACK_SOE}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getRackSoe() {
+		return this.getRackSoeChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#RACK_SOE} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setRackSoe(Integer value) {
+		this.getRackSoeChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#RACK_SOE} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setRackSoe(int value) {
+		this.getRackSoeChannel().setNextValue(value);
 	}
 
 	/**

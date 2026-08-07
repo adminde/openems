@@ -15,6 +15,7 @@ import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter
 import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.common.channel.AbstractChannelListenerManager;
+import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.channel.ChannelId;
 import io.openems.edge.common.channel.IntegerWriteChannel;
 import io.openems.edge.common.channel.WriteChannel;
@@ -37,7 +38,7 @@ import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 public class ChannelManager extends AbstractChannelListenerManager {
 
 	private record OnSetNextWriteValueListener<T>(
-			OpenemsComponent component, 
+			OpenemsComponent component,
 			ChannelId channelId,
 			ThrowingConsumer<T, OpenemsNamedException> callback) {
 	}
@@ -47,7 +48,7 @@ public class ChannelManager extends AbstractChannelListenerManager {
 	private final EnergyStorageSystem parent;
 
 	private PowerLimiter powerLimiter;
-	private StateOfChargeLimiter stateOfChargeLimiter;
+	private StateOfChargeListener stateOfChargeListener;
 
 	public ChannelManager(EnergyStorageSystem parent) {
 		super();
@@ -63,13 +64,13 @@ public class ChannelManager extends AbstractChannelListenerManager {
 		return this.powerLimiter;
 	}
 
-	public ChannelManager setStateOfChargeLimiter(StateOfChargeLimiter limiter) {
-		this.stateOfChargeLimiter = limiter;
+	public ChannelManager setStateOfChargeListener(StateOfChargeListener listener) {
+		this.stateOfChargeListener = listener;
 		return this;
 	}
 
-	public StateOfChargeLimiter getStateOfChargeLimiter() {
-		return this.stateOfChargeLimiter;
+	public StateOfChargeListener getStateOfChargeListener() {
+		return this.stateOfChargeListener;
 	}
 
 	/**
@@ -80,10 +81,6 @@ public class ChannelManager extends AbstractChannelListenerManager {
 	 * @param inverter                   the {@link PowerConversionSystem}
 	 */
 	public void activate(ClockProvider clock, PowerConversionSystem inverter, BatteryManagementSystem battery) {
-		if (this.stateOfChargeLimiter == null) {
-			this.stateOfChargeLimiter = new StateOfChargeLimiter(this.parent, battery);
-		}
-
 		this.addBatteryListener(clock, battery);
 		this.addInverterListener(inverter);
 		this.addEssListener(clock, battery);
@@ -117,12 +114,12 @@ public class ChannelManager extends AbstractChannelListenerManager {
 	}
 
 	private void addEssSocListener(ClockProvider clock, BatteryManagementSystem battery) {
-		if (this.stateOfChargeLimiter == null) {
-			this.stateOfChargeLimiter = new StateOfChargeLimiter(this.parent, battery);
+		if (this.stateOfChargeListener == null) {
+			this.stateOfChargeListener = new StateOfChargeListener(this.parent, battery);
 		}
-		final Consumer<Value<Integer>> trigger = ignored -> stateOfChargeLimiter.accept(clock);
+		final Consumer<Value<Integer>> trigger = ignored -> this.stateOfChargeListener.accept(clock);
 
-		battery.getSocChannel().onSetNextValue(trigger);
+		this.stateOfChargeListener.getStateOfChargeChannel().onSetNextValue(trigger);
 		battery.getChargeMaxCurrentChannel().onSetNextValue(trigger);
 		battery.getDischargeMaxCurrentChannel().onSetNextValue(trigger);
 	}
@@ -379,5 +376,58 @@ public class ChannelManager extends AbstractChannelListenerManager {
 			  ChannelId channelId, ThrowingConsumer<T, OpenemsNamedException> callback) {
 		WriteChannel<T> channel = component.channel(channelId);
 		channel.removeOnSetNextWriteCallback(callback);
+	}
+
+	/**
+	 * Copies a State-of-Charge Channel of the {@link BatteryManagementSystem} to the
+	 * {@link EnergyStorageSystem}. Subclasses adjust the value on its way by overriding
+	 * {@link #calculateStateOfCharge}.
+	 */
+	public static class StateOfChargeListener implements Consumer<ClockProvider> {
+
+		protected final EnergyStorageSystem parent;
+		protected final BatteryManagementSystem battery;
+		protected final Channel<Integer> stateOfCharge;
+
+		public StateOfChargeListener(EnergyStorageSystem parent, BatteryManagementSystem battery) {
+			this(parent, battery, Battery.ChannelId.SOC);
+		}
+
+		public StateOfChargeListener(EnergyStorageSystem parent, BatteryManagementSystem battery,
+		                             ChannelId stateOfChargeId) {
+			this.parent = parent;
+			this.battery = battery;
+			this.stateOfCharge = battery.channel(stateOfChargeId);
+		}
+
+		/**
+		 * Gets the Channel this listener derives the State-of-Charge from.
+		 *
+		 * @return the Channel
+		 */
+		public Channel<Integer> getStateOfChargeChannel() {
+			return this.stateOfCharge;
+		}
+
+		@Override
+		public void accept(ClockProvider clockProvider) {
+			var socValue = this.stateOfCharge.getNextValue();
+
+			this.parent._setSoc(socValue.isDefined()
+					? this.calculateStateOfCharge(clockProvider, socValue.get())
+					: null);
+		}
+
+		/**
+		 * Derives the State-of-Charge to publish on the {@link EnergyStorageSystem} from the
+		 * one reported by the {@link BatteryManagementSystem}.
+		 *
+		 * @param clockProvider the {@link ClockProvider}
+		 * @param soc           the State-of-Charge reported by the Battery in %
+		 * @return the State-of-Charge in %
+		 */
+		protected int calculateStateOfCharge(ClockProvider clockProvider, int soc) {
+			return soc;
+		}
 	}
 }

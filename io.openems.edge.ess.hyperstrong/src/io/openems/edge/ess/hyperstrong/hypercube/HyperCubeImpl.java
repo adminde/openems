@@ -68,6 +68,7 @@ import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.ess.core.AbstractModbusEss;
+import io.openems.edge.oros.ess.core.ChannelManager.StateOfChargeListener;
 import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 import io.openems.edge.timedata.api.Timedata;
@@ -146,13 +147,20 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
 		if (super.activate(context, config.id(), config.alias(), config.enabled(), this.cm, 1,
-				config.modbus_id(), config.pcs_id(), config.bms_id(), config.startStop())) {
+				config.modbus_id(), config.pcs_id(), config.bms_id(), config.startStop(), false)) {
 			return;
 		}
 		if (OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "tms", config.tms_id())) {
 			return;
 		}
 		this.config = config;
+
+		this.channelManager.setStateOfChargeListener(
+				new StateOfChargeListener(this, this.getBatteryManagementSystem(),
+						BatteryManagementSystem.ChannelId.SOE));
+		this.channelManager.activate(this.getComponentManager(),
+				this.getPowerConversionSystem(),
+				this.getBatteryManagementSystem());
 	}
 
 	@Override
