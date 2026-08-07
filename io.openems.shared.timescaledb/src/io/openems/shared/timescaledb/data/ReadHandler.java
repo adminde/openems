@@ -163,16 +163,16 @@ public class ReadHandler {
 				Map<UUID, ChannelAddress> addrById = entry.getValue();
 				UUID[] channelIds = addrById.keySet().toArray(UUID[]::new);
 
+				// Strings have no average. PickSource always routes them to raw.
 				// Raw hypertables expose (time, value); the continuous-aggregate
-				// views expose (bucket, avg_val/last_val/sample_count). Re-bucketing
-				// aggregate rows weights by sample_count — a plain AVG(avg_val)
-				// would count sparse and dense sub-buckets equally.
+				// views expose (bucket, avg_value/last_value/num_values).
+				// Re-bucketing aggregate rows weights by sample_count. A plain
+				// AVG(avg_val) would count sparse and dense sub-buckets equally.
 				boolean raw = isRawTable(view);
 				String timeCol = raw ? "time" : "bucket";
-				String aggExpr = view.contains("string")
-						? (raw ? "last(value, time)" : "last(last_val, bucket)")
-						: (raw ? "AVG(value)"
-								: "SUM(avg_val * sample_count) / NULLIF(SUM(sample_count), 0)");
+				String aggExpr = view.contains("string") //
+						? "last(value, time)" //
+						: (raw ? "AVG(value)" : "SUM(avg_value * num_values) / NULLIF(SUM(num_values), 0)");
 
 				// time_bucket with a timezone argument aligns calendar buckets (days,
 				// months, ...) to local midnight incl. DST; requires TimescaleDB >= 2.8.
@@ -223,9 +223,11 @@ public class ReadHandler {
 	 * the entire [from, to) window.
 	 *
 	 * <p>
-	 * Always queries raw tables to preserve precision. Energy totals must not
-	 * be smoothed by aggregates.
-	 * 
+	 * Reads the counter readings from the coarsest aggregate tier that still holds
+	 * the window ({@code last_value}), falling back to raw for non-aggregated or
+	 * string channels. No smoothing is involved: {@code last_value} is the reading
+	 * at the end of its bucket, exactly what a raw scan would pick.
+	 *
 	 * @param edgeName The Edge identifier
 	 * @param from     Start time
 	 * @param to       End time
@@ -245,22 +247,28 @@ public class ReadHandler {
 					continue; // stays JsonNull from the prefill
 				}
 
+				// A total needs no particular resolution, so Long.MAX_VALUE asks for
+				// the coarsest tier that still holds the window.
+				String source = this.pickSource(info.type(), info.aggregate(), Long.MAX_VALUE, from);
+				boolean raw = isRawTable(source);
+				String valueCol = raw ? "value" : "last_value";
+				String timeCol = raw ? "time" : "bucket";
+
 				// Sum positive deltas, treating any downward jump as a counter reset
 				// where the post-reset value itself counts as accumulation.
-				String table = info.type().rawTableName;
 				String sql = """
 						WITH ordered AS (
-						    SELECT value, LAG(value) OVER (ORDER BY time) AS prev
+						    SELECT %s AS val, LAG(%s) OVER (ORDER BY %s) AS prev
 						    FROM %s
-						    WHERE channel_id = ? AND time >= ? AND time < ?
+						    WHERE channel_id = ? AND %s >= ? AND %s < ?
 						)
 						SELECT SUM(CASE
-						    WHEN prev IS NULL  THEN 0
-						    WHEN value >= prev THEN value - prev
-						    ELSE value
+						    WHEN prev IS NULL THEN 0
+						    WHEN val >= prev  THEN val - prev
+						    ELSE val
 						END) AS delta
 						FROM ordered
-						""".formatted(table);
+						""".formatted(valueCol, valueCol, timeCol, source, timeCol, timeCol);
 				try (var pst = con.prepareStatement(sql)) {
 					pst.setObject(1, info.channelId());
 					pst.setObject(2, from.toOffsetDateTime());
@@ -281,10 +289,12 @@ public class ReadHandler {
 	 * Returns the energy delta per bucket.
 	 *
 	 * <p>
-	 * Implemented as a window query over the raw table using `last(value, time)`
-	 * per bucket and LAG() to subtract neighbors. The query window is extended by
-	 * one bucket before {@code from} so the first requested bucket gets a real
-	 * delta. The result map is prefilled with JsonNull for every bucket/channel.
+	 * Implemented as a window query that takes the counter reading at the end of
+	 * each bucket and subtracts the previous bucket's with LAG(). The readings come
+	 * from an aggregate tier's {@code last_value} when one fits, otherwise from
+	 * {@code last(value, time)} over raw. The query window is extended by one
+	 * bucket before {@code from} so the first requested bucket gets a real delta.
+	 * The result map is prefilled with JsonNull for every bucket/channel.
 	 *
 	 * @param edgeName   The Edge identifier
 	 * @param from       Start time
@@ -302,6 +312,7 @@ public class ReadHandler {
 			return new java.util.TreeMap<>();
 		}
 		var result = Utils.prepareDataMap(from, to, channels, resolution);
+		var approxBucketSecs = Utils.approxSeconds(resolution);
 		var interval = Utils.toSqlInterval(resolution);
 		var calendarBucket = resolution.getUnit().isDateBased();
 		var extendedFrom = from.minus(resolution.getValue(), resolution.getUnit());
@@ -312,27 +323,31 @@ public class ReadHandler {
 				if (info == null) {
 					continue;
 				}
+				String source = this.pickSource(info.type(), info.aggregate(), approxBucketSecs, extendedFrom);
+				boolean raw = isRawTable(source);
+				String timeCol = raw ? "time" : "bucket";
+				String stepExpr = raw ? "last(value, time)" : "last(last_value, bucket)";
 				String bucketExpr = calendarBucket
-						? "time_bucket(?::interval, time, ?)"
-						: "time_bucket(?::interval, time)";
+						? "time_bucket(?::interval, " + timeCol + ", ?)"
+						: "time_bucket(?::interval, " + timeCol + ")";
 				String sql = """
 						WITH per_bucket AS (
 						    SELECT %s AS b,
-						           last(value, time) AS last_val
+						           %s AS last_value
 						    FROM %s
-						    WHERE channel_id = ? AND time >= ? AND time < ?
+						    WHERE channel_id = ? AND %s >= ? AND %s < ?
 						    GROUP BY b
 						)
 						SELECT b,
 						       CASE
-						           WHEN LAG(last_val) OVER (ORDER BY b) IS NULL THEN NULL
-						           WHEN last_val >= LAG(last_val) OVER (ORDER BY b)
-						               THEN last_val - LAG(last_val) OVER (ORDER BY b)
-						           ELSE last_val
+						           WHEN LAG(last_value) OVER (ORDER BY b) IS NULL THEN NULL
+						           WHEN last_value >= LAG(last_value) OVER (ORDER BY b)
+						               THEN last_value - LAG(last_value) OVER (ORDER BY b)
+						           ELSE last_value
 						       END AS delta
 						FROM per_bucket
 						ORDER BY b;
-						""".formatted(bucketExpr, info.type().rawTableName);
+						""".formatted(bucketExpr, stepExpr, source, timeCol, timeCol);
 
 				try (var pst = con.prepareStatement(sql)) {
 					var i = 1;
@@ -505,6 +520,10 @@ public class ReadHandler {
 	 * Whether the query window starts before the given retention horizon, i.e.
 	 * the picked tier no longer holds data that far back. A horizon of {@code 0}
 	 * means "kept forever" and never expires.
+	 *
+	 * @param from          start of the query window
+	 * @param retentionDays the tier's retention; {@code 0} = kept forever
+	 * @return true if the tier may already have dropped the window
 	 */
 	private boolean expired(ZonedDateTime from, int retentionDays) {
 		return retentionDays > 0 && reachesBefore(from, retentionDays);
@@ -513,7 +532,11 @@ public class ReadHandler {
 	/**
 	 * Whether {@code source} is one of the raw hypertables (as opposed to a
 	 * continuous-aggregate view): raw tables expose {@code (time, value)}, the
-	 * aggregate views expose {@code (bucket, avg_val/last_val)}.
+	 * aggregate views expose
+	 * {@code (bucket, min_value, max_value, avg_value, last_value, num_values)}.
+	 *
+	 * @param source the table or view name
+	 * @return true if {@code source} is a raw hypertable
 	 */
 	private static boolean isRawTable(String source) {
 		for (var type : Type.values()) {
@@ -528,12 +551,21 @@ public class ReadHandler {
 	 * Whether {@code from} is older than {@code days} ago — i.e. the query window
 	 * reaches into a region an aggregate tier's retention policy may already have
 	 * dropped.
+	 *
+	 * @param from  start of the query window
+	 * @param days  the retention horizon in days
+	 * @return true if {@code from} lies before the horizon
 	 */
 	private static boolean reachesBefore(ZonedDateTime from, long days) {
 		return from.toInstant().isBefore(Instant.now().minus(Duration.ofDays(days)));
 	}
 
-	/** Convert a raw JDBC value into the JsonElement form OpenEMS expects. */
+	/**
+	 * Converts a raw JDBC value into the JsonElement form OpenEMS expects.
+	 *
+	 * @param value the JDBC value, may be null
+	 * @return the value as {@link JsonElement}
+	 */
 	private static JsonElement toJson(Object value) {
 		if (value == null) {
 			return com.google.gson.JsonNull.INSTANCE;

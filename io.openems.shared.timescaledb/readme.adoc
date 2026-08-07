@@ -69,20 +69,6 @@ get twice that grace period. Compressed chunks stay transparently queryable.
 Registration of new channels happens through `get_or_create_*` stored
 functions, so concurrent writers cannot create duplicates.
 
-Value type and unit hang off `(component_def, channel-id)`, not off the
-Channel-ID alone: in OpenEMS it is the factory that defines a channel, so two
-natures may legitimately both expose `ActivePower` with different units. Were
-`channel_def.name` globally unique, the first Edge to report a channel would
-fix its type for every other Edge in the database.
-
-That makes the nature mandatory to *register* a component, and it is decided
-once, at registration. The Backend takes it from the Edge's `EdgeConfig`; when
-that is unavailable, points of a component that is not yet registered are
-dropped, logged once per component. Points of an already registered component
-are unaffected — they resolve from the channel cache or the dimension tables
-and never need the nature again. An unreachable metadata database therefore
-cannot punch holes into the timeseries of a running Edge.
-
 == Write path
 
 `writeBatch()` hands points to an asynchronous pipeline; the calling thread
@@ -135,10 +121,13 @@ timezone. 15 minutes divides every real-world UTC offset, so the buckets stay ex
    |-- otherwise (finer than 1m / expired / string) ...... raw
 ----
 
-Re-bucketing aggregate rows weights by `sample_count`, so a coarse bucket is
-not skewed by buckets that carry fewer samples. Energy queries
-(`queryHistoricEnergy*`) currently read raw data with counter-reset detection,
-to preserve cumulative precision.
+Each tier row carries `min_value`, `max_value`, `avg_value`, `last_value` and
+`num_values`. The Timedata API uses two of them: instantaneous channels
+re-bucket `avg_value`, and energy queries (`queryHistoricEnergy*`) take
+`last_value` as the counter reading at the end of each bucket and subtract the
+previous one, with counter-reset detection. `min_value` and `max_value` are for
+consumers outside this bundle. Non-aggregated and string channels fall back to
+`last(value, time)` over raw.
 
 A fine-grained query on a channel that is *not* aggregated logs a one-time
 `WARN … consider adding it to AggregateChannels`.
@@ -177,11 +166,12 @@ edge, not an old region that already counts as materialized.
 
 Resend after an Edge outage writes hours or days into the past and would
 therefore land in the raw hypertables only, leaving a hole in every query that
-gets routed to a tier. `RefreshHandler` closes that: the Backend reports the
-resent time range, ranges are merged into one window, and after five minutes
-without further resend the tiers are re-materialized finest→coarsest with
-`refresh_continuous_aggregate()`. The cascade order matters because TimescaleDB
-does not propagate a refresh from a tier to the coarser tier reading from it.
+gets routed to a tier. `RefreshHandler` closes that: the Backend reports
+the resent time range, ranges are merged into one window, and after five
+minutes without further resend the tiers are re-materialized finest→coarsest
+with `refresh_continuous_aggregate()`. The cascade order
+matters because TimescaleDB does not propagate a refresh from a tier to the
+coarser tier reading from it.
 
 Any other code path that writes into the past has to call
 `TimescaleDbConnector.scheduleAggregateRefresh()` too, or its data stays raw-only.
@@ -205,28 +195,155 @@ before the lookup, so `meter/ActiveProductionEnergy` covers `meter0`, `meter1`,
 
 == Prerequisites
 
-* PostgreSQL with the `timescaledb` (>= 2.8) and the
-  https://github.com/fboulnois/pg_uuidv7[`pg_uuidv7`] extension available on
-  the server.
-* An empty database the configured user may write to.
-* On startup the bundle issues `CREATE EXTENSION IF NOT EXISTS` for both
-  extensions, so the configured user needs the privilege to do that —
-  alternatively create them once as superuser.
+* PostgreSQL (>= 14) with the extension binaries installed on the server:
+** `timescaledb` >= 2.8 — 2.8 introduced the timezone argument of
+   `time_bucket()`, which the calendar-resolution read path depends on.
+** https://github.com/fboulnois/pg_uuidv7[`pg_uuidv7`] — supplies
+   `uuid_generate_v7()`, the default of every primary key.
+* `shared_preload_libraries = 'timescaledb'` in `postgresql.conf`, and the
+  background-worker scheduler enabled — the retention, compression and
+  continuous-aggregate refresh policies run as background jobs. The
+  `timescale/timescaledb-ha` images ship with both set.
+* A database and a role for the bundle, set up as described below.
+
+The bundle needs *no superuser*. It creates its own schema, so its role must be
+able to create objects in the database — nothing beyond that.
 
 == Database setup
 
-Quick start with Docker; replace `<database>` with the name the timedata bundle
-is configured for:
+The extensions are the only step that requires a superuser, and it is a
+one-time step per database. Everything afterwards runs as the unprivileged
+bundle role.
+
+=== 1. Role and database (superuser)
+
+Making the bundle role the database owner is the least-privilege route that
+still lets it create its schema: since PostgreSQL 15 the `public` schema is
+owned by `pg_database_owner`, so ownership of the database carries the right to
+create tables in `public` without any further grant.
+
+[source,sql]
+----
+CREATE ROLE openems WITH LOGIN PASSWORD 'openems';
+CREATE DATABASE openems OWNER openems;
+----
+
+=== 2. Extensions (superuser, inside the new database)
+
+Both extensions must be created *in the target database* — extensions are
+per-database objects, installing them in `postgres` does not help.
+
+[source,sql]
+----
+\connect openems
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+CREATE EXTENSION IF NOT EXISTS pg_uuidv7;
+----
+
+That is all the superuser is needed for. Verify:
+
+[source,sql]
+----
+SELECT extname, extversion FROM pg_extension ORDER BY extname;
+----
+
+=== 3. Start the bundle
+
+On first `connect()` the bundle applies its schema as the `openems` role:
+dimension tables, hypertables, `get_or_create_*` functions, continuous
+aggregates and the retention/compression policies. The role owns everything it
+creates, which is what TimescaleDB requires for `create_hypertable()`, for
+`ALTER TABLE … SET (timescaledb.compress …)` and for the `add_*_policy()`
+calls — no extra grants.
+
+The bundle still issues `CREATE EXTENSION IF NOT EXISTS` for both extensions on
+startup. Once they exist this is a no-op that an unprivileged role may run:
+PostgreSQL short-circuits on the `IF NOT EXISTS` check before it evaluates
+privileges. If step 2 was skipped, the call fails with
+`permission denied to create extension` — which is the intended, explicit
+failure rather than a half-built schema.
+
+=== Existing database, role is not the owner
+
+If the database already exists or is owned by someone else, grant the two
+rights the ownership route would have implied:
+
+[source,sql]
+----
+GRANT CONNECT ON DATABASE openems TO openems;
+GRANT USAGE, CREATE ON SCHEMA public TO openems;
+----
+
+=== Quick start with Docker Compose
+
+The container only provides the server. Role, database and extensions are
+created by hand afterwards, because their names and passwords differ per
+instance.
+
+.compose.yaml
+[source,yaml]
+----
+services:
+  openems-timescaledb:
+    image: timescale/timescaledb-ha:pg17
+    container_name: openems-timescaledb
+    hostname: openems-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - openems-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  openems-postgres:
+----
+
+`POSTGRES_PASSWORD` has no default on purpose — set it in the environment or in
+a `.env` file next to `compose.yaml`, so no superuser password ends up in
+version control.
 
 [source,shell]
 ----
-docker run -d --name tsdb -p 5432:5432 -e POSTGRES_PASSWORD=postgres timescale/timescaledb-ha:pg17
-docker exec tsdb psql -U postgres -c "CREATE DATABASE <database>;"
-docker exec tsdb psql -U postgres -c "CREATE USER openems WITH PASSWORD 'openems' SUPERUSER;"
+docker compose up -d
 ----
 
-NOTE: `SUPERUSER` is a quick-start shortcut so the bundle may create the
-extensions itself. For production create the extensions once as superuser and
-grant the bundle user plain write rights instead.
+Then steps 1 and 2 as superuser inside the container. Replace `openems` and the
+password with the values the timedata bundle is configured for:
+
+[source,shell]
+----
+docker exec -it openems-timescaledb psql -U postgres -c "CREATE ROLE openems WITH LOGIN PASSWORD 'openems';"
+docker exec -it openems-timescaledb psql -U postgres -c "CREATE DATABASE openems OWNER openems;"
+
+docker exec -it openems-timescaledb psql -U postgres -d openems -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+docker exec -it openems-timescaledb psql -U postgres -d openems -c "CREATE EXTENSION IF NOT EXISTS pg_uuidv7;"
+----
+
+Note the `-d openems` on the extension commands: extensions are per-database
+objects, creating them in the default `postgres` database does not help.
+
+Verify before starting the bundle:
+
+[source,shell]
+----
+docker exec -it openems-timescaledb psql -U postgres -d openems -c "SELECT extname, extversion FROM pg_extension ORDER BY extname;"
+----
+
+NOTE: The named volume outlives `docker compose down`. Re-running the commands
+against an existing volume fails with `role "openems" already exists` — that is
+harmless. To start from scratch use `docker compose down -v`.
+
+NOTE: `pg_uuidv7` is not part of every TimescaleDB image. If the
+`CREATE EXTENSION` fails with `could not open extension control file`, the
+binary is missing and has to be installed into the image or onto the server
+first — no grant can substitute for it.
 
 https://github.com/OpenEMS/openems/tree/develop/io.openems.shared.timescaledb[Source Code icon:github[]]

@@ -108,15 +108,18 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 		}
 		TimescaleDbConnector connector;
 		try {
-			connector = new TimescaleDbConnector(Tenancy.MULTI, config.host(), config.username(), config.password()) //
-					.database(config.database()) //
-					.port(config.port()) //
-					.poolSize(config.poolSize()) //
-					.writeWorkers(config.writeWorkers()) //
-					.rawRetentionDays(config.retentionDays()) //
-					.rawCompressionDays(config.compressionDays()) //
+			connector = new TimescaleDbConnector(Tenancy.MULTI, //
+					this.config.host(), //
+					this.config.username(), //
+					this.config.password()) //
+					.database(this.config.database()) //
+					.port(this.config.port()) //
+					.poolSize(this.config.poolSize()) //
+					.writeWorkers(this.config.writeWorkers()) //
+					.rawRetentionDays(this.config.retentionDays()) //
+					.rawCompressionDays(this.config.compressionDays()) //
 					.aggregates(Aggregate.of(Tenancy.MULTI)) //
-					.readOnly(config.isReadOnly()) //
+					.readOnly(this.config.isReadOnly()) //
 					.connect();
 
 		} catch (OpenemsNamedException | RuntimeException e) {
@@ -126,7 +129,7 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 				this.initExecutor.schedule(this::tryInitialize, INIT_RETRY_SECONDS, TimeUnit.SECONDS);
 
 			} catch (RejectedExecutionException re) {
-				// Do nothing
+				// deactivate() shut the executor down while we were retrying
 			}
 			return;
 		}
@@ -190,14 +193,6 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 		}
 		connector.scheduleAggregateRefresh(timestamps.first(), timestamps.last());
 	}
-	
-	private boolean isTimestampedChannel(String edgeId, String channel) {
-		var channelSet = this.timestampedChannelsForEdge.get(edgeId);
-		if (channelSet == null) {
-			return true;
-		}
-		return channelSet.contains(channel);
-	}
 
 	private void writeData(String edgeId, AbstractDataNotification notification,
 			BiPredicate<String, String> shouldWrite) {
@@ -205,7 +200,6 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 		if (connector == null) {
 			return;
 		}
-		// dealing with JSON
 		var data = notification.getData();
 		var dataEntries = data.rowMap().entrySet();
 		if (dataEntries.isEmpty()) {
@@ -214,12 +208,6 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 
 		var points = new ArrayList<DataPoint>();
 
-		// The EdgeConfig is only needed for a channel that has never been resolved:
-		// once it is registered, its value type and unit come from the channel
-		// cache. Reading it costs a query against the metadata database, so it is
-		// fetched lazily and at most once per notification — after warm-up that
-		// means never. A changed configuration invalidates the cache through
-		// ON_SET_CONFIG, so a stale unit cannot survive there.
 		EdgeConfig edgeConfig = null;
 		var edgeConfigResolved = false;
 
@@ -245,23 +233,20 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 
 				var primitive = element.getAsJsonPrimitive();
 				try {
-					var addr = ChannelAddress.fromString(channelString);
-					var componentId = addr.getComponentId();
-					var channelId = addr.getChannelId();
+					var channelAddress = ChannelAddress.fromString(channelString);
+					var channelId = channelAddress.getChannelId();
+					var componentId = channelAddress.getComponentId();
 
 					boolean aggregate = AggregateChannels.isAggregate(componentId, channelId);
 
-					// null = nature unknown. Harmless for a component that is already
-					// registered; a component that is not gets its points dropped,
-					// because channel_def is scoped by the nature.
 					String componentType = null;
-					Type type;
-					String unit;
+					Type channelType;
+					String channelUnit;
 
-					var known = connector.peekChannel(edgeId, componentId, channelId);
-					if (known != null) {
-						type = known.type();
-						unit = known.unit();
+					var channelInfo = connector.peekChannel(edgeId, componentId, channelId);
+					if (channelInfo != null) {
+						channelType = channelInfo.type();
+						channelUnit = channelInfo.unit();
 
 					} else {
 						if (!edgeConfigResolved) {
@@ -275,30 +260,36 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 								}
 							}
 						}
-						EdgeConfig.Component.Channel ch = null;
+						EdgeConfig.Component.Channel channel = null;
 						if (edgeConfig != null) {
 							var componentOpt = edgeConfig.getComponent(componentId);
 							if (componentOpt.isPresent()) {
 								var component = componentOpt.get();
 								componentType = component.getFactoryId();
-								ch = component.getChannels().get(channelId);
+								channel = component.getChannels().get(channelId);
 							}
 						}
-						type = ch != null ? Type.fromOpenemsType(ch.getType()) : Type.detect(primitive);
-						unit = ch != null && ch.getUnit() != null ? ch.getUnit().symbol : null;
+						channelType = channel != null ? Type.fromOpenemsType(channel.getType()) : Type.detect(primitive);
+						channelUnit = channel != null && channel.getUnit() != null ? channel.getUnit().symbol : null;
 					}
-
-					Object value = type.coerce(primitive);
-
+					Object value = channelType.coerce(primitive);
 					points.add(new DataPoint(
-							timestamp, edgeId, componentId, componentType, channelId, type, aggregate, unit, value));
+							timestamp, edgeId, componentId, componentType, channelId, channelType, aggregate, channelUnit, value));
+
 				} catch (OpenemsNamedException e) {
 					this.logWarn(this.log, "Unable to parse ChannelAddress [" + channelString + "]: " + e.getMessage());
 				}
 			}
 		}
-
 		connector.writeBatch(points);
+	}
+
+	private boolean isTimestampedChannel(String edgeId, String channel) {
+		var channelSet = this.timestampedChannelsForEdge.get(edgeId);
+		if (channelSet == null) {
+			return true;
+		}
+		return channelSet.contains(channel);
 	}
 
 	@Override
@@ -332,48 +323,48 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricData(String edgeId,
 			ZonedDateTime fromDate, ZonedDateTime toDate, Set<ChannelAddress> channels, Resolution resolution)
 			throws OpenemsNamedException {
-		var handler = this.connector;
-		if (handler == null || !this.timeFilter.isValid(fromDate, toDate)) {
+		var connector = this.connector;
+		if (connector == null || !this.timeFilter.isValid(fromDate, toDate)) {
 			return new TreeMap<>();
 		}
-		return handler.queryHistoricData(edgeId, fromDate, toDate, channels, resolution);
+		return connector.queryHistoricData(edgeId, fromDate, toDate, channels, resolution);
 	}
 
 	@Override
 	public String debugLog() {
-		var handler = this.connector;
-		return handler != null ? handler.debugLog() : "TimescaleDB [connecting...]";
+		var connector = this.connector;
+		return connector != null ? connector.debugLog() : "TimescaleDB [connecting...]";
 	}
 
 	@Override
 	public Map<String, JsonElement> debugMetrics() {
-		var handler = this.connector;
-		if (handler == null) {
+		var connector = this.connector;
+		if (connector == null) {
 			return Map.of();
 		}
 		var result = new HashMap<String, JsonElement>();
-		handler.debugMetrics().forEach((table, sizeMb) -> result.put(table, new JsonPrimitive(sizeMb)));
+		connector.debugMetrics().forEach((table, sizeMb) -> result.put(table, new JsonPrimitive(sizeMb)));
 		return result;
 	}
 
 	@Override
 	public SortedMap<ChannelAddress, JsonElement> queryHistoricEnergy(String edgeId, ZonedDateTime fromDate,
 			ZonedDateTime toDate, Set<ChannelAddress> channels) throws OpenemsNamedException {
-		var handler = this.connector;
-		if (handler == null || !this.timeFilter.isValid(fromDate, toDate)) {
+		var connector = this.connector;
+		if (connector == null || !this.timeFilter.isValid(fromDate, toDate)) {
 			return new TreeMap<>();
 		}
-		return handler.queryHistoricEnergy(edgeId, fromDate, toDate, channels);
+		return connector.queryHistoricEnergy(edgeId, fromDate, toDate, channels);
 	}
 
 	@Override
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricEnergyPerPeriod(String edgeId,
 			ZonedDateTime fromDate, ZonedDateTime toDate, Set<ChannelAddress> channels, Resolution resolution)
 			throws OpenemsNamedException {
-		var handler = this.connector;
-		if (handler == null || !this.timeFilter.isValid(fromDate, toDate)) {
+		var connector = this.connector;
+		if (connector == null || !this.timeFilter.isValid(fromDate, toDate)) {
 			return new TreeMap<>();
 		}
-		return handler.queryHistoricEnergyPerPeriod(edgeId, fromDate, toDate, channels, resolution);
+		return connector.queryHistoricEnergyPerPeriod(edgeId, fromDate, toDate, channels, resolution);
 	}
 }

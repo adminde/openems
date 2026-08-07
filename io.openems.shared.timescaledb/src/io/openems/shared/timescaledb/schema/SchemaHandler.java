@@ -559,25 +559,28 @@ public class SchemaHandler {
 						CREATE MATERIALIZED VIEW %s
 						WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
 						SELECT time_bucket('%s', time) AS bucket, channel_id,
-						       MIN(value) AS min_val, MAX(value) AS max_val,
-						       AVG(value) AS avg_val, last(value,time) AS last_val,
-						       COUNT(*) AS sample_count
+						       MIN(value) AS min_value,
+						       MAX(value) AS max_value,
+						       AVG(value) AS avg_value,
+						       last(value, time) AS last_value,
+						       COUNT(*) AS num_values
 						FROM %s
 						%s
 						GROUP BY bucket, channel_id WITH NO DATA
 						""".formatted(viewName, bucket, source, whereClause != null ? whereClause : ""));
 			} else {
-				// avg_val is weighted by each sub-bucket's sample_count: a plain
-				// AVG(avg_val) would give every sub-bucket equal weight and drift
+				// avg_value is weighted by each sub-bucket's num_values: a plain
+				// AVG(avg_value) would give every sub-bucket equal weight and drift
 				// whenever the sample density inside the bucket is uneven.
 				statement.execute("""
 						CREATE MATERIALIZED VIEW %s
 						WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
 						SELECT time_bucket('%s', bucket) AS bucket, channel_id,
-						       MIN(min_val) AS min_val, MAX(max_val) AS max_val,
-						       SUM(avg_val * sample_count) / NULLIF(SUM(sample_count), 0) AS avg_val,
-						       last(last_val,bucket) AS last_val,
-						       SUM(sample_count) AS sample_count
+						       MIN(min_value) AS min_value,
+						       MAX(max_value) AS max_value,
+						       SUM(avg_value * num_values) / NULLIF(SUM(num_values), 0) AS avg_value,
+						       last(last_value, bucket) AS last_value,
+						       SUM(num_values) AS num_values
 						FROM %s GROUP BY time_bucket('%s', bucket), channel_id WITH NO DATA
 						""".formatted(viewName, bucket, source, bucket));
 			}

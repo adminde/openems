@@ -74,9 +74,9 @@ public class TimescaleDbConnector {
 	// Initialized by connect()
 	private HikariDataSource dataSource;
 	private ChannelManager channelManager;
+	private ReadHandler readHandler;
 	private WriteHandler writeHandler;
 	private RefreshHandler refreshHandler;
-	private ReadHandler readHandler;
 
 	private volatile Instant lastReadOnlyLog = Instant.EPOCH;
 
@@ -227,9 +227,9 @@ public class TimescaleDbConnector {
 		var schema = new SchemaHandler(this.tenancy, this.dataSource, this.rawRetentionDays, this.rawCompressionDays,
 				this.aggregates);
 		this.channelManager = new ChannelManager(this.tenancy);
+		this.readHandler = new ReadHandler(this.dataSource, this.channelManager, this.aggregates);
 		this.writeHandler = new WriteHandler(this.dataSource, this.channelManager, this.writeWorkers);
 		this.refreshHandler = new RefreshHandler(this.dataSource, this.aggregates);
-		this.readHandler = new ReadHandler(this.dataSource, this.channelManager, this.aggregates);
 
 		// Apply schema on startup
 		try {
@@ -258,6 +258,12 @@ public class TimescaleDbConnector {
 		}
 	}
 
+	/**
+	 * Hands a batch of points to the asynchronous write pipeline. Returns without
+	 * waiting for database IO, but blocks while the pipeline is saturated.
+	 *
+	 * @param points the points to write
+	 */
 	public void writeBatch(List<DataPoint> points) {
 		if (this.readOnly) {
 			var now = Instant.now();
@@ -306,7 +312,18 @@ public class TimescaleDbConnector {
 		return data;
 	}
 
-	// Queries historic data for a set of channels at a specific resolution
+	/**
+	 * Queries the average value per bucket, routed to the coarsest fitting
+	 * aggregate tier or to raw.
+	 *
+	 * @param edgeName   the Edge identifier; ignored in single-tenant mode
+	 * @param from       start of the query window
+	 * @param to         end of the query window, exclusive
+	 * @param channels   the Channels
+	 * @param resolution the bucket {@link Resolution}
+	 * @return sorted map keyed by bucket timestamp
+	 * @throws OpenemsNamedException on database error
+	 */
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricData(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
 			Set<ChannelAddress> channels, Resolution resolution) throws OpenemsNamedException {
@@ -317,7 +334,17 @@ public class TimescaleDbConnector {
 		}
 	}
 
-	// Queries the total historic energy consumed/produced during a period.
+	/**
+	 * Queries the energy delta over the whole window, as the sum of the positive
+	 * counter deltas between consecutive readings.
+	 *
+	 * @param edgeName the Edge identifier; ignored in single-tenant mode
+	 * @param from     start of the query window
+	 * @param to       end of the query window, exclusive
+	 * @param channels the Channels
+	 * @return map of Channel to its energy delta
+	 * @throws OpenemsNamedException on database error
+	 */
 	public SortedMap<ChannelAddress, JsonElement> queryHistoricEnergy(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
 			Set<ChannelAddress> channels) throws OpenemsNamedException {
@@ -328,7 +355,17 @@ public class TimescaleDbConnector {
 		}
 	}
 
-	// Queries historic energy per bucket resolution.
+	/**
+	 * Queries the energy delta per bucket, for histogram charts.
+	 *
+	 * @param edgeName   the Edge identifier; ignored in single-tenant mode
+	 * @param from       start of the query window
+	 * @param to         end of the query window, exclusive
+	 * @param channels   the Channels
+	 * @param resolution the bucket {@link Resolution}
+	 * @return sorted map keyed by bucket timestamp
+	 * @throws OpenemsNamedException on database error
+	 */
 	public SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricEnergyPerPeriod(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
 			Set<ChannelAddress> channels, Resolution resolution) throws OpenemsNamedException {
@@ -339,7 +376,14 @@ public class TimescaleDbConnector {
 		}
 	}
 
-	// Queries the most recent known value for a channel.
+	/**
+	 * Queries the most recent known value of a Channel.
+	 *
+	 * @param edgeName the Edge identifier; ignored in single-tenant mode
+	 * @param addr     the Channel-Address
+	 * @return the latest value, if any
+	 * @throws OpenemsNamedException on database error
+	 */
 	public Optional<Object> queryLatestValue(String edgeName, ChannelAddress addr) throws OpenemsNamedException {
 		try {
 			return this.readHandler.queryLatestValue(edgeName, addr);
@@ -348,6 +392,16 @@ public class TimescaleDbConnector {
 		}
 	}
 
+	/**
+	 * Returns the timestamps of cycles whose data never reached the Backend, so
+	 * they can be resent.
+	 *
+	 * @param edgeName            the Edge identifier; ignored in single-tenant mode
+	 * @param notSendChannel      the Channel recording send success/failure
+	 * @param lastResendTimestamp epoch seconds; negative means "from the start"
+	 * @return ordered epoch-second timestamps of failed sends
+	 * @throws OpenemsNamedException on database error
+	 */
 	public List<Long> getResendTimestamps(String edgeName,
 			ChannelAddress notSendChannel, long lastResendTimestamp) throws OpenemsNamedException {
 		try {
@@ -357,6 +411,17 @@ public class TimescaleDbConnector {
 		}
 	}
 
+	/**
+	 * Reads the raw values of the cycles reported by
+	 * {@link #getResendTimestamps(String, ChannelAddress, long)}.
+	 *
+	 * @param edgeName the Edge identifier; ignored in single-tenant mode
+	 * @param from     start of the query window
+	 * @param to       end of the query window, exclusive
+	 * @param channels the Channels
+	 * @return sorted map keyed by epoch-second timestamp
+	 * @throws OpenemsNamedException on database error
+	 */
 	public SortedMap<Long, SortedMap<ChannelAddress, JsonElement>> queryResendData(
 			String edgeName, ZonedDateTime from, ZonedDateTime to,
 			Set<ChannelAddress> channels) throws OpenemsNamedException {
@@ -416,6 +481,9 @@ public class TimescaleDbConnector {
 		}
 	}
 
+	/**
+	 * Drains and stops the write pipeline and closes the connection pool.
+	 */
 	public void deactivate() {
 		if (this.refreshHandler != null) {
 			this.refreshHandler.deactivate();

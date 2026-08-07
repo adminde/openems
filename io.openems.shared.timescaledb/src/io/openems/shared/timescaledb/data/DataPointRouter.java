@@ -88,6 +88,11 @@ public class DataPointRouter extends AbstractImmediateWorker {
 	 * Resolves a channel via {@code get_or_create_channel_id}. Retries with
 	 * backoff on connection errors while the pipeline is running; returns
 	 * {@code null} (point is dropped) on a data error.
+	 *
+	 * @param point the {@link DataPoint} whose channel to resolve
+	 * @return the resolved {@link ChannelInfo}, or {@code null} if the point has
+	 *         to be dropped
+	 * @throws InterruptedException if interrupted while backing off
 	 */
 	private ChannelInfo resolve(DataPoint point) throws InterruptedException {
 		long backoffMs = 1000;

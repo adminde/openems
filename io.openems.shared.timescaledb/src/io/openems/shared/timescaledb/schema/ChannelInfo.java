@@ -5,7 +5,10 @@ import java.util.UUID;
 import io.openems.shared.timescaledb.Type;
 
 /**
- * Represents the resolved database metadata for a specific channel.
+ * The resolved database metadata for one channel of one component: everything
+ * the write and read paths need once a channel is known, joined from the
+ * {@code channel} instance ({@code channelId}, {@code aggregate}) and its
+ * {@code channel_def} ({@code type}, {@code unit}).
  *
  * @param channelId The Edge-Channel ID (Primary key in the channel table).
  *                  UUID v7 — time-ordered, globally unique across backends, safe

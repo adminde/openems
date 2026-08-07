@@ -82,7 +82,9 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 		this.config = config;
 		try {
 			this.connector = new TimescaleDbConnector(Tenancy.SINGLE, //
-					config.host(), config.username(), config.password()) //
+					this.config.host(), //
+					this.config.username(), //
+					this.config.password()) //
 					.database(config.database()) //
 					.port(config.port()) //
 					.poolSize(config.poolSize()) //

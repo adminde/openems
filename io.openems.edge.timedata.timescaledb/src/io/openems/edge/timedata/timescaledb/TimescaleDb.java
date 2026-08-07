@@ -110,7 +110,7 @@ public interface TimescaleDb extends Timedata, CommonTimedataService, OpenemsCom
 	public default SortedMap<ZonedDateTime, SortedMap<ChannelAddress, JsonElement>> queryHistoricEnergyPerPeriod(String edgeId,
 			ZonedDateTime fromDate, ZonedDateTime toDate, Set<ChannelAddress> channels, Resolution resolution)
 			throws OpenemsNamedException {
-		return queryHistoricEnergyPerPeriod(fromDate, toDate, channels, resolution);
+		return this.queryHistoricEnergyPerPeriod(fromDate, toDate, channels, resolution);
 	}
 
 	/**
