@@ -151,6 +151,26 @@ The same `List<Aggregate>` instance feeds both the database policies *and* the
 read-path routing — never change the policies directly in SQL, or queries will
 be routed into tiers that no longer hold data.
 
+=== Backfill
+
+A write into an already materialized region does not update the tier. It only
+appends to TimescaleDB's invalidation log, which is processed when a refresh
+covers that range — and the installed policies only refresh a narrow trailing
+window (`start_offset`, 10 minutes for the 1-minute tier). Real-time
+aggregation does not help either: it serves the newest, not-yet-materialized
+edge, not an old region that already counts as materialized.
+
+Resend after an Edge outage writes hours or days into the past and would
+therefore land in the raw hypertables only, leaving a hole in every query that
+gets routed to a tier. `RefreshHandler` closes that: the Backend reports the
+resent time range, ranges are merged into one window, and after five minutes
+without further resend the tiers are re-materialized finest→coarsest with
+`refresh_continuous_aggregate()`. The cascade order matters because TimescaleDB
+does not propagate a refresh from a tier to the coarser tier reading from it.
+
+Any other code path that writes into the past has to call
+`TimescaleDbConnector.scheduleAggregateRefresh()` too, or its data stays raw-only.
+
 == AggregateChannels
 
 `AggregateChannels.isAggregate()` decides which channels enter the aggregate

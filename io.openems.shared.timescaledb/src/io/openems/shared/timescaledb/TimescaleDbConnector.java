@@ -24,6 +24,7 @@ import io.openems.common.timedata.Resolution;
 import io.openems.common.types.ChannelAddress;
 import io.openems.shared.timescaledb.data.DataPoint;
 import io.openems.shared.timescaledb.data.ReadHandler;
+import io.openems.shared.timescaledb.data.RefreshHandler;
 import io.openems.shared.timescaledb.data.WriteHandler;
 import io.openems.shared.timescaledb.schema.Aggregate;
 import io.openems.shared.timescaledb.schema.ChannelManager;
@@ -73,6 +74,7 @@ public class TimescaleDbConnector {
 	private HikariDataSource dataSource;
 	private ChannelManager channelManager;
 	private WriteHandler writeHandler;
+	private RefreshHandler refreshHandler;
 	private ReadHandler readHandler;
 
 	private volatile Instant lastReadOnlyLog = Instant.EPOCH;
@@ -225,6 +227,7 @@ public class TimescaleDbConnector {
 				this.aggregates);
 		this.channelManager = new ChannelManager(this.tenancy);
 		this.writeHandler = new WriteHandler(this.dataSource, this.channelManager, this.writeWorkers);
+		this.refreshHandler = new RefreshHandler(this.dataSource, this.aggregates);
 		this.readHandler = new ReadHandler(this.dataSource, this.channelManager, this.aggregates);
 
 		// Apply schema on startup
@@ -363,7 +366,28 @@ public class TimescaleDbConnector {
 		}
 	}
 
+	/**
+	 * Reports a time range that was written into the past, so the aggregate tiers
+	 * covering it get re-materialized. Without this the points stay visible in the
+	 * raw hypertables only — the refresh policies only cover a narrow trailing
+	 * window. Ranges are merged and executed after a quiet period; the call
+	 * returns immediately and never throws.
+	 *
+	 * @param fromEpochMillis start of the backfilled range
+	 * @param toEpochMillis   end of the backfilled range
+	 */
+	public void scheduleAggregateRefresh(long fromEpochMillis, long toEpochMillis) {
+		if (this.readOnly || this.refreshHandler == null) {
+			return;
+		}
+		this.refreshHandler.schedule(//
+				Instant.ofEpochMilli(fromEpochMillis), Instant.ofEpochMilli(toEpochMillis));
+	}
+
 	public void deactivate() {
+		if (this.refreshHandler != null) {
+			this.refreshHandler.deactivate();
+		}
 		if (this.writeHandler != null) {
 			this.writeHandler.deactivate();
 		}

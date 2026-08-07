@@ -170,6 +170,21 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 	@Override
 	public void write(String edgeId, ResendDataNotification data) {
 		this.writeData(edgeId, data, (edge, channel) -> true);
+
+		// Resend writes into an already materialized region, which the aggregate
+		// refresh policies never revisit. Report the range so the tiers get
+		// re-materialized; without this the resent points would only ever be
+		// visible through the raw hypertables.
+		var connector = this.connector;
+		if (connector == null) {
+			return;
+		}
+		// TreeBasedTable keeps the row keys sorted, so first/last are the range
+		var timestamps = data.getData().rowKeySet();
+		if (timestamps.isEmpty()) {
+			return;
+		}
+		connector.scheduleAggregateRefresh(timestamps.first(), timestamps.last());
 	}
 	
 	private boolean isTimestampedChannel(String edgeId, String channel) {

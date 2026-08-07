@@ -1,5 +1,7 @@
 package io.openems.shared.timescaledb.schema;
 
+import io.openems.shared.timescaledb.data.RefreshHandler;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,9 +57,10 @@ public record Aggregate(
 	/**
 	 * The refresh policy of a continuous aggregate.
 	 *
-	 * @param startOffset how far back each incremental refresh re-scans (covers
-	 *                    out-of-order jitter; deep backfill is handled explicitly
-	 *                    by the resend path)
+	 * @param startOffset how far back each incremental refresh re-scans. Sized for
+	 *                    out-of-order jitter only. Anything older is invisible to
+	 *                    the policy and has to be refreshed explicitly through
+	 *                    {@link RefreshHandler}
 	 * @param endOffset   how far back from now the refresh stops; must be
 	 *                    {@code >= bucket} so only complete buckets are
 	 *                    materialized (the in-progress bucket is served live by
