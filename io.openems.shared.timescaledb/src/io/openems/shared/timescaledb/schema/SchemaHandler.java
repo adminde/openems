@@ -16,12 +16,13 @@ import io.openems.shared.timescaledb.Type;
  *
  * <p>
  * The single-tenant and multi-tenant variants share almost everything
- * (extensions, the {@code channel_def}/{@code channel} tables, hypertables,
- * compression, retention, continuous aggregates and their policies). The parts
- * that differ — the {@code edge} dimension on the {@code component} table and
- * the edge handling in the {@code get_or_create_*} stored functions — are pure
- * data variance, so the SQL is composed dynamically from the {@link Tenancy}
- * instead of subclasses (same concept as {@link ChannelManager}).
+ * (extensions, the {@code component_def}/{@code channel_def}/{@code channel}
+ * tables, hypertables, compression, retention, continuous aggregates and their
+ * policies). The parts that differ — the {@code edge} dimension on the
+ * {@code component} table and the edge handling in the
+ * {@code get_or_create_*} stored functions — are pure data variance, so the SQL
+ * is composed dynamically from the {@link Tenancy} instead of subclasses (same
+ * concept as {@link ChannelManager}).
  *
  * <p>
  * The continuous-aggregate tiers are built from the {@code List<Aggregate>}
@@ -74,6 +75,7 @@ public class SchemaHandler {
 			if (this.tenancy == Tenancy.MULTI) {
 				this.createEdgeTable(statement);
 			}
+			this.createComponentDefinitionTable(statement);
 			this.createComponentTable(statement);
 			this.createChannelDefinitionTable(statement);
 			this.createChannelTable(statement);
@@ -83,7 +85,6 @@ public class SchemaHandler {
 			createHypertable(statement, "data_float",   "DOUBLE PRECISION", "1 day");
 			createHypertable(statement, "data_string",  "TEXT",             "7 days");
 
-			// Compression
 			for (var table : new String[] {
 					"data_integer",
 					"data_float",
@@ -207,6 +208,19 @@ public class SchemaHandler {
 		);
 	}
 
+	private void createComponentDefinitionTable(Statement statement) throws SQLException {
+		// The component nature (factory PID). Scoping channel_def by it is what
+		// keeps two factories that both expose e.g. "ActivePower" from sharing one
+		// value type and unit.
+		statement.execute("""
+				CREATE TABLE IF NOT EXISTS component_def (
+					id         UUID DEFAULT uuid_generate_v7() PRIMARY KEY,
+					type       VARCHAR NOT NULL UNIQUE,
+					created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+				)"""
+		);
+	}
+
 	private void createComponentTable(Statement statement) throws SQLException {
 		StringBuilder query = new StringBuilder()
 				.append("CREATE TABLE IF NOT EXISTS component (")
@@ -217,7 +231,7 @@ public class SchemaHandler {
 		} else {
 			query.append("name VARCHAR NOT NULL UNIQUE, ");
 		}
-		query.append("type VARCHAR, ")
+		query.append("component_def UUID NOT NULL REFERENCES component_def(id), ")
 				.append("created_at TIMESTAMPTZ NOT NULL DEFAULT now()");
 		if (this.tenancy == Tenancy.MULTI) {
 			query.append(", UNIQUE (edge_id, name)");
@@ -231,13 +245,17 @@ public class SchemaHandler {
 	}
 
 	private void createChannelDefinitionTable(Statement statement) throws SQLException {
+		// Scoped by component_def: value type and unit are a property of the
+		// Channel-ID *within one component nature*, not of the Channel-ID alone.
 		statement.execute("""
 				CREATE TABLE IF NOT EXISTS channel_def (
 					id          UUID DEFAULT uuid_generate_v7() PRIMARY KEY,
-					name        VARCHAR NOT NULL UNIQUE,
+					component_def    UUID NOT NULL REFERENCES component_def(id) ON DELETE CASCADE,
+					name        VARCHAR NOT NULL,
 					type        VARCHAR(16) NOT NULL CHECK (type IN ('INTEGER','FLOAT','STRING')),
 					unit        VARCHAR(16),
-					created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+					created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+					UNIQUE (component_def, name)
 				)"""
 		);
 	}
@@ -248,14 +266,14 @@ public class SchemaHandler {
 				CREATE TABLE IF NOT EXISTS channel (
 					id             UUID    DEFAULT uuid_generate_v7() PRIMARY KEY,
 					component_id   UUID    NOT NULL REFERENCES component(id) ON DELETE CASCADE,
-					channel_def_id UUID    NOT NULL REFERENCES channel_def(id) ON DELETE CASCADE,
+					channel_def UUID    NOT NULL REFERENCES channel_def(id) ON DELETE CASCADE,
 					aggregate      BOOLEAN NOT NULL DEFAULT false,
 					first_seen     TIMESTAMPTZ NOT NULL DEFAULT now(),
-					UNIQUE (component_id, channel_def_id)
+					UNIQUE (component_id, channel_def)
 				)"""
 		);
 		statement.execute("CREATE INDEX IF NOT EXISTS idx_channel_component ON channel(component_id)");
-		statement.execute("CREATE INDEX IF NOT EXISTS idx_channel_def       ON channel(channel_def_id)");
+		statement.execute("CREATE INDEX IF NOT EXISTS idx_channel_def       ON channel(channel_def)");
 	}
 
 	/**
@@ -298,6 +316,27 @@ public class SchemaHandler {
 			);
 		}
 
+		// Helper: Component-Def (tenancy-independent)
+		statement.execute("""
+				CREATE OR REPLACE FUNCTION get_or_create_component_def(
+				    input_type VARCHAR,
+				    OUT out_id UUID
+				)
+				LANGUAGE plpgsql AS $$
+				BEGIN
+				    SELECT id INTO out_id FROM component_def WHERE type = input_type;
+				    IF out_id IS NULL THEN
+				        INSERT INTO component_def (type) VALUES (input_type)
+				            ON CONFLICT (type) DO NOTHING
+				            RETURNING id INTO out_id;
+				        IF out_id IS NULL THEN
+				            SELECT id INTO out_id FROM component_def WHERE type = input_type;
+				        END IF;
+				    END IF;
+				END;
+				$$"""
+		);
+
 		var componentWhere = "WHERE name = input_component_name";
 		if (multi) {
 			componentWhere += " AND edge_id = input_edge_id";
@@ -312,30 +351,34 @@ public class SchemaHandler {
 		componentQuery
 				.append("input_component_name VARCHAR, ")
 				.append("input_component_type VARCHAR, ")
-				.append("OUT out_id UUID) ")
+				.append("OUT out_id UUID, ")
+				.append("OUT out_component_def UUID) ")
 				.append("LANGUAGE plpgsql AS $$ ")
-				.append("DECLARE ").append("found_type VARCHAR; ")
-				.append("BEGIN ").append("SELECT id, type INTO out_id, found_type FROM component ")
+				.append("BEGIN ").append("SELECT id, component_def INTO out_id, out_component_def FROM component ")
 				.append(componentWhere).append("; ")
-				.append("IF out_id IS NULL THEN ");
+				.append("IF out_id IS NULL THEN ")
+				.append("IF input_component_type IS NULL THEN RETURN; END IF; ")
+				.append("SELECT def_id INTO out_component_def ")
+				.append("FROM get_or_create_component_def(input_component_type) AS d(def_id); ");
 		if (multi) {
 			componentQuery
-					.append("INSERT INTO component (edge_id, name, type) ")
-					.append("VALUES (input_edge_id, input_component_name, input_component_type) ")
+					.append("INSERT INTO component (edge_id, name, component_def) ")
+					.append("VALUES (input_edge_id, input_component_name, out_component_def) ")
 					.append("ON CONFLICT (edge_id, name) DO NOTHING ");
 		} else {
 			componentQuery
-					.append("INSERT INTO component (name, type) ")
-					.append("VALUES (input_component_name, input_component_type) ")
+					.append("INSERT INTO component (name, component_def) ")
+					.append("VALUES (input_component_name, out_component_def) ")
 					.append("ON CONFLICT (name) DO NOTHING ");
 		}
 		componentQuery.append("RETURNING id INTO out_id; ")
 				.append("IF out_id IS NULL THEN ")
-				.append("SELECT id, type INTO out_id, found_type FROM component ")
+				.append("SELECT id, component_def INTO out_id, out_component_def FROM component ")
 				.append(componentWhere).append("; ")
 				.append("END IF; ")
-				.append("ELSIF found_type IS DISTINCT FROM input_component_type AND input_component_type <> 'backend' THEN ")
-				.append("UPDATE component SET type = input_component_type WHERE id = out_id; ")
+				// An existing component keeps its nature. The caller only reaches this
+				// function for a channel that is not cached yet, and the nature is
+				// decided once, when the component is first registered.
 				.append("END IF; ")
 				.append("END; ")
 				.append("$$");
@@ -344,6 +387,7 @@ public class SchemaHandler {
 		// Helper: Channel Def (tenancy-independent)
 		statement.execute("""
 				CREATE OR REPLACE FUNCTION get_or_create_channel_def(
+				    input_component_def UUID,
 				    input_channel_name VARCHAR,
 				    input_type VARCHAR,
 				    input_unit VARCHAR,
@@ -355,14 +399,15 @@ public class SchemaHandler {
 				    found_unit VARCHAR;
 				BEGIN
 				    SELECT id, type, unit INTO out_id, out_type, found_unit FROM channel_def
-				        WHERE name = input_channel_name;
+				        WHERE component_def = input_component_def AND name = input_channel_name;
 				    IF out_id IS NULL THEN
-				        INSERT INTO channel_def (name, type, unit) VALUES (input_channel_name, input_type, input_unit)
-				            ON CONFLICT (name) DO NOTHING
+				        INSERT INTO channel_def (component_def, name, type, unit)
+				            VALUES (input_component_def, input_channel_name, input_type, input_unit)
+				            ON CONFLICT (component_def, name) DO NOTHING
 				            RETURNING id, type INTO out_id, out_type;
 				        IF out_id IS NULL THEN
 				            SELECT id, type, unit INTO out_id, out_type, found_unit FROM channel_def
-				                WHERE name = input_channel_name;
+				                WHERE component_def = input_component_def AND name = input_channel_name;
 				        END IF;
 				    ELSIF input_unit IS NOT NULL AND found_unit IS DISTINCT FROM input_unit THEN
 				        UPDATE channel_def SET unit = input_unit WHERE id = out_id;
@@ -376,7 +421,7 @@ public class SchemaHandler {
 		statement.execute("""
 				CREATE OR REPLACE FUNCTION get_or_create_channel(
 				    input_component_id UUID,
-				    input_channel_def_id UUID,
+				    input_channel_def UUID,
 				    input_aggregate BOOLEAN,
 				    OUT out_id UUID,
 				    OUT out_aggregate BOOLEAN
@@ -384,15 +429,15 @@ public class SchemaHandler {
 				LANGUAGE plpgsql AS $$
 				BEGIN
 				    SELECT id, aggregate INTO out_id, out_aggregate FROM channel
-				        WHERE component_id = input_component_id AND channel_def_id = input_channel_def_id;
+				        WHERE component_id = input_component_id AND channel_def = input_channel_def;
 				    IF out_id IS NULL THEN
-				        INSERT INTO channel (component_id, channel_def_id, aggregate)
-				            VALUES (input_component_id, input_channel_def_id, input_aggregate)
-				            ON CONFLICT (component_id, channel_def_id) DO NOTHING
+				        INSERT INTO channel (component_id, channel_def, aggregate)
+				            VALUES (input_component_id, input_channel_def, input_aggregate)
+				            ON CONFLICT (component_id, channel_def) DO NOTHING
 				            RETURNING id, aggregate INTO out_id, out_aggregate;
 				        IF out_id IS NULL THEN
 				            SELECT id, aggregate INTO out_id, out_aggregate FROM channel
-				                WHERE component_id = input_component_id AND channel_def_id = input_channel_def_id;
+				                WHERE component_id = input_component_id AND channel_def = input_channel_def;
 				        END IF;
 				    END IF;
 				    IF input_aggregate AND NOT out_aggregate THEN
@@ -425,7 +470,8 @@ public class SchemaHandler {
 		}
 		conductorQuery
 				.append("local_component_id   UUID; ")
-				.append("local_channel_def_id UUID; ")
+				.append("local_component_def    UUID; ")
+				.append("local_channel_def UUID; ")
 				.append("local_type VARCHAR; ")
 				.append("local_channel_id UUID; ")
 				.append("local_aggregate BOOLEAN; ")
@@ -433,22 +479,28 @@ public class SchemaHandler {
 		if (multi) {
 			conductorQuery
 					.append("SELECT out_id INTO local_edge_id FROM get_or_create_edge(input_edge_name); ")
-					.append("SELECT out_id INTO local_component_id FROM get_or_create_component(")
-					.append("local_edge_id, input_component_name, input_component_type); ");
+					.append("SELECT c_id, c_def_id INTO local_component_id, local_component_def ")
+					.append("FROM get_or_create_component(")
+					.append("local_edge_id, input_component_name, input_component_type) ")
+					.append("AS c(c_id, c_def_id); ");
 		} else {
 			conductorQuery
-					.append("SELECT out_id INTO local_component_id FROM get_or_create_component(")
-					.append("input_component_name, input_component_type); ");
+					.append("SELECT c_id, c_def_id INTO local_component_id, local_component_def ")
+					.append("FROM get_or_create_component(")
+					.append("input_component_name, input_component_type) ")
+					.append("AS c(c_id, c_def_id); ");
 		}
-		conductorQuery.append("SELECT def_id, def_type INTO local_channel_def_id, local_type ")
-				.append("FROM get_or_create_channel_def(input_channel_name, input_type, input_unit) ")
+		conductorQuery.append("IF local_component_id IS NULL THEN RETURN; END IF; ")
+				.append("SELECT def_id, def_type INTO local_channel_def, local_type ")
+				.append("FROM get_or_create_channel_def(")
+				.append("local_component_def, input_channel_name, input_type, input_unit) ")
 				.append("AS def(def_id, def_type); ")
 				.append("IF local_type IS DISTINCT FROM input_type THEN ")
 				.append("RAISE WARNING 'channel_def % type mismatch: stored=%, incoming=% (keeping stored)', ")
 				.append("input_channel_name, local_type, input_type; ")
 				.append("END IF; ")
 				.append("SELECT ch_id, ch_aggregate INTO local_channel_id, local_aggregate ")
-				.append("FROM get_or_create_channel(local_component_id, local_channel_def_id, input_aggregate) ")
+				.append("FROM get_or_create_channel(local_component_id, local_channel_def, input_aggregate) ")
 				.append("AS ch(ch_id, ch_aggregate); ")
 				.append("RETURN QUERY SELECT local_channel_id, local_type, local_aggregate; ")
 				.append("END; ")
@@ -456,20 +508,20 @@ public class SchemaHandler {
 		statement.execute(conductorQuery.toString());
 	}
 
-	private static void createHypertable(Statement st, String table, String valueType, String chunkInterval)
+	private static void createHypertable(Statement statement, String table, String valueType, String chunkInterval)
 			throws SQLException {
-		st.execute(new StringBuilder()
+		statement.execute(new StringBuilder()
 				.append("CREATE TABLE IF NOT EXISTS ").append(table).append(" (")
 				.append("time TIMESTAMPTZ NOT NULL, ")
 				.append("channel_id UUID NOT NULL, ")
 				.append("aggregate BOOLEAN NOT NULL, ")
 				.append("value ").append(valueType).append(" NOT NULL)")
 				.toString());
-		st.execute(new StringBuilder()
+		statement.execute(new StringBuilder()
 				.append("CREATE INDEX IF NOT EXISTS idx_").append(table).append("_channel ")
 				.append("ON ").append(table).append(" (channel_id, time DESC)")
 				.toString());
-		st.execute(new StringBuilder()
+		statement.execute(new StringBuilder()
 				.append("SELECT create_hypertable('").append(table).append("','time',")
 				.append("chunk_time_interval => INTERVAL '").append(chunkInterval).append("',if_not_exists => TRUE)")
 				.toString());
@@ -480,7 +532,7 @@ public class SchemaHandler {
 	 * ({@code materialized_only = false}) so the in-progress bucket is served
 	 * live, independent of the installed TimescaleDB version's default.
 	 *
-	 * @param st          an open JDBC {@link Statement}
+	 * @param statement   an open JDBC {@link Statement}
 	 * @param viewName    the materialized-view name, e.g. {@code data_15m_integer}
 	 * @param bucket      the {@code time_bucket} interval literal
 	 * @param source      the source table: a raw hypertable or a finer aggregate
@@ -490,9 +542,9 @@ public class SchemaHandler {
 	 *                    when reading from a raw hypertable; ignored when cascaded
 	 * @throws SQLException on database error
 	 */
-	private static void createAggregate(Statement st, String viewName, String bucket,
+	private static void createAggregate(Statement statement, String viewName, String bucket,
 			String source, boolean cascaded, String whereClause) throws SQLException {
-		try (var check = st.getConnection().prepareStatement(
+		try (var check = statement.getConnection().prepareStatement(
 				"SELECT 1 FROM timescaledb_information.continuous_aggregates WHERE view_name = ?")) {
 			check.setString(1, viewName);
 			try (var rs = check.executeQuery()) {
@@ -503,7 +555,7 @@ public class SchemaHandler {
 		}
 		try {
 			if (!cascaded) {
-				st.execute("""
+				statement.execute("""
 						CREATE MATERIALIZED VIEW %s
 						WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
 						SELECT time_bucket('%s', time) AS bucket, channel_id,
@@ -518,7 +570,7 @@ public class SchemaHandler {
 				// avg_val is weighted by each sub-bucket's sample_count: a plain
 				// AVG(avg_val) would give every sub-bucket equal weight and drift
 				// whenever the sample density inside the bucket is uneven.
-				st.execute("""
+				statement.execute("""
 						CREATE MATERIALIZED VIEW %s
 						WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
 						SELECT time_bucket('%s', bucket) AS bucket, channel_id,
@@ -537,11 +589,11 @@ public class SchemaHandler {
 		}
 	}
 
-	private static void addPolicyIfAbsent(Statement st, String fn, String table, String interval)
+	private static void addPolicyIfAbsent(Statement statement, String function, String table, String interval)
 			throws SQLException {
 		try {
-			st.execute(new StringBuilder()
-					.append("SELECT ").append(fn)
+			statement.execute(new StringBuilder()
+					.append("SELECT ").append(function)
 					.append("('").append(table).append("',").append(interval).append(",if_not_exists => TRUE)")
 					.toString());
 		} catch (SQLException e) {
@@ -549,10 +601,10 @@ public class SchemaHandler {
 		}
 	}
 
-	private static void addAggPolicyIfAbsent(Statement st, String view,
+	private static void addAggPolicyIfAbsent(Statement statement, String view,
 			String startOffset, String endOffset, String scheduleInterval) throws SQLException {
 		try {
-			st.execute(new StringBuilder()
+			statement.execute(new StringBuilder()
 					.append("SELECT add_continuous_aggregate_policy('").append(view).append("', ")
 					.append("start_offset => INTERVAL '").append(startOffset).append("', ")
 					.append("end_offset   => INTERVAL '").append(endOffset).append("', ")
@@ -567,10 +619,15 @@ public class SchemaHandler {
 	/**
 	 * Sets chunk_time_interval on a continuous aggregate's materialization
 	 * hypertable.
+	 *
+	 * @param statement an open JDBC {@link Statement}
+	 * @param view      the continuous-aggregate view name
+	 * @param interval  the chunk interval literal
+	 * @throws SQLException on database error
 	 */
-	private static void setAggChunkInterval(Statement st, String view, String interval) throws SQLException {
+	private static void setAggChunkInterval(Statement statement, String view, String interval) throws SQLException {
 		try {
-			st.execute(new StringBuilder()
+			statement.execute(new StringBuilder()
 					.append("SELECT set_chunk_time_interval((")
 					.append("SELECT format('%I.%I', materialization_hypertable_schema, materialization_hypertable_name) ")
 					.append("FROM timescaledb_information.continuous_aggregates ")
@@ -588,11 +645,11 @@ public class SchemaHandler {
 	 * are sub-hour and fixed-width, so no calendar (timezone-aware) bucketing is
 	 * involved.
 	 *
-	 * @param d the duration
+	 * @param duration the duration
 	 * @return the interval literal, e.g. {@code "15 minutes"}
 	 */
-	private static String toInterval(Duration d) {
-		var secs = d.getSeconds();
+	private static String toInterval(Duration duration) {
+		var secs = duration.getSeconds();
 		if (secs % 86400 == 0) {
 			return (secs / 86400) + " days";
 		}

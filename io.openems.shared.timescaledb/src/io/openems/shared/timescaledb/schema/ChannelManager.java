@@ -3,10 +3,14 @@ package io.openems.shared.timescaledb.schema;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.openems.common.types.ChannelAddress;
 import io.openems.shared.timescaledb.Type;
@@ -24,6 +28,11 @@ import io.openems.shared.timescaledb.data.DataPoint;
  * it is handled here with a {@link Tenancy} field instead of subclasses.
  */
 public class ChannelManager {
+
+	private final Logger log = LoggerFactory.getLogger(ChannelManager.class);
+
+	/** Components already reported as un-registerable, to log each one once. */
+	private final Set<String> unknownNatureWarned = ConcurrentHashMap.newKeySet();
 
 	// Key: "[edgeName/]componentName/channelName"
 	private final Map<String, ChannelInfo> cache = new ConcurrentHashMap<>();
@@ -47,7 +56,7 @@ public class ChannelManager {
 			// `co` must be joined before the edge join may reference it
 			warmupQuery.append("JOIN edge e ON e.id = co.edge_id ");
 		}
-		warmupQuery.append("JOIN channel_def cd ON cd.id = ch.channel_def_id");
+		warmupQuery.append("JOIN channel_def cd ON cd.id = ch.channel_def");
 
 		StringBuilder lookupQuery = new StringBuilder()
 				.append("SELECT ch.id, cd.type, ch.aggregate, cd.unit ")
@@ -56,7 +65,7 @@ public class ChannelManager {
 		if (tenancy == Tenancy.MULTI) {
 			lookupQuery.append("JOIN edge e ON e.id = co.edge_id ");
 		}
-		lookupQuery.append("JOIN channel_def cd ON cd.id = ch.channel_def_id ");
+		lookupQuery.append("JOIN channel_def cd ON cd.id = ch.channel_def ");
 		if (tenancy == Tenancy.MULTI) {
 			lookupQuery.append("WHERE e.name = ? AND co.name = ? AND cd.name = ?");
 		} else {
@@ -168,9 +177,18 @@ public class ChannelManager {
 	 * promotion or unit backfill), calls the {@code get_or_create_channel_id}
 	 * stored function.
 	 *
+	 * <p>
+	 * A point can only be registered when its component nature is known, because
+	 * that is what {@code channel_def} is scoped by. Registration is therefore
+	 * refused, and the point dropped, when {@link DataPoint#componentType()} is
+	 * {@code null}. This only ever affects a component nothing is known about
+	 * yet: once it is registered, every later point resolves from the cache or
+	 * the dimension tables and no longer needs the nature at all.
+	 *
 	 * @param connection An open JDBC connection
 	 * @param data       The DataPoint being written
-	 * @return the resolved {@link ChannelInfo}
+	 * @return the resolved {@link ChannelInfo}, or {@code null} if the point has
+	 *         to be dropped
 	 * @throws SQLException             on database error
 	 * @throws IllegalArgumentException in multi-tenant mode when the DataPoint
 	 *                                  carries no edge name
@@ -183,6 +201,16 @@ public class ChannelManager {
 			return cached;
 		}
 		var info = this.doResolveChannel(connection, data);
+		if (info == null) {
+			var component = this.tenancy == Tenancy.SINGLE //
+					? data.componentName() //
+					: data.edgeName() + "/" + data.componentName();
+			if (this.unknownNatureWarned.add(component)) {
+				this.log.warn("Dropping points for [{}]: the component is not registered yet and its nature is "
+						+ "unknown, so it cannot be created", component);
+			}
+			return null;
+		}
 		this.cache.put(key, info);
 		return info;
 	}
@@ -200,7 +228,11 @@ public class ChannelManager {
 			statement.setBoolean(i++, data.aggregate());
 			statement.setString(i, data.unit());
 			try (var rs = statement.executeQuery()) {
-				rs.next();
+				if (!rs.next()) {
+					// The conductor returns no row when the component could not be
+					// registered, i.e. it is new and the caller passed no nature.
+					return null;
+				}
 				return new ChannelInfo(rs.getObject(1, UUID.class), Type.valueOf(rs.getString(2)),
 						rs.getBoolean(3), data.unit());
 			}

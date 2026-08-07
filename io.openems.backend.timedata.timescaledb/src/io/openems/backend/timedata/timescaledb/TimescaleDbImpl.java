@@ -76,6 +76,9 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 
 	private final Map<String, Set<String>> timestampedChannelsForEdge = new ConcurrentHashMap<>();
 
+	/** Edges already reported as having no EdgeConfig, to log each one once. */
+	private final Set<String> missingConfigWarned = ConcurrentHashMap.newKeySet();
+
 	@Reference
 	private volatile Metadata metadata;
 
@@ -210,11 +213,20 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 
 		var points = new ArrayList<DataPoint>();
 
+		// The EdgeConfig supplies value type, unit and the component nature. It can
+		// be missing for two different reasons — the Edge never sent one, or the
+		// metadata database is unreachable — and OdooEdgeHandler reports both as
+		// the same exception, so they cannot be told apart here. Either way this
+		// only costs metadata for components that are already registered; a
+		// component that is not gets its points dropped.
 		EdgeConfig edgeConfig = null;
 		try {
 			edgeConfig = this.metadata.edge().getEdgeConfig(edgeId);
 		} catch (OpenemsNamedException e) {
-			// config not yet known — placeholders are used below
+			if (this.missingConfigWarned.add(edgeId)) {
+				this.logWarn(this.log, "No EdgeConfig for [" + edgeId
+						+ "]; unregistered channels of this Edge are dropped: " + e.getMessage());
+			}
 		}
 
 		for (var dataEntry : dataEntries) {
@@ -245,7 +257,10 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 
 					boolean aggregate = AggregateChannels.isAggregate(componentId, channelId);
 
-					String componentType = "backend";
+					// null = nature unknown. Harmless for a component that is already
+					// registered; a component that is not gets its points dropped,
+					// because channel_def is scoped by the nature.
+					String componentType = null;
 					EdgeConfig.Component.Channel ch = null;
 					if (edgeConfig != null) {
 						var componentOpt = edgeConfig.getComponent(componentId);

@@ -51,8 +51,9 @@ value type:
 | Table | Purpose
 
 | `edge` | Edge identity — multi-tenant only
-| `component` | Component-ID and factory-PID, scoped to the Edge in multi-tenant
-| `channel_def` | Channel-ID, value type (`INTEGER`/`FLOAT`/`STRING`) and unit — shared across all components
+| `component_def` | Component nature (factory-PID), once per deployment
+| `component` | Component-ID, referencing its `component_def`; scoped to the Edge in multi-tenant
+| `channel_def` | Channel-ID, value type (`INTEGER`/`FLOAT`/`STRING`) and unit, unique per `(component_def, name)`
 | `channel` | The actual channel instance: component x definition, plus the `aggregate` flag
 | `data_integer` / `data_float` / `data_string` | Raw hypertables `(time, channel_id, aggregate, value)`, indexed on `(channel_id, time DESC)`
 | `data_<tier>_<type>` | Continuous aggregates, e.g. `data_15m_integer`
@@ -67,6 +68,20 @@ Raw chunks are compressed columnar (`compress_segmentby = channel_id`,
 get twice that grace period. Compressed chunks stay transparently queryable.
 Registration of new channels happens through `get_or_create_*` stored
 functions, so concurrent writers cannot create duplicates.
+
+Value type and unit hang off `(component_def, channel-id)`, not off the
+Channel-ID alone: in OpenEMS it is the factory that defines a channel, so two
+natures may legitimately both expose `ActivePower` with different units. Were
+`channel_def.name` globally unique, the first Edge to report a channel would
+fix its type for every other Edge in the database.
+
+That makes the nature mandatory to *register* a component, and it is decided
+once, at registration. The Backend takes it from the Edge's `EdgeConfig`; when
+that is unavailable, points of a component that is not yet registered are
+dropped, logged once per component. Points of an already registered component
+are unaffected — they resolve from the channel cache or the dimension tables
+and never need the nature again. An unreachable metadata database therefore
+cannot punch holes into the timeseries of a running Edge.
 
 == Write path
 
