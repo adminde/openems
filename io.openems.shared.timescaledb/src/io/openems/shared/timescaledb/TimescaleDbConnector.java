@@ -377,6 +377,26 @@ public class TimescaleDbConnector {
 	}
 
 	/**
+	 * Queries the last value of each Channel before the given date —
+	 * the baseline for energy charts.
+	 *
+	 * @param edgeName the Edge identifier; ignored in single-tenant mode
+	 * @param date     the bounding date, exclusive
+	 * @param channels the Channels
+	 * @return map of Channel to its last value before {@code date}; Channels
+	 *         without such a value are omitted
+	 * @throws OpenemsNamedException on database error
+	 */
+	public SortedMap<ChannelAddress, JsonElement> queryFirstValueBefore(
+			String edgeName, ZonedDateTime date, Set<ChannelAddress> channels) throws OpenemsNamedException {
+		try {
+			return this.readHandler.queryFirstValueBefore(edgeName, date, channels);
+		} catch (SQLException e) {
+			throw new OpenemsException("queryFirstValueBefore failed", e);
+		}
+	}
+
+	/**
 	 * Queries the most recent known value of a Channel.
 	 *
 	 * @param edgeName the Edge identifier; ignored in single-tenant mode

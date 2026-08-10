@@ -111,6 +111,83 @@ public class ReadHandler {
 	}
 
 	/**
+	 * Returns, per Channel, the recent value before {@code date} —
+	 * the baseline for energy charts that need the counter reading at the start
+	 * of their window.
+	 *
+	 * <p>
+	 * Reads raw first for the exact reading. If raw retention already dropped
+	 * history that far back, falls through the aggregate tiers finest-first and
+	 * uses the bucket's closing reading ({@code last_value}) instead. Channels
+	 * without any value before {@code date} are omitted from the result, so the
+	 * TimedataManager can still try other Timedata providers for them.
+	 *
+	 * @param edgeName The Edge identifier
+	 * @param date     The bounding date, exclusive
+	 * @param channels Set of requested channels
+	 * @return map of Channel to its last value before {@code date}
+	 * @throws SQLException on database error
+	 */
+	public SortedMap<ChannelAddress, JsonElement> queryFirstValueBefore(
+			String edgeName, ZonedDateTime date, Set<ChannelAddress> channels) throws SQLException {
+		var result = new java.util.TreeMap<ChannelAddress, JsonElement>();
+		if (channels.isEmpty()) {
+			return result;
+		}
+		try (Connection connection = this.dataSource.getConnection()) {
+			for (ChannelAddress channel : channels) {
+				ChannelInfo info = this.channelManager.lookupChannel(connection, edgeName, channel);
+				if (info == null) {
+					continue;
+				}
+				var value = this.queryLastValueBefore(connection, info, date);
+				if (value.isPresent()) {
+					result.put(channel, toJson(value.get()));
+				}
+			}
+		}
+		return result;
+	}
+
+	private Optional<Object> queryLastValueBefore(Connection connection, ChannelInfo info, ZonedDateTime date)
+			throws SQLException {
+		var raw = selectLastBefore(connection, info.type().rawTableName, "time", "value", info.channelId(), date);
+		// Strings are never aggregated; non-aggregated channels live in raw only.
+		if (raw.isPresent() || info.type() == Type.STRING || !info.aggregate()) {
+			return raw;
+		}
+		// Aggregates are ordered ascending by bucket: the finest tier that still
+		// holds a reading before 'date' gives the most precise baseline.
+		for (var agg : this.aggregates) {
+			var view = "data_" + agg.name() + "_" + info.type().aggInfix;
+			var value = selectLastBefore(connection, view, "bucket", "last_value", info.channelId(), date);
+			if (value.isPresent()) {
+				return value;
+			}
+		}
+		return Optional.empty();
+	}
+
+	private static Optional<Object> selectLastBefore(Connection connection, String source, String timeCol,
+			String valueCol, UUID channelId, ZonedDateTime date) throws SQLException {
+		String sql = new StringBuilder()
+				.append("SELECT ").append(valueCol).append(" FROM ").append(source)
+				.append(" WHERE channel_id = ? AND ").append(timeCol).append(" < ?")
+				.append(" ORDER BY ").append(timeCol).append(" DESC LIMIT 1")
+				.toString();
+		try (var pst = connection.prepareStatement(sql)) {
+			pst.setObject(1, channelId);
+			pst.setObject(2, date.toOffsetDateTime());
+			try (ResultSet rs = pst.executeQuery()) {
+				if (rs.next()) {
+					return Optional.ofNullable(rs.getObject(1));
+				}
+				return Optional.empty();
+			}
+		}
+	}
+
+	/**
 	 * Returns time-series data, bucketed by the requested resolution.
 	 *
 	 * <p>

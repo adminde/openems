@@ -367,4 +367,14 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 		}
 		return connector.queryHistoricEnergyPerPeriod(edgeId, fromDate, toDate, channels, resolution);
 	}
+
+	@Override
+	public SortedMap<ChannelAddress, JsonElement> queryFirstValueBefore(String edgeId, ZonedDateTime date,
+			Set<ChannelAddress> channels) throws OpenemsNamedException {
+		var connector = this.connector;
+		if (connector == null || !this.timeFilter.isValid(date)) {
+			return new TreeMap<>();
+		}
+		return connector.queryFirstValueBefore(edgeId, date, channels);
+	}
 }
