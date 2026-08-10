@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.JsonElement;
 import com.zaxxer.hikari.HikariDataSource;
 
+import io.openems.common.timedata.DbDataUtils;
 import io.openems.common.timedata.Resolution;
 import io.openems.common.types.ChannelAddress;
 import io.openems.shared.timescaledb.Type;
@@ -180,6 +181,8 @@ public class ReadHandler {
 						.append("SELECT time_bucket(?::interval, ").append(timeCol);
 				if (calendarBucket) {
 					sql.append(", ?");
+				} else {
+					sql.append(", ?::timestamptz");
 				}
 				sql.append(") AS b, channel_id, ").append(aggExpr).append(" AS v ")
 						.append("FROM ").append(view).append(" ")
@@ -193,6 +196,8 @@ public class ReadHandler {
 					pst.setString(i++, interval);
 					if (calendarBucket) {
 						pst.setString(i++, from.getZone().getId());
+					} else {
+						pst.setObject(i++, from.toOffsetDateTime()); // bucket origin
 					}
 					pst.setArray(i++, connection.createArrayOf("uuid", channelIds));
 					pst.setObject(i++, from.toOffsetDateTime());
@@ -215,7 +220,7 @@ public class ReadHandler {
 				}
 			}
 		}
-		return result;
+		return DbDataUtils.normalizeTable(result, channels, resolution, from, to);
 	}
 
 	/**
@@ -329,7 +334,7 @@ public class ReadHandler {
 				String stepExpr = raw ? "last(value, time)" : "last(last_value, bucket)";
 				String bucketExpr = calendarBucket
 						? "time_bucket(?::interval, " + timeCol + ", ?)"
-						: "time_bucket(?::interval, " + timeCol + ")";
+						: "time_bucket(?::interval, " + timeCol + ", ?::timestamptz)";
 				String sql = """
 						WITH per_bucket AS (
 						    SELECT %s AS b,
@@ -354,6 +359,8 @@ public class ReadHandler {
 					pst.setString(i++, interval);
 					if (calendarBucket) {
 						pst.setString(i++, from.getZone().getId());
+					} else {
+						pst.setObject(i++, from.toOffsetDateTime()); // bucket origin
 					}
 					pst.setObject(i++, info.channelId());
 					pst.setObject(i++, extendedFrom.toOffsetDateTime());
@@ -375,7 +382,7 @@ public class ReadHandler {
 				}
 			}
 		}
-		return result;
+		return DbDataUtils.normalizeTable(result, channels, resolution, from, to);
 	}
 
 	/**

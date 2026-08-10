@@ -600,11 +600,6 @@
 			<version>8.0.0</version>
 		</dependency>
 		<dependency>
-			<groupId>com.zaxxer</groupId>
-			<artifactId>HikariCP</artifactId>
-			<version>7.0.2</version>
-		</dependency>
-		<dependency>
 			<!--
 			Kotlin OSGi Bundle
 			Changelog: https://github.com/JetBrains/kotlin/releases
