@@ -1,0 +1,135 @@
+= Timedata TimescaleDB
+
+OpenEMS Backend implementation for https://www.timescale.com/[TimescaleDB]
+(PostgreSQL + TimescaleDB extension). Stores the Channel data of *many* Edges
+in one multi-tenant database: every measurement is scoped to its Edge through a
+normalized `edge` dimension table.
+
+NOTE: Schema, write pipeline, read routing, aggregation tiers and the database
+prerequisites are shared with the Edge implementation and documented in
+https://github.com/OpenEMS/openems/tree/develop/io.openems.shared.timescaledb[Shared TimescaleDB].
+This page only covers what is specific to the Backend.
+
+== How it works
+
+=== Write path
+
+Data arrives per Edge over websocket (`Controller.Api.Backend`) in three
+notification flavors:
+
+1. *Timestamped*: high-resolution samples of the channels the Edge sends
+   on-change (e.g. for priority >= `HIGH`). Receiving a channel this way marks it as
+   "arrives timestamped" for that Edge.
+2. *Aggregated*: 5-minute aggregates covering a wider channel set (priority >=
+   the Edge's aggregated floor). To avoid double-writing, aggregated values of
+   channels that already arrive timestamped are *skipped* (deduplication); the
+   marker set is cleared when the Edge goes offline, so after a reconnect the
+   aggregated stream fills in until timestamped data flows again.
+3. *Resend*: historical gap-filler after connection outages.
+
+Before reaching the shared pipeline, every point passes three steps:
+
+1. *ChannelFilter*: blacklist of channel addresses / channel-ids, plus
+   rejection of malformed component-ids that would pollute the dimension
+   tables.
+2. *TimeFilter*: writes outside the configured date window are dropped;
+   queries outside it are answered empty.
+3. *Metadata*: value type and unit come from the shared channel cache. Only a
+   channel that has never been resolved falls back to the Edge's `EdgeConfig`
+   (and, failing that, to type detection from the JSON value). A component that
+   is not registered yet and whose factory-ID cannot be determined has its points
+   dropped, logged once. The `aggregate` flag comes from the shared `AggregateChannels`
+   include-list, independent of the `EdgeConfig`, so it is correct from the very first
+   point.
+
+----
+ Edge (websocket)
+   |
+   |-- timestamped -------------------------------------------> write
+   |-- aggregated ---> channel already timestamped? --yes-----> skip (dedup)
+   |                                                 '-no-----> write
+   '-- resend ------------------------------------------------> write
+                                                                  |
+   ChannelFilter / TimeFilter  --reject--> drop + log             |
+   type/unit <- EdgeConfig, aggregate <- AggregateChannels <------'
+   |
+   v
+ shared write pipeline (Tenancy.MULTI)
+----
+
+=== Read path
+
+Routing between raw hypertables and the aggregate tiers is entirely in the
+shared bundle. The Backend runs it multi-tenant, so every query resolves
+through the `edge` dimension table and the Edge-ID is part of the channel cache
+key.
+
+=== Resend
+
+Resend notifications are the counterpart of the Edge's resend path: they carry
+the cycles that never reached the Backend during an outage and bypass the
+deduplication, so historical gaps are always filled.
+
+== Storage profile
+
+The raw hypertables are the permanent archive: for now the Backend keeps *all*
+raw data of *every* channel forever (only compressed columnar after 7 days).
+Bounding raw retention is a deliberate future decision. The aggregate tiers
+accelerate visualization of the aggregate-flagged channels:
+
+|===
+| Tier | Resolution | Retention
+
+| `data_*` | as received | forever (compressed after 7 d)
+| `data_1m_*` (aggregate-flagged channels) | 1 minute | 90 d
+| `data_15m_*` (aggregate-flagged channels) | 15 minutes | forever
+|===
+
+The tiers are the compiled profile `Aggregate.of(Tenancy.MULTI)`.
+
+Raw compression waits 7 days (unlike the Edge's 1 day) because resend after
+Edge outages routinely writes days into the past, and late writes into
+compressed chunks are expensive.
+
+== Installation
+
+. Set up the database as described in
+  https://github.com/OpenEMS/openems/tree/develop/io.openems.shared.timescaledb[Shared TimescaleDB].
+  The default database name on the Backend is `openems`.
+
+. Start OpenEMS Backend via `BackendApp.bndrun`. The bundle is already part of the runtime configuration.
+
+. Open the Apache Felix Web Console
+  (http://localhost:8079/system/console/configMgr).
+
+. Add a configuration for `Timedata TimescaleDB` and set at least Host,
+  Database, Username and Password.
+
+On the first activation the bundle creates its schema
+(hypertables, continuous aggregates, retention and compression policies).
+
+TIP: A great OpenSource tool to visualize the data is
+https://grafana.com/[Grafana]. Connect it as a regular PostgreSQL data source.
+
+== Configuration
+
+|===
+| Property | Default | Meaning
+
+| Host / Port / Database / Username / Password | `localhost` / `5432` / `openems` / `openems` / `openems` | database connection
+| Pool Size / Write Workers | 50 / 10 | HikariCP connections / parallel COPY writers — keep Write Workers below Pool Size so reads always get a connection
+| Retention Days | 0 (keep forever) | days to keep raw high-resolution data; 0 or less keeps it forever
+| Compression Days | 7 | days before raw chunks are compressed columnar
+| Read-Only mode | false | discards all writes; use for a second Backend instance that should only serve queries
+| Start date / End date | — | date window outside which writes are dropped and queries answered empty
+| Blacklisted Channel Addresses / Channel IDs | — | channels that are never written, e.g. `kacoCore0/Serialnumber` / `_PropertyAlias`
+|===
+
+== Debugging
+
+`debugLog` reports the write-queue fill level and the total written points each
+debug cycle; `debugMetrics` reports the size of each hypertable in MB. A
+fine-grained query on a channel outside the aggregate include-list logs the
+one-time `WARN … consider adding it to AggregateChannels`.
+
+https://github.com/OpenEMS/openems/tree/develop/io.openems.backend.timedata.timescaledb[Source Code icon:github[]]
