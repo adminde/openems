@@ -522,14 +522,14 @@ public class SystemImpl extends AbstractOpenemsComponent implements System,
 	 * Helper method for JUnit tests. Tests if the given {@link OpenemsEdgeOem}
 	 * provides the same Website-URLs as {@link SystemImpl} - (i.e. all are
 	 * not-null. See {@link #getAppWebsiteUrl(String)}
-	 *
+	 * 
 	 * @param oem the {@link OpenemsEdgeOem}
 	 */
 	public static void assertAllWebsiteUrlsSet(OpenemsEdgeOem oem) throws OpenemsException {
-		var edge = new SystemImpl();
+		var system = new SystemImpl();
 
 		for (var language : REQUIRED_LANGUAGES) {
-			var missing = edge.appLinks.keySet().stream()
+			var missing = system.appLinks.keySet().stream()
 					.filter(appId -> oem.getAppWebsiteUrl(appId, language) == null) //
 					.toList();
 
@@ -539,9 +539,9 @@ public class SystemImpl extends AbstractOpenemsComponent implements System,
 			}
 		}
 
-		// Fallback test (e.g. unsupported language should fallback to english)
-		var fallbackMissing = edge.appLinks.keySet().stream()
-				.filter(appId -> oem.getAppWebsiteUrl(appId, Language.CZ) == null) //
+		// fallback test (e.g. unsupported language should fallback to english)
+		var fallbackMissing = system.appLinks.keySet().stream()
+				.filter(appId -> oem.getAppWebsiteUrl(appId, Language.CS) == null) //
 				.toList();
 
 		if (!fallbackMissing.isEmpty()) {
