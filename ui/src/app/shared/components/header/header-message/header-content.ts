@@ -27,6 +27,7 @@ import en from "./i18n/en.json";
     providers: [LiveDataServiceProvider],
 })
 export class AppHeaderContentComponent {
+    protected environment = environment;
     protected message: string | null = null;
     protected isSmartphone: boolean = false;
     protected image: OeImageComponent["img"] | null = null;

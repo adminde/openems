@@ -1,8 +1,13 @@
 <ion-grid class="ion-no-padding">
-  @if (message !== null) {
+  @if (message !== null && (image?.url || environment.headerTitleHtml)) {
     <ion-row class="ion-padding-half" style="width: 100vw">
       <ion-col size-sm="12" size-md="6" class="ion-align-content-center">
-        <img [src]="image.url" [style]="'height: 2.5vh; justify-self: start'"/>
+        @if (image?.url) {
+          <img [src]="image.url" [style]="'height: 2.5vh; justify-self: start'"/>
+        }
+        @if (environment.headerTitleHtml) {
+          <span [innerHTML]="environment.headerTitleHtml"></span>
+        }
       </ion-col>
     </ion-row>
   }

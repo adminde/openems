@@ -145,7 +145,7 @@ export namespace SharedStorage {
         return new NavigationTree(
             "storage",
             { baseString: "common/storage" },
-            { name: "oe-storage", color: "success" },
+            { name: "oe-storage", color: "storage" },
             translate.instant("GENERAL.STORAGE_SYSTEM"),
             "icon",
             [

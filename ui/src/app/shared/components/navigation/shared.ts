@@ -50,7 +50,9 @@ type IconColor =
     | "dark"
     | "warning"
     | "normal"
-    | "production";
+    | "production"
+    | "consumption"
+    | "storage";
 export type PartialedIcon = TPartialBy<
     Pick<Omit<Icon, "size" | "color"> & { color: IconColor }, "color" | "name">,
     "color"
