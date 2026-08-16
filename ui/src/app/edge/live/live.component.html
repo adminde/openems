@@ -11,18 +11,23 @@
               <mini-weather componentId="weather0"></mini-weather>
             </ion-col>
             <!--
-            On extra-large (xl): 2 - [5] - 1 - [4]
+            On extra-large (xl) without FENA: 2 - [8] - 2, keeping the energy flow centered
+            On extra-large (xl) with FENA: 2 - [5] - 1 - [4]
             On large (lg): 1 - [6] - [5]
             On medium (md): [7] - [5]
             On small and below: [12] / [12]
             -->
-            <ion-col size-xl="5" size-lg="6" size-md="7" size="12" class="ion-margin-bottom no-margin-md-bottom live-small-padding">
+            <ion-col [attr.size-xl]="showFena ? 5 : 8" size-lg="6" size-md="7" size="12" class="ion-margin-bottom no-margin-md-bottom live-small-padding">
               <energymonitor tabindex="0"></energymonitor>
             </ion-col>
 
-            <ion-col size-xl="4" offset-xl="1" size-md="5" size="12" class="ion-align-self-end ion-no-padding">
-              <oe-fena></oe-fena>
-            </ion-col>
+            @if (showFena) {
+              <ion-col size-xl="4" offset-xl="1" size-md="5" size="12" class="ion-align-self-end ion-no-padding">
+                <oe-fena></oe-fena>
+              </ion-col>
+            } @else {
+              <ion-col size-xl="2" class="ion-hide-xl-down"></ion-col>
+            }
           </ion-row>
         } @else {
           <ion-row class="ion-justify-content-center ion-no-padding" *ngIf="widgets">

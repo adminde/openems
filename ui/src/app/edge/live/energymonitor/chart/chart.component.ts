@@ -85,8 +85,11 @@ export class EnergymonitorChartComponent implements OnInit, OnDestroy {
         if (this.chartDiv.nativeElement.offsetParent) {
             size = this.chartDiv.nativeElement.offsetParent.offsetWidth - 30;
         }
-        if (size > window.innerHeight) {
-            size = window.innerHeight;
+        // Capping at the inverse golden ratio of the viewport height leaves room for header,
+        // weather row and footer, so the chart never clips.
+        const maxHeight = window.innerHeight / 1.618;
+        if (size > maxHeight) {
+            size = maxHeight;
         }
         this.height = this.width = size;
         this.translation = `translate(${this.width / 2}, ${this.height / 2})`;
