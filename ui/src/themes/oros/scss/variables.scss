@@ -209,9 +209,6 @@ $font-family: var(--ion-font-family);
     --ion-text-color: #1e293b;
 }
 
-:root[data-theme="dark"] img[src$="oros-logo-black-text.svg"] {
-    content: url("/oros-logo-white-text.svg");
-}
 :root[data-theme="dark"] {
 
     /** primary **/
