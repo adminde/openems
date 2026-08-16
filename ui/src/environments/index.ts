@@ -17,6 +17,7 @@ export interface Environment {
     readonly headerTitleShow?: boolean;
     readonly headerTitleHtml?: string;
     readonly footerTextHtml?: string;
+    readonly enableFena?: boolean;
 
     readonly url: string;
     readonly backend: DefaultTypes.Backend;
