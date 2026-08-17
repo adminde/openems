@@ -1,20 +1,18 @@
 <ion-grid class="ion-no-padding">
-  @if (message !== null && (image?.url || environment.headerTitleHtml)) {
-    <ion-row class="ion-padding-half" style="width: 100vw">
-      <ion-col size-sm="12" size-md="6" class="ion-align-content-center">
-        @if (image?.url) {
-          <img [src]="image.url" [style]="'height: 2.5vh; justify-self: start'"/>
-        }
-        @if (environment.headerTitleHtml) {
-          <span [innerHTML]="environment.headerTitleHtml"></span>
-        }
-      </ion-col>
-    </ion-row>
-  }
-  <ion-row [style]="navigationService.position() === 'left' ? 'width: 80vw; margin-left: 20vw;' : 'width: 100vw;'" class="ion-no-margin-left">
+  <ion-row class="ion-no-margin-left" style="width: 100vw">
     <ion-col size-md="12" class="ion-align-content-center">
       <ion-grid class="ion-no-padding-left-right">
         <ion-row class="ion-align-items-center" [class.ion-justify-content-end]="message !== null">
+          @if (image?.url || environment.headerTitleHtml) {
+            <ion-col size="auto" class="ion-padding-left" [class.ion-hide-md-down]="message !== null || navigationService.headerTitle() !== null" style="display: flex; align-items: center; gap: 0.5rem">
+              @if (image?.url) {
+                <img [src]="image.url" [style]="'height: 3vh'"/>
+              }
+              @if (environment.headerTitleHtml) {
+                <span [innerHTML]="environment.headerTitleHtml"></span>
+              }
+            </ion-col>
+          }
           @let alignLeft = isSmartphone;
           @let alignRight = !alignLeft && message !== null;
           @let alignCenter = !alignLeft && !alignRight;
