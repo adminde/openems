@@ -97,11 +97,9 @@ export class AppHeaderContentComponent {
         }
 
         const key = (function (): string | null {
+            // OK and INFO share the upstream translation of everything being ok.
+            // Both can be suppressed here. The status icon already conveys the state.
             switch (channelValue?.allComponents[SystemStatusComponent.SUM_STATE_CHANNEL.toString()]) {
-                case 0:
-                    return "SYSTEM_STATUS_MESSAGE.OK";
-                case 1:
-                    return "SYSTEM_STATUS_MESSAGE.INFO";
                 case 2:
                     return "SYSTEM_STATUS_MESSAGE.WARNING";
                 case 3:
@@ -111,7 +109,10 @@ export class AppHeaderContentComponent {
             }
         })();
 
-        const message = key ? this.translate.instant(key) : null;
+        const translated = key ? this.translate.instant(key) : null;
+        const fallback = key ? key.split(".").reduce((obj: any, part) => obj?.[part], en) : null;
+        const message = [translated === key ? null : translated, fallback]
+            .find((value) => typeof value === "string" && value.trim() !== "") ?? null;
 
         this.message = message != null && this.isSmartphone ? message.replace("\n", "<br/>") : message;
     }
