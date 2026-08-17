@@ -11,8 +11,7 @@ export const theme: Omit<
     uiTitleShort: "OROS",
     footerTextHtml: "OR/OS",
     edgeShortName: "OR/OS",
-    edgeLongName: "OROS Energy Management System",
-    forceNewNavigation: true,
+    edgeLongName: "OROS Energy Operating System",
 
     docsUrlPrefix: "https://github.com/OpenEMS/openems/blob/develop/",
     PRODUCT_TYPES: () => null,
