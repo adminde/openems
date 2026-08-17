@@ -11,16 +11,16 @@ export const OemMeta: BaseMeta = {
     },
     icons: {
         COMMON: {
-            CONSUMPTION: "assets/img/icon/consumption.svg",
-            SELFCONSUMPTION: "assets/img/icon/selfconsumption.svg",
-            GENERATOR: "assets/img/icon/generator.svg",
-            GRID: "assets/img/icon/grid.svg",
+            CONSUMPTION: "assets/oros/icons/lightbulb.svg",
+            SELFCONSUMPTION: "assets/oros/icons/lightbulb-outline.svg",
+            GENERATOR: "assets/oros/icons/generator.svg",
+            GRID: "assets/oros/icons/grid.svg",
             GRID_STORAGE: "assets/img/icon/gridStorage.svg",
             GRID_RESTRICTION: "assets/img/icon/gridRestriction.svg",
             MEGAFON: "assets/img/icon/megafon.svg",
-            OFFGRID: "assets/img/icon/offgrid.svg",
-            PRODUCTION: "assets/img/icon/production.svg",
-            STORAGE: "assets/img/icon/storage.svg",
+            OFFGRID: "assets/oros/icons/grid-off.svg",
+            PRODUCTION: "assets/oros/icons/solar.svg",
+            STORAGE: "assets/oros/icons/storage.svg",
             WEATHER: {
                 CLEAR_DAY: "assets/img/icon/clear_day.svg",
                 CLEAR_NIGHT: "assets/img/icon/clear_night.svg",
@@ -93,7 +93,7 @@ export const OemMeta: BaseMeta = {
         DATA_PROTECTION: null,
         REDIRECT: {
             BETA_SURVEY: null,
-            BETA_CHANGE_LOG: null,
+            BETA_CHANGE_LOG: "https://docs.fenecon.de/de/fems/change_log_beta_test/change_log_full.html",
             COMMON_STORAGE: null,
             COMMON_AUTARCHY: null,
             COMMON_CONSUMPTION: null,
@@ -146,7 +146,7 @@ export const OemMeta: BaseMeta = {
             },
             OFFLINE_INSTRUCTIONS: null,
         },
-        FORGET_PASSWORD: "#",
+        FORGET_PASSWORD: "https://auth.oros.energy/realms/oros/login-actions/reset-credentials?client_id=account-console",
         EVCS: null,
 
         EVCS_CLUSTER: "io.openems.edge.evcs.cluster/readme.adoc",
