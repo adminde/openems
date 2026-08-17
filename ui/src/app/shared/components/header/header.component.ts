@@ -29,6 +29,7 @@ export class HeaderComponent implements OnInit, OnDestroy, AfterViewChecked {
 
     protected isHeaderAllowed: boolean = true;
     protected showBackButton: boolean = false;
+    protected headerLogo: string | null = null;
     protected edge = this.service.currentEdge;
 
     private ngUnsubscribe: Subject<void> = new Subject<void>();
@@ -49,6 +50,18 @@ export class HeaderComponent implements OnInit, OnDestroy, AfterViewChecked {
     ) {
         effect(() => {
             this.showBackButton = this.navigationService.headerOptions().showBackButton;
+        });
+
+        effect(() => {
+            const currentUser = this.userService.currentUser();
+            if (currentUser == null) {
+                return;
+            }
+
+            this.headerLogo =
+                this.userService.getValidBrowserTheme(currentUser.getThemeFromSettings()) === "dark"
+                    ? environment.images.LOGO.DARK
+                    : environment.images.LOGO.LIGHT;
         });
     }
 
