@@ -21,9 +21,9 @@
       @if (navigationService.position() === "left" || navigationService.position() === "bottom") {
         <oe-header-message slot="start"></oe-header-message>
       } @else {
-        @if (headerLogo) {
-          <ion-title slot="start" style="padding-inline-start: 4px; flex: none">
-            <img [src]="headerLogo" [alt]="environment.uiTitle" style="height: 32px; width: auto; object-fit: contain; vertical-align: middle" />
+        @if (headerLogo(); as logoUrl) {
+          <ion-title slot="start" class="ion-hide-md-down" style="padding-inline-start: 4px; flex: none">
+            <img [src]="logoUrl" [alt]="environment.uiTitle" style="height: 32px; width: auto; object-fit: contain; vertical-align: middle" />
           </ion-title>
         }
       }
