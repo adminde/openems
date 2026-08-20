@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-import { Component, Input, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, Component, Input, OnInit } from "@angular/core";
 import { FormBuilder, FormControl, FormGroup, Validators } from "@angular/forms";
 import { ModalController } from "@ionic/angular";
 import { TranslateService } from "@ngx-translate/core";
@@ -8,6 +8,7 @@ import { Edge, EdgeConfig, Service, Websocket } from "../../../../../../shared/s
 @Component({
     selector: "limittotaldischarge-modal",
     templateUrl: "./modal.component.html",
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false,
 })
 export class ControllerEssLimitTotalDischargeModalComponent implements OnInit {

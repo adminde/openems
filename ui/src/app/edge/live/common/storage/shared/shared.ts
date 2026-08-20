@@ -12,6 +12,7 @@ import { DateUtils } from "src/app/shared/utils/date/dateutils";
 import { NumberUtils } from "src/app/shared/utils/number/number-utils";
 import { SharedEssFixDigitalPowerControl } from "../../../Controller/Ess/FixActivePower/shared/shared";
 import { SharedGridOptimizedCharge } from "../../../Controller/Ess/GridOptimizedCharge/shared/shared";
+import { SharedControllerEssLimitTotalDischarge } from "../../../Controller/Ess/LimitTotalDischarge/shared/shared";
 import { SharedControllerEssTimeOfUseTariff } from "../../../Controller/Ess/TimeOfUseTariff/shared/shared";
 import { SharedControllerModbusTcpApiReadWrite } from "../../../Controller/ModbusTcpApi/shared/shared";
 import { SharedControllerPeakShavingAsymmetric } from "../../../Controller/peak-shaving/Asymmetric/shared/shared";
@@ -104,6 +105,16 @@ export namespace SharedStorage {
                     (component) =>
                         new NavigationTree(
                             ...SharedControllerPeakShavingSymmetric.getNavigationTree(translate, component),
+                        ),
+                ),
+
+            ...config
+                .getComponentsByFactory("Controller.Ess.LimitTotalDischarge")
+                .filter((component) => component.isEnabled)
+                .map(
+                    (component) =>
+                        new NavigationTree(
+                            ...SharedControllerEssLimitTotalDischarge.getNavigationTree(translate, component),
                         ),
                 ),
 

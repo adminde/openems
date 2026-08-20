@@ -27,6 +27,8 @@ import { ControllerEssFixActivePowerComponent } from "src/app/edge/live/Controll
 import { ControllerEssGridOptimizedChargeHistoryComponent } from "src/app/edge/live/Controller/Ess/GridOptimizedCharge/history/new-navigation/new-navigation";
 import { ControllerEssGridOptimizedChargeHomeComponent } from "src/app/edge/live/Controller/Ess/GridOptimizedCharge/new-navigation/new-navigation";
 import { ControllerEssGridOptimizedChargeSettingsComponent } from "src/app/edge/live/Controller/Ess/GridOptimizedCharge/settings/settings";
+import { ControllerEssLimitTotalDischargeHomeComponent } from "src/app/edge/live/Controller/Ess/LimitTotalDischarge/new-navigation/new-navigation";
+import { ControllerEssLimitTotalDischargeSettingsComponent } from "src/app/edge/live/Controller/Ess/LimitTotalDischarge/settings/settings";
 import { ControllerEssTimeOfUseTariffHistoryComponent } from "src/app/edge/live/Controller/Ess/TimeOfUseTariff/history/new-navigation/new-navigation";
 import { ControllerEssTimeOfUseTariffHomeComponent } from "src/app/edge/live/Controller/Ess/TimeOfUseTariff/new-navigation/new-navigation";
 import { ControllerEssTimeOfUseTariffSettingsComponent } from "src/app/edge/live/Controller/Ess/TimeOfUseTariff/settings/settings";
@@ -253,6 +255,14 @@ export const newNavigationRoutes: Routes = [
     {
         path: "common/storage/controller/grid-optimized-charge/:componentId/history",
         component: ControllerEssGridOptimizedChargeHistoryComponent,
+    },
+    {
+        path: "common/storage/controller/limit-total-discharge/:componentId",
+        component: ControllerEssLimitTotalDischargeHomeComponent,
+    },
+    {
+        path: "common/storage/controller/limit-total-discharge/:componentId/settings",
+        component: ControllerEssLimitTotalDischargeSettingsComponent,
     },
     {
         path: "common/storage/controller/ess-fix-active-power/:componentId",
