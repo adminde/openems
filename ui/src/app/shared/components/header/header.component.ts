@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-import { AfterViewChecked, ChangeDetectorRef, Component, effect, inject, Input, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy, } from "@angular/core";
+import { AfterViewChecked, ChangeDetectorRef, Component, effect, inject, Input, OnDestroy, OnInit, signal, ViewChild, ChangeDetectionStrategy, } from "@angular/core";
 import { NavigationEnd, Router } from "@angular/router";
 import { MenuController, ModalController, NavController } from "@ionic/angular";
 import { Subject } from "rxjs";
@@ -27,9 +27,9 @@ export class HeaderComponent implements OnInit, OnDestroy, AfterViewChecked {
     public currentPage: "EdgeSettings" | "Other" | "IndexLive" | "IndexHistory" = "Other";
     public isSystemLogEnabled: boolean = false;
 
+    protected headerLogo = signal<string | null>(null);
     protected isHeaderAllowed: boolean = true;
     protected showBackButton: boolean = false;
-    protected headerLogo: string | null = null;
     protected edge = this.service.currentEdge;
 
     private ngUnsubscribe: Subject<void> = new Subject<void>();
@@ -58,10 +58,11 @@ export class HeaderComponent implements OnInit, OnDestroy, AfterViewChecked {
                 return;
             }
 
-            this.headerLogo =
+            this.headerLogo.set(
                 this.userService.getValidBrowserTheme(currentUser.getThemeFromSettings()) === "dark"
                     ? environment.images.LOGO.DARK
-                    : environment.images.LOGO.LIGHT;
+                    : environment.images.LOGO.LIGHT,
+            );
         });
     }
 
