@@ -103,11 +103,11 @@ public class PhoenixContactMeterImpl extends AbstractOpenemsModbusComponent
 								FLOAT32(0x930E))
 				),
 				new FC4ReadInputRegistersTask(0x9350, Priority.LOW, //
-						m(this.invert ? PhoenixContactMeter.ChannelId.REACTIVE_LEADING_ENERGY
-								: PhoenixContactMeter.ChannelId.REACTIVE_LAGGING_ENERGY, //
+						m(this.invert ? ElectricityMeter.ChannelId.REACTIVE_LEADING_ENERGY
+								: ElectricityMeter.ChannelId.REACTIVE_LAGGING_ENERGY, //
 								FLOAT32(0x9350)),
-						m(this.invert ? PhoenixContactMeter.ChannelId.REACTIVE_LAGGING_ENERGY
-								: PhoenixContactMeter.ChannelId.REACTIVE_LEADING_ENERGY, //
+						m(this.invert ? ElectricityMeter.ChannelId.REACTIVE_LAGGING_ENERGY
+								: ElectricityMeter.ChannelId.REACTIVE_LEADING_ENERGY, //
 								FLOAT32(0x9352))
 				));
 
