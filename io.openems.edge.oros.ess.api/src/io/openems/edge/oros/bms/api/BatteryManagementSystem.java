@@ -677,9 +677,10 @@ public interface BatteryManagementSystem extends
 	}
 
 	/**
-	 * Generates a default DebugLog message for {@link BatteryManagementSystem} implementations
+	 * Generates a default DebugLog message for {@link BatteryManagementSystem}
+	 * implementations.
 	 *
-	 * @param battery      the {@link Battery}
+	 * @param battery the {@link Battery}
 	 * @return a debug log String
 	 */
 	public static String generateDebugLog(Battery battery) {
@@ -742,6 +743,14 @@ public interface BatteryManagementSystem extends
 		return Math.abs((prechargeVoltage - voltage) * 1000 / current);
 	}
 
+	/**
+	 * Calculates {@link ChannelId#RACK_POWER} from
+	 * {@link ChannelId#RACK_VOLTAGE} and {@link ChannelId#RACK_CURRENT}.
+	 *
+	 * <p>Registers onSetNextValue listeners on the voltage and current channels.
+	 *
+	 * @param battery the {@link BatteryManagementSystem}
+	 */
 	public static void calculateRackPowerFromVoltageAndCurrent(BatteryManagementSystem battery) {
 		final Consumer<Value<Integer>> calculate = ignore -> {
 			var voltage = battery.getRackVoltage();
@@ -755,6 +764,16 @@ public interface BatteryManagementSystem extends
 		battery.getCurrentChannel().onSetNextValue(calculate);
 	}
 
+	/**
+	 * Calculates {@link ChannelId#CHARGE_MAX_POWER} and
+	 * {@link ChannelId#DISCHARGE_MAX_POWER} from the maximum charge and discharge
+	 * currents and the battery voltage.
+	 *
+	 * <p>Registers onSetNextValue listeners on the max current and voltage
+	 * channels.
+	 *
+	 * @param battery the {@link BatteryManagementSystem}
+	 */
 	public static void calculateMaxPowerFromCurrentAndVoltage(BatteryManagementSystem battery) {
 		battery.getChargeMaxCurrentChannel().onSetNextValue(value -> {
 			battery._setChargeMaxPower(
@@ -772,6 +791,15 @@ public interface BatteryManagementSystem extends
 		});
 	}
 
+	/**
+	 * Calculates the maximum charge and discharge currents from
+	 * {@link ChannelId#CHARGE_MAX_POWER}, {@link ChannelId#DISCHARGE_MAX_POWER}
+	 * and the battery voltage.
+	 *
+	 * <p>Registers onSetNextValue listeners on the max power and voltage channels.
+	 *
+	 * @param battery the {@link BatteryManagementSystem}
+	 */
 	public static void calculateMaxCurrentFromPowerAndVoltage(BatteryManagementSystem battery) {
 		battery.getChargeMaxPowerChannel().onSetNextValue(value -> {
 			battery._setChargeMaxCurrent(

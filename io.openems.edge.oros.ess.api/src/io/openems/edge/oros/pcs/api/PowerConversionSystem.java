@@ -334,7 +334,7 @@ public interface PowerConversionSystem extends ManagedSymmetricBatteryInverter, 
 
 	/**
 	 * Generates a default DebugLog message for {@link PowerConversionSystem}
-	 * implementations
+	 * implementations.
 	 *
 	 * @param inverter the {@link SymmetricBatteryInverter}
 	 * @return a debug log String

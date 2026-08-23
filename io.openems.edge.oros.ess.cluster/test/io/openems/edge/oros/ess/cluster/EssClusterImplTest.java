@@ -21,7 +21,7 @@ import io.openems.edge.common.sum.GridMode;
 import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.ComponentTest;
 import io.openems.edge.ess.test.DummyPower;
-import io.openems.edge.oros.ess.api.DummyEnergyStorageSystem;
+import io.openems.edge.oros.ess.test.DummyEnergyStorageSystem;
 
 public class EssClusterImplTest {
 

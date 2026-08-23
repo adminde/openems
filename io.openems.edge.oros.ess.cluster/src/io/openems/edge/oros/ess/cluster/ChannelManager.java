@@ -50,6 +50,11 @@ public class ChannelManager extends AbstractChannelListenerManager {
 		// ManagedSymmetricEss
 		this.calculate(INTEGER_SUM, esss, ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER);
 		this.calculate(INTEGER_SUM, esss, ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER);
+		// EnergyStorageSystem
+		this.calculate(INTEGER_SUM, esss, EnergyStorageSystem.ChannelId.MAX_ACTIVE_POWER);
+		this.calculate(INTEGER_SUM, esss, EnergyStorageSystem.ChannelId.MAX_REACTIVE_POWER);
+		this.calculate(INTEGER_SUM, esss, EnergyStorageSystem.ChannelId.AVAILABLE_CHARGE_ENERGY);
+		this.calculate(INTEGER_SUM, esss, EnergyStorageSystem.ChannelId.AVAILABLE_DISCHARGE_ENERGY);
 		// StartStoppable
 		this.calculateStartStop(esss);
 	}
@@ -137,6 +142,30 @@ public class ChannelManager extends AbstractChannelListenerManager {
 	 */
 	private <T> void calculate(BiFunction<T, T, T> aggregator, List<EnergyStorageSystem> esss,
 			SymmetricEss.ChannelId channelId) {
+		final BiConsumer<Value<T>, Value<T>> callback = (oldValue, newValue) -> {
+			T result = null;
+			for (EnergyStorageSystem ess : esss) {
+				Channel<T> channel = ess.channel(channelId);
+				result = aggregator.apply(result, channel.getNextValue().get());
+			}
+			Channel<T> channel = this.parent.channel(channelId);
+			channel.setNextValue(result);
+		};
+		for (EnergyStorageSystem ess : esss) {
+			this.addOnChangeListener(ess, channelId, callback);
+		}
+	}
+
+	/**
+	 * Aggregate Channels of {@link EnergyStorageSystem}s.
+	 *
+	 * @param <T>        the Channel Type
+	 * @param aggregator the aggregator function
+	 * @param esss       the List of {@link EnergyStorageSystem}
+	 * @param channelId  the EnergyStorageSystem.ChannelId
+	 */
+	private <T> void calculate(BiFunction<T, T, T> aggregator, List<EnergyStorageSystem> esss,
+			EnergyStorageSystem.ChannelId channelId) {
 		final BiConsumer<Value<T>, Value<T>> callback = (oldValue, newValue) -> {
 			T result = null;
 			for (EnergyStorageSystem ess : esss) {

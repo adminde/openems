@@ -330,6 +330,14 @@ public interface EnergyStorageSystem extends
 	}
 
 	public static class Status {
+		/**
+		 * Used for Modbus/TCP Api Controller. Provides a Modbus table for the status
+		 * Channels of an {@link EnergyStorageSystem}.
+		 *
+		 * @param system     the {@link EnergyStorageSystem}
+		 * @param accessMode filters the Modbus-Records that should be shown
+		 * @return the {@link ModbusSlaveNatureTable}
+		 */
 		public static ModbusSlaveNatureTable getModbusSlaveNatureTable(EnergyStorageSystem system, AccessMode accessMode) {
 			return ModbusSlaveNatureTable.of(Status.class, accessMode, 80)
 					.channel(0, OpenemsComponent.ChannelId.STATE, ModbusType.ENUM16)
@@ -339,6 +347,14 @@ public interface EnergyStorageSystem extends
 	}
 
 	public static class Control {
+		/**
+		 * Used for Modbus/TCP Api Controller. Provides a Modbus table for the control
+		 * Channels of an {@link EnergyStorageSystem}.
+		 *
+		 * @param system     the {@link EnergyStorageSystem}
+		 * @param accessMode filters the Modbus-Records that should be shown
+		 * @return the {@link ModbusSlaveNatureTable}
+		 */
 		public static ModbusSlaveNatureTable getModbusSlaveNatureTable(EnergyStorageSystem system, AccessMode accessMode) {
 			return ModbusSlaveNatureTable.of(Control.class, accessMode, 100)
 					.int16Reserved(0, 7)
@@ -359,6 +375,14 @@ public interface EnergyStorageSystem extends
 	}
 
 	public static class Data {
+		/**
+		 * Used for Modbus/TCP Api Controller. Provides a Modbus table for the data
+		 * Channels of an {@link EnergyStorageSystem}.
+		 *
+		 * @param system     the {@link EnergyStorageSystem}
+		 * @param accessMode filters the Modbus-Records that should be shown
+		 * @return the {@link ModbusSlaveNatureTable}
+		 */
 		public static ModbusSlaveNatureTable getModbusSlaveNatureTable(EnergyStorageSystem system, AccessMode accessMode) {
 			var table = ModbusSlaveNatureTable.of(Data.class, accessMode, 820)
 					.channel(0, EnergyStorageSystem.ChannelId.MAX_ACTIVE_POWER, ModbusType.UINT32)
@@ -383,8 +407,7 @@ public interface EnergyStorageSystem extends
 						.channel(32, SymmetricComponent.ChannelId.ACTIVE_POWER_L2, ModbusType.INT32)
 						.channel(34, SymmetricComponent.ChannelId.ACTIVE_POWER_L3, ModbusType.INT32)
 						.int16Reserved(36, 37);
-			}
-			else if (system instanceof AsymmetricEss) {
+			} else if (system instanceof AsymmetricEss) {
 				table.channel(30, AsymmetricEss.ChannelId.ACTIVE_POWER_L1, ModbusType.INT32)
 						.channel(32, AsymmetricEss.ChannelId.ACTIVE_POWER_L2, ModbusType.INT32)
 						.channel(34, AsymmetricEss.ChannelId.ACTIVE_POWER_L3, ModbusType.INT32)
@@ -398,12 +421,11 @@ public interface EnergyStorageSystem extends
 						.channel(42, SymmetricComponent.ChannelId.REACTIVE_POWER_L2, ModbusType.INT32)
 						.channel(44, SymmetricComponent.ChannelId.REACTIVE_POWER_L3, ModbusType.INT32)
 						.int16Reserved(46, 47);
-			}
-			else if (system instanceof AsymmetricEss) {
+			} else if (system instanceof AsymmetricEss) {
 				table.channel(40, AsymmetricEss.ChannelId.REACTIVE_POWER_L1, ModbusType.INT32)
 						.channel(42, AsymmetricEss.ChannelId.REACTIVE_POWER_L2, ModbusType.INT32)
 						.channel(44, AsymmetricEss.ChannelId.REACTIVE_POWER_L3, ModbusType.INT32)
-						.int16Reserved(46, 37);
+						.int16Reserved(46, 47);
 			} else {
 				table.int16Reserved(40, 47);
 			}
