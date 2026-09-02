@@ -640,6 +640,26 @@ public interface SymmetricComponent extends OpenemsComponent {
 	public default Value<Integer> getVoltageL1L2() { return this.getVoltageL1L2Channel().value(); }
 
 	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#VOLTAGE_L1_L2}
+	 * Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setVoltageL1L2(Integer value) {
+		this.getVoltageL1L2Channel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#VOLTAGE_L1_L2}
+	 * Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setVoltageL1L2(int value) {
+		this.getVoltageL1L2Channel().setNextValue(value);
+	}
+
+	/**
 	 * Gets the Channel for {@link ChannelId#VOLTAGE_L2_L3}.
 	 *
 	 * @return the Channel
@@ -655,6 +675,26 @@ public interface SymmetricComponent extends OpenemsComponent {
 	public default Value<Integer> getVoltageL2L3() { return this.getVoltageL2L3Channel().value(); }
 
 	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#VOLTAGE_L2_L3}
+	 * Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setVoltageL2L3(Integer value) {
+		this.getVoltageL2L3Channel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#VOLTAGE_L2_L3}
+	 * Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setVoltageL2L3(int value) {
+		this.getVoltageL2L3Channel().setNextValue(value);
+	}
+
+	/**
 	 * Gets the Channel for {@link ChannelId#VOLTAGE_L3_L1}.
 	 *
 	 * @return the Channel
@@ -668,6 +708,26 @@ public interface SymmetricComponent extends OpenemsComponent {
 	 * @return the Channel {@link Value}
 	 */
 	public default Value<Integer> getVoltageL3L1() { return this.getVoltageL3L1Channel().value(); }
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#VOLTAGE_L3_L1}
+	 * Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setVoltageL3L1(Integer value) {
+		this.getVoltageL3L1Channel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#VOLTAGE_L3_L1}
+	 * Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setVoltageL3L1(int value) {
+		this.getVoltageL3L1Channel().setNextValue(value);
+	}
 
 	/**
 	 * Gets the Channel for {@link ChannelId#VOLTAGE_L1}.
@@ -876,6 +936,31 @@ public interface SymmetricComponent extends OpenemsComponent {
 			return null;
 		}
 		return (int) Math.round(phaseToPhaseVoltage / Math.sqrt(3));
+	}
+
+	/**
+	 * Derives the phase to phase voltages from the phase to neutral voltages,
+	 * assuming a symmetric three phase system.
+	 *
+	 * @param component the {@link SymmetricComponent}
+	 */
+	public static void calculateLineVoltages(SymmetricComponent component) {
+		component.getVoltageL1Channel().onSetNextValue(value -> {
+			component._setVoltageL1L2(calculateLineVoltage(value.get()));
+		});
+		component.getVoltageL2Channel().onSetNextValue(value -> {
+			component._setVoltageL2L3(calculateLineVoltage(value.get()));
+		});
+		component.getVoltageL3Channel().onSetNextValue(value -> {
+			component._setVoltageL3L1(calculateLineVoltage(value.get()));
+		});
+	}
+
+	private static Integer calculateLineVoltage(Integer phaseVoltage) {
+		if (phaseVoltage == null) {
+			return null;
+		}
+		return (int) Math.round(phaseVoltage * Math.sqrt(3));
 	}
 
 	public static void calculatePhasePowersFromVoltageAndCurrent(SymmetricComponent symmetric) {
