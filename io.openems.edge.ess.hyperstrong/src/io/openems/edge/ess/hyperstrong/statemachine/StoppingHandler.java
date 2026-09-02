@@ -2,9 +2,11 @@ package io.openems.edge.ess.hyperstrong.statemachine;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.timedata.Timeout;
+import io.openems.edge.common.channel.EnumWriteChannel;
 import io.openems.edge.common.statemachine.StateHandler;
-import io.openems.edge.ess.hyperstrong.hypercube.OperatingStatus;
 import io.openems.edge.ess.hyperstrong.hypercube.HyperCube;
+import io.openems.edge.ess.hyperstrong.hypercube.OperatingStatus;
+import io.openems.edge.ess.hyperstrong.hypercube.RunModeTarget;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 
 public class StoppingHandler extends StateHandler<State, Context> {
@@ -30,8 +32,8 @@ public class StoppingHandler extends StateHandler<State, Context> {
 		case OperatingStatus.RUNNING:
 		case OperatingStatus.STARTING:
 		case OperatingStatus.INITIALIZED:
-		// TODO: Initiate stopping procedure
-		// return State.STOPPING;
+			this.requestStop(ess);
+			// After requesting Stop, fall through to the timeout handling below.
 		default:
 			if (this.errorTimeout.elapsed(context.clock)) {
 				ess._setTimeoutStartBatteryInverter(true);
@@ -42,5 +44,23 @@ public class StoppingHandler extends StateHandler<State, Context> {
 			}
 		}
 		return State.STOPPING;
+	}
+
+	/**
+	 * Requests the HyperCube to switch its work state to Stop via register 303.
+	 *
+	 * <p>
+	 * The request is repeated every cycle while the system reports a stoppable
+	 * Operating Status and stops as soon as it reports Standby.
+	 *
+	 * @param ess the {@link HyperCube}
+	 * @throws OpenemsNamedException on write error
+	 */
+	private void requestStop(HyperCube ess) throws OpenemsNamedException {
+		if (ess.isReadOnly()) {
+			return;
+		}
+		EnumWriteChannel runModeTarget = ess.channel(HyperCube.ChannelId.RUN_MODE_TARGET);
+		runModeTarget.setNextWriteValue(RunModeTarget.STOP);
 	}
 }
