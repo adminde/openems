@@ -1,0 +1,78 @@
+= Sungrow
+
+Implementation of Sungrow devices via Modbus.
+
+== PV inverter
+
+Implements the Sungrow SG series grid-connected PV string inverters.
+
+=== Compatibility
+
+The register map follows the Sungrow document "Communication Protocol of PV Grid-Connected String Inverters" V1.1.53 (TI_20230117). It covers the residential and commercial SG series, for example:
+
+* SG*RS and SG*RT (residential)
+* SG*CX and SG*CX-P2 (commercial)
+* SG*HX (utility scale)
+* SG*KTL-M and older KTL models
+
+Tested with:
+
+* SG125CX-P2 (in progress)
+
+The inverter is reached via Modbus TCP (default port 502, for example through the WiNet-S communication module) or via Modbus RTU on the RS485 interface (default 9600 baud, 8N1, unit id 1).
+
+=== Implemented Natures
+
+* ElectricityMeter
+* ManagedSymmetricPvInverter
+
+=== Component
+
+*Name*: PV-Inverter Sungrow
+
+*Factory-PID*: `PV-Inverter.Sungrow`
+
+.Configuration
+* `id` (String): Component-ID (default: `pvInverter0`)
+* `alias` (String): Human-readable name
+* `enabled` (Boolean): Enable or disable the component (default: `true`)
+* `readOnly` (Boolean): In read-only mode no power-limitation commands are sent to the inverter (default: `true`)
+* `modbus_id` (String): ID of the Modbus bridge (default: `modbus0`)
+* `modbusUnitId` (Integer): Modbus unit id of the inverter (default: `1`)
+* `phaseWiring` (Enum): `THREE_PHASE_FOUR_WIRE` (3P4L, the inverter reports phase voltages) or `THREE_PHASE_THREE_WIRE` (3P3L, the inverter reports line voltages and the phase voltages are derived by dividing by the square root of three) (default: `THREE_PHASE_FOUR_WIRE`)
+* `maxActivePower` (Integer): Rated active power in W. `0` reads the value from the inverter (default: `0`)
+
+=== Channels
+
+Standard channels of the ElectricityMeter and ManagedSymmetricPvInverter natures:
+
+* `ActivePower`, `ReactivePower`, `Frequency`, `VoltageL1..L3`, `CurrentL1..L3` (register 5019 to 5036); `ActivePowerL1..L3`, `Voltage` and `Current` are calculated from the total values
+* `ActiveProductionEnergy` (register 5004)
+* `MaxActivePower` (register 5001), `MaxApparentPower` (equal to `MaxActivePower`), `MaxReactivePower` (register 5049)
+* `ActivePowerLimit` (write): requested active power limit in W
+
+Additional channels:
+
+* `DeviceTypeCode` (register 5000, see Appendix 5 of the protocol), `OutputType` (register 5002), `WorkState` (register 5038)
+* `DailyProductionEnergy` (register 5003), `MonthlyProductionEnergy` (register 5128), `TotalRunningTime` (register 5006)
+* `InternalTemperature` (register 5008), `ApparentPower` (register 5009), `DcPower` (register 5017), `PowerFactor` (register 5035)
+* `Mppt1Voltage` .. `Mppt12Voltage`, `Mppt1Current` .. `Mppt12Current` (register 5011 to 5016, 5115 to 5124 and 5130 to 5137)
+* `VoltageL1L2`, `VoltageL2L3`, `VoltageL3L1`: line voltages, only with `THREE_PHASE_THREE_WIRE`
+* `PowerLimitationSwitch`, `PowerLimitationSetting`: state of the power limitation as reported by the inverter (holding registers 5007 and 5008)
+* `PvLimitFailed` (Fault): the power limit could not be applied
+* `ReadOnlyModePvLimitFailed` (Warning): a power limit was requested while read-only mode is active
+* `WrongPhaseWiringConfigured` (Warning): the configured phase wiring does not match the output type reported by the inverter
+
+=== Power limitation
+
+When read-only mode is disabled, a value written to `ActivePowerLimit` is converted to a share of the rated active power and written to holding register 5008 in steps of 0.1 %, and the power limitation switch in holding register 5007 is enabled. The share is never below 1 %, because a limit of 0 % can put the inverter into standby, and never above 100 %. When no limit is requested the power limitation switch is disabled, which lets the inverter produce its full power. The registers are only written when the value reported by the inverter differs from the requested value.
+
+=== Notes on the register map
+
+* The protocol documents register addresses starting at 1 while Modbus transmits them starting at 0. The implementation subtracts one from every documented address.
+* Running data is read with function code 04 (input registers), settings with function code 03 and written with function code 16 (holding registers). Both tables share the same numeric range.
+* 32-bit values are transmitted with the low word first.
+* Registers that are not supported by a specific inverter model are reported with all bits set for unsigned values and with the maximum positive value for signed values. These are mapped to an undefined channel value, for example the MPPT channels above the number of MPPT inputs of the inverter.
+* The power factor register holds the value multiplied by 1000. Positive values are leading, negative values are lagging.
+
+https://github.com/OpenEMS/openems/tree/develop/io.openems.edge.sungrow[Source Code icon:github[]]
