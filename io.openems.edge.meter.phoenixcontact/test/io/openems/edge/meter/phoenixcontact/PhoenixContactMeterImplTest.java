@@ -2,7 +2,6 @@ package io.openems.edge.meter.phoenixcontact;
 
 import org.junit.Test;
 
-import io.openems.common.test.DummyConfigurationAdmin;
 import io.openems.edge.bridge.modbus.test.DummyModbusBridge;
 import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.ComponentTest;
@@ -37,7 +36,6 @@ public class PhoenixContactMeterImplTest {
 	@Test
 	public void test3P4W() throws Exception {
 		new ComponentTest(new PhoenixContactMeterImpl()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("setModbus", new DummyModbusBridge(MODBUS_ID) //
 						// Active Energy consumed/delivered: 0x9306..0x930F
 						.withInputRegisters(0x9306, f(10000f), dummy(6), f(20000f)) //
@@ -100,7 +98,6 @@ public class PhoenixContactMeterImplTest {
 	@Test
 	public void test3P4WInverted() throws Exception {
 		new ComponentTest(new PhoenixContactMeterImpl()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("setModbus", new DummyModbusBridge(MODBUS_ID) //
 						.withInputRegisters(0x9306, f(10000f), dummy(6), f(20000f)) //
 						.withInputRegisters(0x9350, f(30000f), f(40000f)) //
@@ -143,7 +140,6 @@ public class PhoenixContactMeterImplTest {
 	@Test
 	public void test3P3W() throws Exception {
 		new ComponentTest(new PhoenixContactMeterImpl()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("setModbus", new DummyModbusBridge(MODBUS_ID) //
 						// Active Energy consumed/delivered: 0x9306..0x930F
 						.withInputRegisters(0x9306, f(10000f), dummy(6), f(20000f)) //
@@ -198,7 +194,6 @@ public class PhoenixContactMeterImplTest {
 	@Test
 	public void test1P2W() throws Exception {
 		new ComponentTest(new PhoenixContactMeterImpl()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("setModbus", new DummyModbusBridge(MODBUS_ID) //
 						// Active Energy consumed/delivered: 0x9306..0x930F
 						.withInputRegisters(0x9306, f(10000f), dummy(6), f(20000f)) //
