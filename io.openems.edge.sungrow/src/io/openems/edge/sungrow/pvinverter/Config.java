@@ -28,8 +28,5 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "Phase Wiring", description = "Output type of the inverter. 3P4L reports phase voltages, 3P3L reports line voltages.")
 	PhaseWiring phaseWiring() default PhaseWiring.THREE_PHASE_FOUR_WIRE;
 
-	@AttributeDefinition(name = "Max Active Power [W]", description = "Rated active power of the inverter. 0 reads the value from the inverter.")
-	int maxActivePower() default 0;
-
 	String webconsole_configurationFactory_nameHint() default "PV-Inverter Sungrow [{id}]";
 }

@@ -25,7 +25,6 @@ import io.openems.common.channel.AccessMode;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.referencetarget.GenerateTargetsFromReferences;
-import io.openems.common.types.MeterType;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
 import io.openems.edge.bridge.modbus.api.BridgeModbus;
@@ -34,7 +33,6 @@ import io.openems.edge.bridge.modbus.api.ElementToChannelConverter;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.bridge.modbus.api.ModbusProtocol;
 import io.openems.edge.bridge.modbus.api.element.DummyRegisterElement;
-import io.openems.edge.bridge.modbus.api.element.ModbusElement;
 import io.openems.edge.bridge.modbus.api.element.SignedDoublewordElement;
 import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedDoublewordElement;
@@ -71,35 +69,6 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 	 */
 	private static final int OFFSET = 1;
 
-	/*
-	 * Registers that are not supported by the inverter model are reported with all
-	 * bits set for unsigned and with the maximum positive value for signed data
-	 * types.
-	 */
-	private static final ElementToChannelConverter U16_OR_NULL = SET_NULL_FOR_DEFAULT(0xFFFF);
-	private static final ElementToChannelConverter S16_OR_NULL = SET_NULL_FOR_DEFAULT(0x7FFF);
-	private static final ElementToChannelConverter U32_OR_NULL = SET_NULL_FOR_DEFAULT(0xFFFFFFFFL);
-	private static final ElementToChannelConverter S32_OR_NULL = SET_NULL_FOR_DEFAULT(0x7FFFFFFF);
-	private static final ElementToChannelConverter U16_SCALE_FACTOR_2_OR_NULL = chain(U16_OR_NULL, SCALE_FACTOR_2);
-	private static final ElementToChannelConverter U32_SCALE_FACTOR_2_OR_NULL = chain(U32_OR_NULL, SCALE_FACTOR_2);
-	private static final ElementToChannelConverter U32_SCALE_FACTOR_3_OR_NULL = chain(U32_OR_NULL, SCALE_FACTOR_3);
-
-	/**
-	 * The power factor register holds the value multiplied by 1000. Scale factor
-	 * converters keep the integer type of the register, so the conversion to a
-	 * fraction is done explicitly.
-	 */
-	private static final ElementToChannelConverter S16_POWER_FACTOR_OR_NULL = chain(S16_OR_NULL,
-			new ElementToChannelConverter(value -> {
-				var v = TypeUtils.<Integer>getAsType(OpenemsType.INTEGER, value);
-				return v == null ? null : v / 1000F;
-			}));
-
-	private static final ChannelMetaInfoReadAndWrite POWER_LIMITATION_SWITCH_META = new ChannelMetaInfoReadAndWrite(
-			5007 - OFFSET, 5007 - OFFSET);
-	private static final ChannelMetaInfoReadAndWrite POWER_LIMITATION_SETTING_META = new ChannelMetaInfoReadAndWrite(
-			5008 - OFFSET, 5008 - OFFSET);
-
 	private final SetPvLimitHandler setPvLimitHandler = new SetPvLimitHandler(this);
 
 	private Config config;
@@ -130,9 +99,6 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 		// The inverter reports only its rated active power, which is used as rated
 		// apparent power as well.
 		this.getMaxActivePowerChannel().onSetNextValue(value -> this._setMaxApparentPower(value.get()));
-		if (config.maxActivePower() > 0) {
-			this._setMaxActivePower(config.maxActivePower());
-		}
 		if (config.phaseWiring() == PhaseWiring.THREE_PHASE_THREE_WIRE) {
 			PvInverterSungrow.calculatePhaseVoltagesFromLineVoltages(this);
 		}
@@ -146,6 +112,39 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 	@Deactivate
 	protected void deactivate() {
 		super.deactivate();
+	}
+
+	private void detectWrongPhaseWiring(OutputType outputType) {
+		var wrongPhaseWiring = switch (outputType) {
+		case THREE_PHASE_FOUR_LINE -> this.config.phaseWiring() != PhaseWiring.THREE_PHASE_FOUR_WIRE;
+		case THREE_PHASE_THREE_LINE -> this.config.phaseWiring() != PhaseWiring.THREE_PHASE_THREE_WIRE;
+		default -> false;
+		};
+		this._setWrongPhaseWiringConfigured(wrongPhaseWiring);
+	}
+
+	@Override
+	public void handleEvent(Event event) {
+		if (!this.isEnabled()) {
+			return;
+		}
+		if (event.getTopic().equals(TOPIC_CYCLE_EXECUTE_WRITE)) {
+			this.applyActivePowerLimit();
+		}
+	}
+
+	private void applyActivePowerLimit() {
+		var activePowerLimit = this.getActivePowerLimitChannel().getNextWriteValueAndReset();
+		this._setReadOnlyModePvLimitFailed(this.config.readOnly() && activePowerLimit.isPresent());
+		if (this.config.readOnly()) {
+			return;
+		}
+		try {
+			this.setPvLimitHandler.accept(activePowerLimit);
+			this._setPvLimitFailed(false);
+		} catch (OpenemsNamedException e) {
+			this._setPvLimitFailed(true);
+		}
 	}
 
 	@Override
@@ -162,20 +161,20 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 			voltage2 = ElectricityMeter.ChannelId.VOLTAGE_L2;
 			voltage3 = ElectricityMeter.ChannelId.VOLTAGE_L3;
 		}
-
 		var protocol = new ModbusProtocol(this, //
 				new FC4ReadInputRegistersTask(5000 - OFFSET, Priority.HIGH, //
 						m(PvInverterSungrow.ChannelId.DEVICE_TYPE_CODE, new UnsignedWordElement(5000 - OFFSET)),
-						this.maxActivePowerElement(),
+						m(ManagedSymmetricPvInverter.ChannelId.MAX_ACTIVE_POWER, new UnsignedWordElement(5001 - OFFSET),
+								U16_SCALE_FACTOR_2_OR_NULL),
 						m(PvInverterSungrow.ChannelId.OUTPUT_TYPE, new UnsignedWordElement(5002 - OFFSET)),
 						m(PvInverterSungrow.ChannelId.DAILY_PRODUCTION_ENERGY, new UnsignedWordElement(5003 - OFFSET),
 								U16_SCALE_FACTOR_2_OR_NULL),
-						m(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY, uint32(5004 - OFFSET),
+						m(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY, UINT32(5004 - OFFSET),
 								U32_SCALE_FACTOR_3_OR_NULL),
-						m(PvInverterSungrow.ChannelId.TOTAL_RUNNING_TIME, uint32(5006 - OFFSET), U32_OR_NULL),
+						m(PvInverterSungrow.ChannelId.TOTAL_RUNNING_TIME, UINT32(5006 - OFFSET), U32_OR_NULL),
 						m(PvInverterSungrow.ChannelId.INTERNAL_TEMPERATURE, new SignedWordElement(5008 - OFFSET),
 								S16_OR_NULL),
-						m(PvInverterSungrow.ChannelId.APPARENT_POWER, uint32(5009 - OFFSET), U32_OR_NULL),
+						m(PvInverterSungrow.ChannelId.APPARENT_POWER, UINT32(5009 - OFFSET), U32_OR_NULL),
 						m(PvInverterSungrow.ChannelId.MPPT_1_VOLTAGE, new UnsignedWordElement(5011 - OFFSET),
 								U16_SCALE_FACTOR_2_OR_NULL),
 						m(PvInverterSungrow.ChannelId.MPPT_1_CURRENT, new UnsignedWordElement(5012 - OFFSET),
@@ -188,7 +187,7 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 								U16_SCALE_FACTOR_2_OR_NULL),
 						m(PvInverterSungrow.ChannelId.MPPT_3_CURRENT, new UnsignedWordElement(5016 - OFFSET),
 								U16_SCALE_FACTOR_2_OR_NULL),
-						m(PvInverterSungrow.ChannelId.DC_POWER, uint32(5017 - OFFSET), U32_OR_NULL),
+						m(PvInverterSungrow.ChannelId.DC_POWER, UINT32(5017 - OFFSET), U32_OR_NULL),
 						m(voltage1, new UnsignedWordElement(5019 - OFFSET), U16_SCALE_FACTOR_2_OR_NULL),
 						m(voltage2, new UnsignedWordElement(5020 - OFFSET), U16_SCALE_FACTOR_2_OR_NULL),
 						m(voltage3, new UnsignedWordElement(5021 - OFFSET), U16_SCALE_FACTOR_2_OR_NULL),
@@ -199,8 +198,8 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 						m(ElectricityMeter.ChannelId.CURRENT_L3, new UnsignedWordElement(5024 - OFFSET),
 								U16_SCALE_FACTOR_2_OR_NULL),
 						new DummyRegisterElement(5025 - OFFSET, 5030 - OFFSET),
-						m(ElectricityMeter.ChannelId.ACTIVE_POWER, uint32(5031 - OFFSET), U32_OR_NULL),
-						m(ElectricityMeter.ChannelId.REACTIVE_POWER, int32(5033 - OFFSET), S32_OR_NULL),
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER, UINT32(5031 - OFFSET), U32_OR_NULL),
+						m(ElectricityMeter.ChannelId.REACTIVE_POWER, INT32(5033 - OFFSET), S32_OR_NULL),
 						m(PvInverterSungrow.ChannelId.POWER_FACTOR, new SignedWordElement(5035 - OFFSET),
 								S16_POWER_FACTOR_OR_NULL),
 						m(ElectricityMeter.ChannelId.FREQUENCY, new UnsignedWordElement(5036 - OFFSET),
@@ -232,7 +231,7 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 						m(PvInverterSungrow.ChannelId.MPPT_8_CURRENT, new UnsignedWordElement(5124 - OFFSET),
 								U16_SCALE_FACTOR_2_OR_NULL),
 						new DummyRegisterElement(5125 - OFFSET, 5127 - OFFSET),
-						m(PvInverterSungrow.ChannelId.MONTHLY_PRODUCTION_ENERGY, uint32(5128 - OFFSET),
+						m(PvInverterSungrow.ChannelId.MONTHLY_PRODUCTION_ENERGY, UINT32(5128 - OFFSET),
 								U32_SCALE_FACTOR_2_OR_NULL),
 						m(PvInverterSungrow.ChannelId.MPPT_9_VOLTAGE, new UnsignedWordElement(5130 - OFFSET),
 								U16_SCALE_FACTOR_2_OR_NULL),
@@ -249,74 +248,27 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 						m(PvInverterSungrow.ChannelId.MPPT_12_VOLTAGE, new UnsignedWordElement(5136 - OFFSET),
 								U16_SCALE_FACTOR_2_OR_NULL),
 						m(PvInverterSungrow.ChannelId.MPPT_12_CURRENT, new UnsignedWordElement(5137 - OFFSET),
-								U16_SCALE_FACTOR_2_OR_NULL)),
-				new FC3ReadRegistersTask(5007 - OFFSET, Priority.LOW, //
-						m(PvInverterSungrow.ChannelId.POWER_LIMITATION_SWITCH, new UnsignedWordElement(5007 - OFFSET),
-								POWER_LIMITATION_SWITCH_META),
-						m(PvInverterSungrow.ChannelId.POWER_LIMITATION_SETTING,
-								new UnsignedWordElement(5008 - OFFSET), POWER_LIMITATION_SETTING_META)));
+								U16_SCALE_FACTOR_2_OR_NULL)));
 
 		if (!this.config.readOnly()) {
+			final ChannelMetaInfoReadAndWrite powerLimitationSwitchMeta = new ChannelMetaInfoReadAndWrite(
+					5007 - OFFSET, 5007 - OFFSET);
+			final ChannelMetaInfoReadAndWrite powerLimitationSettingsMeta = new ChannelMetaInfoReadAndWrite(
+					5008 - OFFSET, 5008 - OFFSET);
+
+			protocol.addTask(new FC3ReadRegistersTask(5007 - OFFSET, Priority.LOW, //
+					m(PvInverterSungrow.ChannelId.POWER_LIMITATION_SWITCH, new UnsignedWordElement(5007 - OFFSET),
+							powerLimitationSwitchMeta),
+					m(PvInverterSungrow.ChannelId.POWER_LIMITATION_SETTING, new UnsignedWordElement(5008 - OFFSET),
+							powerLimitationSettingsMeta)));
+
 			protocol.addTask(new FC16WriteRegistersTask(5007 - OFFSET, //
 					m(PvInverterSungrow.ChannelId.POWER_LIMITATION_SWITCH, new UnsignedWordElement(5007 - OFFSET),
-							POWER_LIMITATION_SWITCH_META),
+							powerLimitationSwitchMeta),
 					m(PvInverterSungrow.ChannelId.POWER_LIMITATION_SETTING, new UnsignedWordElement(5008 - OFFSET),
-							POWER_LIMITATION_SETTING_META)));
+							powerLimitationSettingsMeta)));
 		}
 		return protocol;
-	}
-
-	private ModbusElement maxActivePowerElement() {
-		if (this.config.maxActivePower() > 0) {
-			// A configured rated power takes precedence over the value reported by the
-			// inverter.
-			return new DummyRegisterElement(5001 - OFFSET);
-		}
-		return m(ManagedSymmetricPvInverter.ChannelId.MAX_ACTIVE_POWER, new UnsignedWordElement(5001 - OFFSET),
-				U16_SCALE_FACTOR_2_OR_NULL);
-	}
-
-	private void detectWrongPhaseWiring(OutputType outputType) {
-		var wrongPhaseWiring = switch (outputType) {
-		case THREE_PHASE_FOUR_LINE -> this.config.phaseWiring() != PhaseWiring.THREE_PHASE_FOUR_WIRE;
-		case THREE_PHASE_THREE_LINE -> this.config.phaseWiring() != PhaseWiring.THREE_PHASE_THREE_WIRE;
-		default -> false;
-		};
-		this._setWrongPhaseWiringConfigured(wrongPhaseWiring);
-	}
-
-	@Override
-	public void handleEvent(Event event) {
-		if (!this.isEnabled()) {
-			return;
-		}
-		switch (event.getTopic()) {
-		case TOPIC_CYCLE_EXECUTE_WRITE -> this.applyActivePowerLimit();
-		}
-	}
-
-	private void applyActivePowerLimit() {
-		var activePowerLimit = this.getActivePowerLimitChannel().getNextWriteValueAndReset();
-		this._setReadOnlyModePvLimitFailed(this.config.readOnly() && activePowerLimit.isPresent());
-		if (this.config.readOnly()) {
-			return;
-		}
-		try {
-			this.setPvLimitHandler.accept(activePowerLimit);
-			this._setPvLimitFailed(false);
-		} catch (OpenemsNamedException e) {
-			this._setPvLimitFailed(true);
-		}
-	}
-
-	@Override
-	public MeterType getMeterType() {
-		return MeterType.PRODUCTION;
-	}
-
-	@Override
-	public String debugLog() {
-		return "L:" + this.getActivePower().asString();
 	}
 
 	@Override
@@ -327,11 +279,40 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 				ManagedSymmetricPvInverter.getModbusSlaveNatureTable(accessMode));
 	}
 
-	private static UnsignedDoublewordElement uint32(int address) {
+	@Override
+	public String debugLog() {
+		return "L:" + this.getActivePower().asString();
+	}
+
+	/*
+	 * Registers that are not supported by the inverter model are reported with all
+	 * bits set for unsigned and with the maximum positive value for signed data
+	 * types.
+	 */
+	private static final ElementToChannelConverter U16_OR_NULL = SET_NULL_FOR_DEFAULT(0xFFFF);
+	private static final ElementToChannelConverter S16_OR_NULL = SET_NULL_FOR_DEFAULT(0x7FFF);
+	private static final ElementToChannelConverter U32_OR_NULL = SET_NULL_FOR_DEFAULT(0xFFFFFFFFL);
+	private static final ElementToChannelConverter S32_OR_NULL = SET_NULL_FOR_DEFAULT(0x7FFFFFFF);
+	private static final ElementToChannelConverter U16_SCALE_FACTOR_2_OR_NULL = chain(U16_OR_NULL, SCALE_FACTOR_2);
+	private static final ElementToChannelConverter U32_SCALE_FACTOR_2_OR_NULL = chain(U32_OR_NULL, SCALE_FACTOR_2);
+	private static final ElementToChannelConverter U32_SCALE_FACTOR_3_OR_NULL = chain(U32_OR_NULL, SCALE_FACTOR_3);
+
+	/**
+	 * The power factor register holds the value multiplied by 1000. Scale factor
+	 * converters keep the integer type of the register, so the conversion to a
+	 * fraction is done explicitly.
+	 */
+	private static final ElementToChannelConverter S16_POWER_FACTOR_OR_NULL = chain(S16_OR_NULL,
+			new ElementToChannelConverter(value -> {
+				var v = TypeUtils.<Integer>getAsType(OpenemsType.INTEGER, value);
+				return v == null ? null : v / 1000F;
+			}));
+
+	private static UnsignedDoublewordElement UINT32(int address) {
 		return new UnsignedDoublewordElement(address).wordOrder(LSWMSW);
 	}
 
-	private static SignedDoublewordElement int32(int address) {
+	private static SignedDoublewordElement INT32(int address) {
 		return new SignedDoublewordElement(address).wordOrder(LSWMSW);
 	}
 }
