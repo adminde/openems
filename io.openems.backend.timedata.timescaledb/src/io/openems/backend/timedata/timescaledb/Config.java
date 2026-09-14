@@ -9,7 +9,7 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 @interface Config {
 
 	@AttributeDefinition(name = "Component-ID")
-	String id() default "Timedata.TimescaleDB";
+	String id() default "timedata0";
 
 	@AttributeDefinition(name = "Host", description = "TimescaleDB host")
 	String host() default "localhost";

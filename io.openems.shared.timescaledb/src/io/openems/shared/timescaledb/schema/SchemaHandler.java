@@ -66,19 +66,26 @@ public class SchemaHandler {
 		try (var connection = this.dataSource.getConnection();
 				var statement = connection.createStatement()) {
 
+			// PostgreSQL 18 ships a native uuidv7() function. Older servers rely on
+			// the pg_uuidv7 extension, which supplies uuid_generate_v7().
+			var majorVersion = connection.getMetaData().getDatabaseMajorVersion();
+			var uuidDefault = majorVersion >= 18 ? "uuidv7()" : "uuid_generate_v7()";
+
 			// Activate the extensions this schema relies on. The extension binaries
 			// must already be installed on the server
 			statement.execute("CREATE EXTENSION IF NOT EXISTS timescaledb");
-			statement.execute("CREATE EXTENSION IF NOT EXISTS pg_uuidv7");
+			if (majorVersion < 18) {
+				statement.execute("CREATE EXTENSION IF NOT EXISTS pg_uuidv7");
+			}
 
 			// Layer 1: dimension tables
 			if (this.tenancy == Tenancy.MULTI) {
-				this.createEdgeTable(statement);
+				this.createEdgeTable(statement, uuidDefault);
 			}
-			this.createComponentDefinitionTable(statement);
-			this.createComponentTable(statement);
-			this.createChannelDefinitionTable(statement);
-			this.createChannelTable(statement);
+			this.createComponentDefinitionTable(statement, uuidDefault);
+			this.createComponentTable(statement, uuidDefault);
+			this.createChannelDefinitionTable(statement, uuidDefault);
+			this.createChannelTable(statement, uuidDefault);
 
 			// Layer 2: Hypertables
 			createHypertable(statement, "data_integer", "BIGINT",           "1 day");
@@ -198,33 +205,33 @@ public class SchemaHandler {
 		}
 	}
 
-	private void createEdgeTable(Statement statement) throws SQLException {
+	private void createEdgeTable(Statement statement, String uuidDefault) throws SQLException {
 		statement.execute("""
 				CREATE TABLE IF NOT EXISTS edge (
-				id         UUID        DEFAULT uuid_generate_v7() PRIMARY KEY,
+				id         UUID        DEFAULT %s PRIMARY KEY,
 				name       VARCHAR NOT NULL UNIQUE,
 				created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-				)"""
+				)""".formatted(uuidDefault)
 		);
 	}
 
-	private void createComponentDefinitionTable(Statement statement) throws SQLException {
+	private void createComponentDefinitionTable(Statement statement, String uuidDefault) throws SQLException {
 		// The component nature (factory PID). Scoping channel_def by it is what
 		// keeps two factories that both expose e.g. "ActivePower" from sharing one
 		// value type and unit.
 		statement.execute("""
 				CREATE TABLE IF NOT EXISTS component_def (
-					id         UUID DEFAULT uuid_generate_v7() PRIMARY KEY,
+					id         UUID DEFAULT %s PRIMARY KEY,
 					type       VARCHAR NOT NULL UNIQUE,
 					created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-				)"""
+				)""".formatted(uuidDefault)
 		);
 	}
 
-	private void createComponentTable(Statement statement) throws SQLException {
+	private void createComponentTable(Statement statement, String uuidDefault) throws SQLException {
 		StringBuilder query = new StringBuilder()
 				.append("CREATE TABLE IF NOT EXISTS component (")
-				.append("id UUID DEFAULT uuid_generate_v7() PRIMARY KEY, ");
+				.append("id UUID DEFAULT ").append(uuidDefault).append(" PRIMARY KEY, ");
 		if (this.tenancy == Tenancy.MULTI) {
 			query.append("edge_id UUID NOT NULL REFERENCES edge(id) ON DELETE CASCADE, ")
 					.append("name VARCHAR NOT NULL, ");
@@ -244,33 +251,33 @@ public class SchemaHandler {
 		}
 	}
 
-	private void createChannelDefinitionTable(Statement statement) throws SQLException {
+	private void createChannelDefinitionTable(Statement statement, String uuidDefault) throws SQLException {
 		// Scoped by component_def: value type and unit are a property of the
 		// Channel-ID *within one component nature*, not of the Channel-ID alone.
 		statement.execute("""
 				CREATE TABLE IF NOT EXISTS channel_def (
-					id          UUID DEFAULT uuid_generate_v7() PRIMARY KEY,
+					id          UUID DEFAULT %s PRIMARY KEY,
 					component_def    UUID NOT NULL REFERENCES component_def(id) ON DELETE CASCADE,
 					name        VARCHAR NOT NULL,
 					type        VARCHAR(16) NOT NULL CHECK (type IN ('INTEGER','FLOAT','STRING')),
 					unit        VARCHAR(16),
 					created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
 					UNIQUE (component_def, name)
-				)"""
+				)""".formatted(uuidDefault)
 		);
 	}
 
-	private void createChannelTable(Statement statement) throws SQLException {
+	private void createChannelTable(Statement statement, String uuidDefault) throws SQLException {
 		// Aggregate: true = this channel is materialized into the aggregate tiers.
 		statement.execute("""
 				CREATE TABLE IF NOT EXISTS channel (
-					id             UUID    DEFAULT uuid_generate_v7() PRIMARY KEY,
+					id             UUID    DEFAULT %s PRIMARY KEY,
 					component_id   UUID    NOT NULL REFERENCES component(id) ON DELETE CASCADE,
 					channel_def UUID    NOT NULL REFERENCES channel_def(id) ON DELETE CASCADE,
 					aggregate      BOOLEAN NOT NULL DEFAULT false,
 					first_seen     TIMESTAMPTZ NOT NULL DEFAULT now(),
 					UNIQUE (component_id, channel_def)
-				)"""
+				)""".formatted(uuidDefault)
 		);
 		statement.execute("CREATE INDEX IF NOT EXISTS idx_channel_component ON channel(component_id)");
 		statement.execute("CREATE INDEX IF NOT EXISTS idx_channel_def       ON channel(channel_def)");
