@@ -41,6 +41,7 @@ This bundle implements the following OpenEMS Component:
 * `REACTIVE_LAGGING_ENERGY`, `REACTIVE_LEADING_ENERGY`: cumulative lagging (inductive) and leading (capacitive) reactive energy
 
 .*Configuration*:
+
 * `id` (String): Component ID for unique identification (default: "meter0")
 * `alias` (String): Human-readable alias for the component
 * `enabled` (Boolean): Enable/disable this component (default: true)
