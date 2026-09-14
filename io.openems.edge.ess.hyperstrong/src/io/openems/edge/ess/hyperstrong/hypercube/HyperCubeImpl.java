@@ -13,6 +13,7 @@ import static org.osgi.service.component.annotations.ReferencePolicyOption.GREED
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 import io.openems.edge.oros.ess.core.RuntimeComponent;
 import org.osgi.service.component.ComponentContext;
@@ -68,6 +69,7 @@ import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.ess.core.AbstractModbusEss;
+import io.openems.edge.oros.ess.core.ChannelManager.CapacityListener;
 import io.openems.edge.oros.ess.core.ChannelManager.StateOfChargeListener;
 import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
@@ -151,6 +153,13 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 		super.activate(context, config.id(), config.alias(), config.enabled(), 1, config.startStop(), false);
 		this.config = config;
 
+		this.getCapacityChannel().onSetNextValue(
+				value -> this.getBatteryManagementSystem()._setCapacity(value.get())
+		);
+		this.channelManager.setCapacityListener(
+				new CapacityListener(this, this.getBatteryManagementSystem(),
+						List.of(this.getAvailableChargeEnergyChannel(),
+								this.getAvailableDischargeEnergyChannel())));
 		this.channelManager.setStateOfChargeListener(
 				new StateOfChargeListener(this, this.getBatteryManagementSystem(),
 						BatteryManagementSystem.ChannelId.SOE));

@@ -57,9 +57,6 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 		HyperCubeBattery, BatteryManagementSystem, Battery,
 		OpenemsComponent, ModbusComponent, ModbusSlave, StartStoppable {
 
-	/** Capacity of a HyperStrong Battery Rack in [Wh]. */
-	public static final int CAPACITY = 233_000;
-
 	@Override
 	@Reference(policy = ReferencePolicy.STATIC,
 			policyOption = ReferencePolicyOption.GREEDY,
@@ -82,7 +79,6 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
 		super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId());
-		this._setCapacity(CAPACITY);
 
 		HyperCubeBattery.mirrorOpenCircuitVoltageFromPrecharge(this);
 		BatteryManagementSystem.calculateRackPowerFromVoltageAndCurrent(this);

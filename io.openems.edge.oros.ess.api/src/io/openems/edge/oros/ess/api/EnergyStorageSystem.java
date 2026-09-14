@@ -235,7 +235,7 @@ public interface EnergyStorageSystem extends
 	 *
 	 * @return the Channel
 	 */
-	public default IntegerReadChannel getAvailableChargEnergyChannel() {
+	public default IntegerReadChannel getAvailableChargeEnergyChannel() {
 		return this.channel(ChannelId.AVAILABLE_CHARGE_ENERGY);
 	}
 
@@ -245,8 +245,8 @@ public interface EnergyStorageSystem extends
 	 *
 	 * @return the Channel {@link Value}
 	 */
-	public default Value<Integer> getAvailableChargEnergy() {
-		return this.getAvailableChargEnergyChannel().value();
+	public default Value<Integer> getAvailableChargeEnergy() {
+		return this.getAvailableChargeEnergyChannel().value();
 	}
 
 	/**
@@ -254,7 +254,7 @@ public interface EnergyStorageSystem extends
 	 *
 	 * @return the Channel
 	 */
-	public default IntegerReadChannel getAvailableDischargEnergyChannel() {
+	public default IntegerReadChannel getAvailableDischargeEnergyChannel() {
 		return this.channel(ChannelId.AVAILABLE_DISCHARGE_ENERGY);
 	}
 
@@ -264,8 +264,8 @@ public interface EnergyStorageSystem extends
 	 *
 	 * @return the Channel {@link Value}
 	 */
-	public default Value<Integer> getAvailableDischargEnergy() {
-		return this.getAvailableDischargEnergyChannel().value();
+	public default Value<Integer> getAvailableDischargeEnergy() {
+		return this.getAvailableDischargeEnergyChannel().value();
 	}
 
 	@Override

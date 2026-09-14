@@ -32,7 +32,6 @@ import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.ess.core.protection.PowerLimiter;
-import io.openems.edge.oros.ess.core.protection.StateOfChargeLimiter;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 
 public class ChannelManager extends AbstractChannelListenerManager {
@@ -48,6 +47,7 @@ public class ChannelManager extends AbstractChannelListenerManager {
 	private final EnergyStorageSystem parent;
 
 	private PowerLimiter powerLimiter;
+	private CapacityListener capacityListener;
 	private StateOfChargeListener stateOfChargeListener;
 
 	public ChannelManager(EnergyStorageSystem parent) {
@@ -62,6 +62,15 @@ public class ChannelManager extends AbstractChannelListenerManager {
 
 	public PowerLimiter getPowerLimiter() {
 		return this.powerLimiter;
+	}
+
+	public ChannelManager setCapacityListener(CapacityListener listener) {
+		this.capacityListener = listener;
+		return this;
+	}
+
+	public CapacityListener getCapacityListener() {
+		return this.capacityListener;
 	}
 
 	public ChannelManager setStateOfChargeListener(StateOfChargeListener listener) {
@@ -97,6 +106,7 @@ public class ChannelManager extends AbstractChannelListenerManager {
 
 	private void addEssListener(ClockProvider clock, BatteryManagementSystem battery) {
 		this.addEssSocListener(clock, battery);
+		this.addEssCapacityListener(clock, battery);
 		this.addOnRelativePowerListener(this.parent,
 				EnergyStorageSystem.ChannelId.SET_ACTIVE_RELATIVE_POWER_EQUALS,
 				ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_EQUALS);
@@ -110,6 +120,17 @@ public class ChannelManager extends AbstractChannelListenerManager {
 		if (this.powerLimiter != null) {
 			this.addOnChangeListener(this.parent, StartStoppable.ChannelId.START_STOP, (ignored0, ignored1) ->
 					this.powerLimiter.accept(clock));
+		}
+	}
+
+	private void addEssCapacityListener(ClockProvider clock, BatteryManagementSystem battery) {
+		if (this.capacityListener == null) {
+			this.capacityListener = new CapacityListener(this.parent, battery);
+		}
+		final Consumer<Value<Integer>> trigger = ignored -> this.capacityListener.accept(clock);
+
+		for (Channel<Integer> source : this.capacityListener.getCapacityChannels()) {
+			source.onSetNextValue(trigger);
 		}
 	}
 
@@ -271,9 +292,6 @@ public class ChannelManager extends AbstractChannelListenerManager {
 		}
 
 		this.addOnSetNextMirrorListener(battery,
-				Battery.ChannelId.CAPACITY,
-				SymmetricEss.ChannelId.CAPACITY);
-		this.addOnSetNextMirrorListener(battery,
 				Battery.ChannelId.MIN_CELL_VOLTAGE,
 				SymmetricEss.ChannelId.MIN_CELL_VOLTAGE);
 		this.addOnSetNextMirrorListener(battery,
@@ -428,6 +446,62 @@ public class ChannelManager extends AbstractChannelListenerManager {
 		 */
 		protected int calculateStateOfCharge(ClockProvider clockProvider, int soc) {
 			return soc;
+		}
+	}
+
+	/**
+	 * Copies the Capacity Channel of the {@link BatteryManagementSystem} to the
+	 * {@link EnergyStorageSystem}. Implementations that derive the Capacity from other
+	 * Channels pass those as sources or override {@link #calculateCapacity}.
+	 */
+	public static class CapacityListener implements Consumer<ClockProvider> {
+
+		protected final EnergyStorageSystem parent;
+		protected final BatteryManagementSystem battery;
+		protected final List<? extends Channel<Integer>> capacities;
+
+		public CapacityListener(EnergyStorageSystem parent, BatteryManagementSystem battery) {
+			this(parent, battery, List.of(battery.getCapacityChannel()));
+		}
+
+		public CapacityListener(EnergyStorageSystem parent, BatteryManagementSystem battery,
+		                        List<? extends Channel<Integer>> capacities) {
+			this.parent = parent;
+			this.battery = battery;
+			this.capacities = capacities;
+		}
+
+		/**
+		 * Gets the Channels this listener derives the Capacity from.
+		 *
+		 * @return the Channels
+		 */
+		public List<? extends Channel<Integer>> getCapacityChannels() {
+			return this.capacities;
+		}
+
+		@Override
+		public void accept(ClockProvider clockProvider) {
+			this.parent._setCapacity(this.calculateCapacity(clockProvider));
+		}
+
+		/**
+		 * Derives the Capacity to publish on the {@link EnergyStorageSystem} from the source
+		 * Channels. Undefined sources are considered zero, all of them undefined yields null.
+		 *
+		 * @param clockProvider the {@link ClockProvider}
+		 * @return the Capacity in [Wh] or null if unknown
+		 */
+		protected Integer calculateCapacity(ClockProvider clockProvider) {
+			Integer capacity = null;
+			for (Channel<Integer> channel : this.capacities) {
+				var value = channel.getNextValue();
+				if (!value.isDefined()) {
+					continue;
+				}
+				capacity = capacity == null ? value.get() : capacity + value.get();
+			}
+			return capacity;
 		}
 	}
 }
