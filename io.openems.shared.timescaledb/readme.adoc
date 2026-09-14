@@ -199,7 +199,9 @@ before the lookup, so `meter/ActiveProductionEnergy` covers `meter0`, `meter1`,
 ** `timescaledb` >= 2.8 — 2.8 introduced the timezone argument of
    `time_bucket()`, which the calendar-resolution read path depends on.
 ** https://github.com/fboulnois/pg_uuidv7[`pg_uuidv7`] — supplies
-   `uuid_generate_v7()`, the default of every primary key.
+   `uuid_generate_v7()`, the default of every primary key. Only needed on
+   PostgreSQL < 18: from 18 on the server ships a native `uuidv7()` function
+   and the bundle uses that instead, no extension required.
 * `shared_preload_libraries = 'timescaledb'` in `postgresql.conf`, and the
   background-worker scheduler enabled — the retention, compression and
   continuous-aggregate refresh policies run as background jobs. The
@@ -237,7 +239,7 @@ per-database objects, installing them in `postgres` does not help.
 ----
 \connect openems
 CREATE EXTENSION IF NOT EXISTS timescaledb;
-CREATE EXTENSION IF NOT EXISTS pg_uuidv7;
+CREATE EXTENSION IF NOT EXISTS pg_uuidv7;  -- PostgreSQL < 18 only
 ----
 
 That is all the superuser is needed for. Verify:
@@ -256,12 +258,12 @@ creates, which is what TimescaleDB requires for `create_hypertable()`, for
 `ALTER TABLE … SET (timescaledb.compress …)` and for the `add_*_policy()`
 calls — no extra grants.
 
-The bundle still issues `CREATE EXTENSION IF NOT EXISTS` for both extensions on
-startup. Once they exist this is a no-op that an unprivileged role may run:
-PostgreSQL short-circuits on the `IF NOT EXISTS` check before it evaluates
-privileges. If step 2 was skipped, the call fails with
-`permission denied to create extension` — which is the intended, explicit
-failure rather than a half-built schema.
+The bundle still issues `CREATE EXTENSION IF NOT EXISTS` for the required
+extensions on startup (`pg_uuidv7` only on PostgreSQL < 18). Once they exist
+this is a no-op that an unprivileged role may run: PostgreSQL short-circuits on
+the `IF NOT EXISTS` check before it evaluates privileges. If step 2 was
+skipped, the call fails with `permission denied to create extension` — which is
+the intended, explicit failure rather than a half-built schema.
 
 === Existing database, role is not the owner
 
@@ -344,6 +346,7 @@ harmless. To start from scratch use `docker compose down -v`.
 NOTE: `pg_uuidv7` is not part of every TimescaleDB image. If the
 `CREATE EXTENSION` fails with `could not open extension control file`, the
 binary is missing and has to be installed into the image or onto the server
-first — no grant can substitute for it.
+first — no grant can substitute for it. On PostgreSQL >= 18 skip the extension
+entirely, the server's native `uuidv7()` is used instead.
 
 https://github.com/OpenEMS/openems/tree/develop/io.openems.shared.timescaledb[Source Code icon:github[]]
