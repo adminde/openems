@@ -275,7 +275,9 @@ public interface AcrelAdl400Meter extends ElectricityMeter, OpenemsComponent {
 	 *
 	 * @param value the next value
 	 */
-	public default void _setPowerFactor(float value) { this.getPowerFactorChannel().setNextValue(value); }
+	public default void _setPowerFactor(float value) {
+		this.getPowerFactorChannel().setNextValue(value);
+	}
 
 	/**
 	 * Gets the Channel for {@link ChannelId#POWER_FACTOR_L1}.

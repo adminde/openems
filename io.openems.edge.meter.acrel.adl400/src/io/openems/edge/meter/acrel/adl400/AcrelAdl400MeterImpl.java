@@ -1,11 +1,11 @@
 package io.openems.edge.meter.acrel.adl400;
 
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3_AND_INVERT_IF_TRUE;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_3;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -42,11 +42,9 @@ import io.openems.edge.meter.api.ElectricityMeter;
 		immediate = true, //
 		configurationPolicy = ConfigurationPolicy.REQUIRE //
 )
+@GenerateTargetsFromReferences("Modbus")
 public class AcrelAdl400MeterImpl extends AbstractOpenemsModbusComponent
 		implements ElectricityMeter, AcrelAdl400Meter, ModbusComponent, OpenemsComponent, ModbusSlave {
-
-	@Reference
-	private ConfigurationAdmin cm;
 
 	private MeterType type = MeterType.PRODUCTION;
 	private boolean invert = false;
@@ -61,7 +59,8 @@ public class AcrelAdl400MeterImpl extends AbstractOpenemsModbusComponent
 		);
 	}
 
-	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
+	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY, //
+			target = "(&(id=${config.modbus_id})(enabled=true))")
 	protected void setModbus(BridgeModbus modbus) {
 		super.setModbus(modbus);
 	}
@@ -72,10 +71,7 @@ public class AcrelAdl400MeterImpl extends AbstractOpenemsModbusComponent
 		this.invert = config.invert();
 		this.phaseWiring = config.phaseWiring();
 
-		if (super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId(), this.cm,
-				"Modbus", config.modbus_id())) {
-			return;
-		}
+		super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId());
 
 		if (this.phaseWiring == PhaseWiring.THREE_PHASE_THREE_WIRE) {
 			AcrelAdl400Meter.calculatePhaseVoltages(this);

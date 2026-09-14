@@ -7,7 +7,6 @@ import org.junit.Test;
 import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.bridge.modbus.test.DummyModbusBridge;
 import io.openems.edge.common.test.ComponentTest;
-import io.openems.common.test.DummyConfigurationAdmin;
 import io.openems.edge.meter.api.ElectricityMeter;
 
 public class AcrelAdl400MeterImplTest {
@@ -51,7 +50,6 @@ public class AcrelAdl400MeterImplTest {
 	@Test
 	public void test3P4W() throws Exception {
 		new ComponentTest(new AcrelAdl400MeterImpl()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("setModbus", new DummyModbusBridge(MODBUS_ID) //
 						// THD: 0x05DD..0x05E2
 						.withRegisters(0x05DD, new int[] { 15000, 15000, 15000, 5000, 5000, 5000 }) //
@@ -108,14 +106,13 @@ public class AcrelAdl400MeterImplTest {
 						// Energy: 0.1 kWh -> Wh (SCALE_FACTOR_2); forward -> PRODUCTION
 						.output(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY, 10000L) //
 						.output(ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY, 20000L) //
-						.output(AcrelAdl400Meter.ChannelId.REACTIVE_LAGGING_ENERGY, 30000L) //
-						.output(AcrelAdl400Meter.ChannelId.REACTIVE_LEADING_ENERGY, 40000L));
+						.output(ElectricityMeter.ChannelId.REACTIVE_LAGGING_ENERGY, 30000L) //
+						.output(ElectricityMeter.ChannelId.REACTIVE_LEADING_ENERGY, 40000L));
 	}
 
 	@Test
 	public void test3P3W() throws Exception {
 		new ComponentTest(new AcrelAdl400MeterImpl()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("setModbus", new DummyModbusBridge(MODBUS_ID) //
 						// THD: 0x05DD..0x05E2
 						.withRegisters(0x05DD, new int[] { 15000, 15000, 15000, 5000, 5000, 5000 }) //
