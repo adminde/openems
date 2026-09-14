@@ -2,7 +2,7 @@ launcher.port = 8079
 launcher.host = localhost
 launcher.data = ${workspace}/data
 launcher.var = ${workspace}/cnf/backend.d
-launcher.tmp = ${workspace}/cache/backend
+launcher.cache = ${workspace}/cache/backend
 
 -runfw: org.apache.felix.framework;version='[7.0.5,7.0.5]'
 -runee: JavaSE-21
@@ -17,7 +17,7 @@ launcher.tmp = ${workspace}/cache/backend
 -runproperties: \
     felix.cm.dir=${launcher.var},\
     openems.data.dir=${launcher.data}, \
-    org.osgi.framework.storage=${launcher.tmp}, \
+    org.osgi.framework.storage=${launcher.cache}, \
 	org.osgi.service.http.port=${launcher.port},\
     org.apache.felix.http.host=${launcher.host}, \
     org.apache.felix.eventadmin.Timeout=0, \
