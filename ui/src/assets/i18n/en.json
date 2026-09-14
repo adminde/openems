@@ -504,6 +504,12 @@
                 },
                 "INFO_STORAGE_FOR_CHARGE": "Negative values correspond to storage charging",
                 "INFO_STORAGE_FOR_DISCHARGE": "Positive values correspond to storage discharge",
+                "LIMIT_TOTAL_DISCHARGE": {
+                    "FORCE_CHARGE_POWER": "Force-charge with",
+                    "FORCE_CHARGE_SOC": "Force-charge below",
+                    "MIN_SOC": "Min SoC",
+                    "RELATION_ERROR": "Force-charge limit must be less than or equal to the Min-SoC"
+                },
                 "PEAKSHAVING": {
                     "ASYMMETRIC_INFO": "The entered performance values ​​refer to individual phases. It is adjusted to the most stressed phase.",
                     "END_DATE": "End date",

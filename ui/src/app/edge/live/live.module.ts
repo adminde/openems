@@ -20,6 +20,8 @@ import { Controller_ChpSocModalComponent } from "./Controller/ChpSoc/modal/modal
 import { Controller_EnerixControl } from "./Controller/EnerixControl/EnerixControl";
 import { ControllerEssFixActivePower } from "./Controller/Ess/FixActivePower/fix-active-power";
 import { ControllerEssGridOptimizedChargeModule } from "./Controller/Ess/GridOptimizedCharge/Ess_GridOptimizedCharge";
+import { ControllerEssLimitTotalDischargeComponent } from "./Controller/Ess/LimitTotalDischarge/LimitTotalDischarge";
+import { ControllerEssLimitTotalDischargeModalComponent } from "./Controller/Ess/LimitTotalDischarge/modal/modal.component";
 import { ControllerEssTimeOfUseTariff } from "./Controller/Ess/TimeOfUseTariff/Ess_TimeOfUseTariff";
 import { AdministrationComponent } from "./Controller/Evcs/administration/administration.component";
 import { Controller_Evcs } from "./Controller/Evcs/Evcs";
@@ -94,6 +96,8 @@ import { SystemOutageInfoComponent } from "./system-outage-info/oe-system-outage
         Controller_Asymmetric_PeakShavingModalComponent,
         Controller_ChannelthresholdComponent,
         Controller_ChpSocModalComponent,
+        ControllerEssLimitTotalDischargeComponent,
+        ControllerEssLimitTotalDischargeModalComponent,
         Controller_Io_ChannelSingleThresholdComponent,
         Controller_Io_ChannelSingleThresholdModalComponent,
         Controller_Symmetric_PeakShavingComponent,
