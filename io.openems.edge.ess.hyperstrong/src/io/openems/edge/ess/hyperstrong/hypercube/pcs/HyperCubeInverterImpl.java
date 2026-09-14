@@ -119,8 +119,8 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 		this._setMaxApparentPower((int) Math.floor(
 				HyperCubeInverter.MAX_ACTIVE_POWER * HyperCubeInverter.APPARENT_POWER_FACTOR));
 
-		// Calculate the Phase Voltages from Phase to Phase Voltages
-		SymmetricComponent.calculatePhaseVoltages(this);
+		// Calculate the Phase to Phase Voltages from the Phase Voltages
+		SymmetricComponent.calculateLineVoltages(this);
 
 		// Calculate the Phase Power Factors for symmetric phases
 		SymmetricComponent.calculatePhasePowerFactorsFromSymmetry(this);
@@ -199,11 +199,11 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 	protected ModbusProtocol defineModbusProtocol() {
 		return new ModbusProtocol(this,
 				new FC4ReadInputRegistersTask(3001, Priority.HIGH,
-						m(SymmetricComponent.ChannelId.VOLTAGE_L1_L2,
+						m(SymmetricComponent.ChannelId.VOLTAGE_L1,
 								new SignedWordElement(3001), SCALE_FACTOR_2),
-						m(SymmetricComponent.ChannelId.VOLTAGE_L2_L3,
+						m(SymmetricComponent.ChannelId.VOLTAGE_L2,
 								new SignedWordElement(3002), SCALE_FACTOR_2),
-						m(SymmetricComponent.ChannelId.VOLTAGE_L3_L1,
+						m(SymmetricComponent.ChannelId.VOLTAGE_L3,
 								new SignedWordElement(3003), SCALE_FACTOR_2),
 						m(SymmetricComponent.ChannelId.CURRENT_L1,
 								new SignedWordElement(3004), SCALE_FACTOR_2),
