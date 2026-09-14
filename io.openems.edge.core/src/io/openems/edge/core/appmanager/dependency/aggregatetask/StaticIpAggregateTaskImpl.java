@@ -74,8 +74,8 @@ public class StaticIpAggregateTaskImpl implements StaticIpAggregateTask {
 													.addProperty("gateway", route.getRouteGateway()) //
 													.addProperty("destination", route.getRouteDestination()) //
 													.addProperty("gatewayOnLink", route.isRouteGatewayOnLink()) //
-													.onlyIf(route.geRouteMetric() != null, //
-															b -> b.addProperty("metric", route.geRouteMetric())) //
+													.onlyIf(route.getRouteMetric() != null, //
+															b -> b.addProperty("metric", route.getRouteMetric())) //
 													.build()) //
 											.collect(JsonUtils.toJsonArray())) //
 									.build())
@@ -236,7 +236,7 @@ public class StaticIpAggregateTaskImpl implements StaticIpAggregateTask {
 										// Skip route validation if no properties are defined
 										if (requiredRoute.getRouteGateway() == null
 												&& requiredRoute.getRouteDestination() == null
-												&& requiredRoute.geRouteMetric() == null) {
+												&& requiredRoute.getRouteMetric() == null) {
 											return false;
 										}
 
@@ -260,9 +260,9 @@ public class StaticIpAggregateTaskImpl implements StaticIpAggregateTask {
 														matches = matches && destinationMatch;
 													}
 
-													if (requiredRoute.geRouteMetric() != null) {
-														var metricMatch = Objects.equals(existingRoute.geRouteMetric(),
-																requiredRoute.geRouteMetric());
+													if (requiredRoute.getRouteMetric() != null) {
+														var metricMatch = Objects.equals(existingRoute.getRouteMetric(),
+																requiredRoute.getRouteMetric());
 														matches = matches && metricMatch;
 													}
 
@@ -286,8 +286,8 @@ public class StaticIpAggregateTaskImpl implements StaticIpAggregateTask {
 										props.add("Destination=" + route.getRouteDestination());
 									}
 									props.add("GatewayOnLink=" + route.isRouteGatewayOnLink());
-									if (route.geRouteMetric() != null) {
-										props.add("Metric=" + route.geRouteMetric());
+									if (route.getRouteMetric() != null) {
+										props.add("Metric=" + route.getRouteMetric());
 									}
 									return String.join(", ", props);
 								}).collect(Collectors.joining("; ")) + "] are not configured on interface '"

@@ -68,7 +68,7 @@ public class Routes {
 	 *
 	 * @return the route metric, or {@code null} if not defined
 	 */
-	public Integer geRouteMetric() {
+	public Integer getRouteMetric() {
 		return this.routeMetric;
 	}
 
@@ -163,7 +163,7 @@ public class Routes {
 					.addPropertyIfNotNull("routeGateway", obj.getRouteGateway()) //
 					.addPropertyIfNotNull("routeDestination", obj.getRouteDestination()) //
 					.addProperty("routeGatewayOnLink", obj.isRouteGatewayOnLink()) //
-					.addPropertyIfNotNull("metric", obj.geRouteMetric()) //
+					.addPropertyIfNotNull("metric", obj.getRouteMetric()) //
 					.build();
 		});
 	}
