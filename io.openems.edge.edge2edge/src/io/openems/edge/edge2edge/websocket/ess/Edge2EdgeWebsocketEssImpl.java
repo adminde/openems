@@ -1,9 +1,9 @@
 package io.openems.edge.edge2edge.websocket.ess;
 
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import static io.openems.common.utils.IntUtils.maxInteger;
 import static io.openems.common.utils.IntUtils.minInteger;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -37,11 +37,9 @@ import io.openems.edge.ess.power.api.Power;
 		immediate = true, //
 		configurationPolicy = ConfigurationPolicy.REQUIRE //
 )
+@GenerateTargetsFromReferences("Bridge")
 public class Edge2EdgeWebsocketEssImpl extends AbstractEdge2EdgeWebsocket implements ManagedSymmetricEss,
 		AsymmetricEss, SymmetricEss, Edge2EdgeWebsocketEss, Edge2EdgeWebsocket, OpenemsComponent {
-
-	@Reference
-	private ConfigurationAdmin cm;
 
 	@Reference(cardinality = ReferenceCardinality.OPTIONAL, policyOption = ReferencePolicyOption.GREEDY, policy = ReferencePolicy.DYNAMIC)
 	private volatile Power power;
@@ -55,7 +53,8 @@ public class Edge2EdgeWebsocketEssImpl extends AbstractEdge2EdgeWebsocket implem
 	 */
 	@Reference(policy = ReferencePolicy.DYNAMIC, //
 			policyOption = ReferencePolicyOption.GREEDY, //
-			cardinality = ReferenceCardinality.OPTIONAL)
+			cardinality = ReferenceCardinality.OPTIONAL, //
+			target = "(&(id=${config.bridge_id})(enabled=true))")
 	@Override
 	public void bindBridge(Edge2EdgeWebsocketBridge bridge) {
 		super.bindBridge(bridge);
@@ -86,8 +85,7 @@ public class Edge2EdgeWebsocketEssImpl extends AbstractEdge2EdgeWebsocket implem
 
 	@Activate
 	protected void activate(ComponentContext context, Config config) {
-		this.activate(context, config.id(), config.alias(), config.enabled(), this.cm, config.bridge_id(),
-				config.remoteComponentId());
+		this.activate(context, config.id(), config.alias(), config.enabled(), config.remoteComponentId());
 		this.config = config;
 	}
 

@@ -81,13 +81,10 @@ public abstract class AbstractEdge2Edge extends AbstractOpenemsModbusComponent
 		throw new IllegalArgumentException("Use the other activate() method.");
 	}
 
-	protected boolean activate(ComponentContext context, String id, String alias, boolean enabled, int unitId,
-			ConfigurationAdmin cm, String modbusReference, String modbusId, String remoteComponentId,
-			AccessMode remoteAccessMode) throws OpenemsException {
+	protected void activate(ComponentContext context, String id, String alias, boolean enabled, int unitId,
+			String remoteComponentId, AccessMode remoteAccessMode) {
 		this.remoteAccessMode = remoteAccessMode;
-		if (super.activate(context, id, alias, enabled, unitId, cm, modbusReference, modbusId)) {
-			return true;
-		}
+		super.activate(context, id, alias, enabled, unitId);
 
 		this.isOpenems().thenAccept(isOpenems -> {
 			this._setRemoteNoOpenems(!isOpenems);
@@ -123,7 +120,6 @@ public abstract class AbstractEdge2Edge extends AbstractOpenemsModbusComponent
 								});
 					});
 		});
-		return false;
 	}
 
 	@Deactivate

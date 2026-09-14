@@ -1,6 +1,5 @@
 package io.openems.edge.edge2edge.websocket.dccharger;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -12,6 +11,7 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.osgi.service.metatype.annotations.Designate;
 
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.edge2edge.websocket.Edge2EdgeWebsocket;
 import io.openems.edge.edge2edge.websocket.bridge.Edge2EdgeWebsocketBridge;
@@ -24,11 +24,9 @@ import io.openems.edge.ess.dccharger.api.EssDcCharger;
 		immediate = true, //
 		configurationPolicy = ConfigurationPolicy.REQUIRE //
 )
+@GenerateTargetsFromReferences("Bridge")
 public class Edge2EdgeWebsocketDcChargerImpl extends AbstractEdge2EdgeWebsocket implements
 		EssDcCharger, Edge2EdgeWebsocketDcCharger, Edge2EdgeWebsocket, OpenemsComponent {
-
-	@Reference
-	private ConfigurationAdmin cm;
 
 	/**
 	 * Binds the {@link Edge2EdgeWebsocketBridge}.
@@ -37,7 +35,8 @@ public class Edge2EdgeWebsocketDcChargerImpl extends AbstractEdge2EdgeWebsocket 
 	 */
 	@Reference(policy = ReferencePolicy.DYNAMIC, //
 			policyOption = ReferencePolicyOption.GREEDY, //
-			cardinality = ReferenceCardinality.OPTIONAL)
+			cardinality = ReferenceCardinality.OPTIONAL, //
+			target = "(&(id=${config.bridge_id})(enabled=true))")
 	@Override
 	public void bindBridge(Edge2EdgeWebsocketBridge bridge) {
 		super.bindBridge(bridge);
@@ -64,8 +63,7 @@ public class Edge2EdgeWebsocketDcChargerImpl extends AbstractEdge2EdgeWebsocket 
 
 	@Activate
 	protected void activate(ComponentContext context, Config config) {
-		this.activate(context, config.id(), config.alias(), config.enabled(), this.cm, config.bridge_id(),
-				config.remoteComponentId());
+		this.activate(context, config.id(), config.alias(), config.enabled(), config.remoteComponentId());
 	}
 
 	@Deactivate

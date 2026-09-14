@@ -2,7 +2,6 @@ package io.openems.edge.edge2edge.websocket;
 
 import static java.util.stream.Collectors.toSet;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +19,6 @@ import io.openems.common.utils.JsonUtils;
 import io.openems.edge.common.channel.ChannelId.ChannelIdImpl;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
-import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.edge2edge.websocket.bridge.BridgeComponentStateHandler;
 import io.openems.edge.edge2edge.websocket.bridge.ChannelSubscriber;
 import io.openems.edge.edge2edge.websocket.bridge.Edge2EdgeWebsocketBridge;
@@ -163,16 +161,12 @@ public abstract class AbstractEdge2EdgeWebsocket extends AbstractOpenemsComponen
 	 * @param id                the Component-ID
 	 * @param alias             the Alias
 	 * @param enabled           is the Component enabled?
-	 * @param cm                the {@link ConfigurationAdmin}
-	 * @param bridgeId          the configured Bridge-ID
 	 * @param remoteComponentId the configured remote Component-ID
 	 */
 	protected final void activate(ComponentContext context, String id, String alias, boolean enabled,
-			ConfigurationAdmin cm, String bridgeId, String remoteComponentId) {
+			String remoteComponentId) {
 		super.activate(context, id, alias, enabled);
 		this.remoteComponentId = remoteComponentId;
-
-		OpenemsComponent.updateReferenceFilter(cm, this.servicePid(), "Bridge", bridgeId);
 
 		this.bridgeStateHandler.updateComponentId(enabled ? remoteComponentId : null);
 	}
