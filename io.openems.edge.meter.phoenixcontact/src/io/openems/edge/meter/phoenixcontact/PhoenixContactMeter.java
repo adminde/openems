@@ -626,6 +626,11 @@ public interface PhoenixContactMeter extends ElectricityMeter, OpenemsComponent 
 		this.getReactiveLeadingEnergyChannel().setNextValue(value);
 	}
 
+	/**
+	 * Derives the phase voltages from the measured line to line voltages.
+	 *
+	 * @param meter the {@link PhoenixContactMeter}
+	 */
 	public static void calculatePhaseVoltages(PhoenixContactMeter meter) {
 		meter.getVoltageL1L2Channel().onSetNextValue(value -> {
 			meter._setVoltageL1(calculatePhaseVoltage(value.get()));
