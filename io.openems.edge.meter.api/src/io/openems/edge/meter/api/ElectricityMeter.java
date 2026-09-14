@@ -30,8 +30,8 @@ import io.openems.edge.common.type.TypeUtils;
  * <ul>
  * <li>{@link MeterType#GRID}
  * <ul>
- * <li>positive: buy-from-grid
- * <li>negative: feed-to-grid
+ * <li>positive: import-from-grid
+ * <li>negative: export-to-grid
  * </ul>
  * <li>{@link MeterType#PRODUCTION}
  * <ul>
@@ -390,7 +390,40 @@ public interface ElectricityMeter extends OpenemsComponent {
 		 */
 		ACTIVE_CONSUMPTION_ENERGY_L3(Doc.of(OpenemsType.LONG) //
 				.unit(Unit.CUMULATED_WATT_HOURS) //
-				.persistencePriority(PersistencePriority.HIGH)),; //
+				.persistencePriority(PersistencePriority.HIGH)), //
+
+		/**
+		 * Lagging Reactive Energy.
+		 *
+		 * <ul>
+		 * <li>Interface: ElectricityMeter
+		 * <li>Type: {@link OpenemsType#LONG}
+		 * <li>Unit: {@link Unit#VOLT_AMPERE_REACTIVE_HOURS}
+		 * <li>Range: only positive values
+		 * <li>Source: integral over positive (lagging/inductive) values of
+		 * {@link #REACTIVE_POWER}
+		 * </ul>
+		 */
+		REACTIVE_LAGGING_ENERGY(Doc.of(OpenemsType.LONG) //
+				.unit(Unit.VOLT_AMPERE_REACTIVE_HOURS) //
+				.persistencePriority(PersistencePriority.HIGH)),
+
+		/**
+		 * Leading Reactive Energy.
+		 *
+		 * <ul>
+		 * <li>Interface: ElectricityMeter
+		 * <li>Type: {@link OpenemsType#LONG}
+		 * <li>Unit: {@link Unit#VOLT_AMPERE_REACTIVE_HOURS}
+		 * <li>Range: only positive values
+		 * <li>Source: integral over negative (leading/capacitive) values of
+		 * {@link #REACTIVE_POWER}
+		 * </ul>
+		 */
+		REACTIVE_LEADING_ENERGY(Doc.of(OpenemsType.LONG) //
+				.unit(Unit.VOLT_AMPERE_REACTIVE_HOURS) //
+				.persistencePriority(PersistencePriority.HIGH)),
+		;
 
 		private final Doc doc;
 
@@ -1467,6 +1500,86 @@ public interface ElectricityMeter extends OpenemsComponent {
 	 */
 	public default void _setActiveConsumptionEnergyL3(long value) {
 		this.getActiveConsumptionEnergyL3Channel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#REACTIVE_LAGGING_ENERGY}.
+	 *
+	 * @return the Channel
+	 */
+	public default LongReadChannel getReactiveLaggingEnergyChannel() {
+		return this.channel(ChannelId.REACTIVE_LAGGING_ENERGY);
+	}
+
+	/**
+	 * Gets the Reactive Lagging Energy in [varh]. This relates to positive
+	 * (lagging/inductive) REACTIVE_POWER. See
+	 * {@link ChannelId#REACTIVE_LAGGING_ENERGY}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Long> getReactiveLaggingEnergy() {
+		return this.getReactiveLaggingEnergyChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#REACTIVE_LAGGING_ENERGY} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setReactiveLaggingEnergy(Long value) {
+		this.getReactiveLaggingEnergyChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#REACTIVE_LAGGING_ENERGY} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setReactiveLaggingEnergy(long value) {
+		this.getReactiveLaggingEnergyChannel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#REACTIVE_LEADING_ENERGY}.
+	 *
+	 * @return the Channel
+	 */
+	public default LongReadChannel getReactiveLeadingEnergyChannel() {
+		return this.channel(ChannelId.REACTIVE_LEADING_ENERGY);
+	}
+
+	/**
+	 * Gets the Reactive Leading Energy in [varh]. This relates to negative
+	 * (leading/capacitive) REACTIVE_POWER. See
+	 * {@link ChannelId#REACTIVE_LEADING_ENERGY}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Long> getReactiveLeadingEnergy() {
+		return this.getReactiveLeadingEnergyChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#REACTIVE_LEADING_ENERGY} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setReactiveLeadingEnergy(Long value) {
+		this.getReactiveLeadingEnergyChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#REACTIVE_LEADING_ENERGY} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setReactiveLeadingEnergy(long value) {
+		this.getReactiveLeadingEnergyChannel().setNextValue(value);
 	}
 
 	/**

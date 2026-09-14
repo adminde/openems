@@ -254,6 +254,28 @@ public abstract class AbstractDummyElectricityMeter<SELF extends AbstractDummyEl
 		return this.self();
 	}
 
+	/**
+	 * Set {@link ElectricityMeter.ChannelId#REACTIVE_LAGGING_ENERGY}.
+	 *
+	 * @param value the value
+	 * @return myself
+	 */
+	public SELF withReactiveLaggingEnergy(Integer value) {
+		TestUtils.withValue(this, ElectricityMeter.ChannelId.REACTIVE_LAGGING_ENERGY, value);
+		return this.self();
+	}
+
+	/**
+	 * Set {@link ElectricityMeter.ChannelId#REACTIVE_LEADING_ENERGY}.
+	 *
+	 * @param value the value
+	 * @return myself
+	 */
+	public SELF withReactiveLeadingEnergy(Integer value) {
+		TestUtils.withValue(this, ElectricityMeter.ChannelId.REACTIVE_LEADING_ENERGY, value);
+		return this.self();
+	}
+
 	@Override
 	public MeterType getMeterType() {
 		return this.meterType;
