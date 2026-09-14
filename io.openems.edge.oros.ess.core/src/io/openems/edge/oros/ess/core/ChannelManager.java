@@ -187,8 +187,8 @@ public class ChannelManager extends AbstractChannelListenerManager {
 				SymmetricBatteryInverter.ChannelId.REACTIVE_POWER,
 				SymmetricEss.ChannelId.REACTIVE_POWER);
 
-		if (this.parent instanceof SymmetricComponent || 
-				this.parent instanceof AsymmetricEss) {
+		if (this.parent instanceof SymmetricComponent
+				|| this.parent instanceof AsymmetricEss) {
 
 			this.<Long>addOnSetNextMirrorListener(inverter,
 					SymmetricComponent.ChannelId.FREQUENCY,
@@ -289,11 +289,11 @@ public class ChannelManager extends AbstractChannelListenerManager {
 		if (this.powerLimiter != null) {
 			if (this.powerLimiter.hasOverChargeCurrentLimiter()) {
 				this.addOnSetNextValueListener(battery, Battery.ChannelId.CHARGE_MAX_VOLTAGE,
-						ignored -> powerLimiter.getOverChargeCurrentLimiter().accept(clock));
+						ignored -> this.powerLimiter.getOverChargeCurrentLimiter().accept(clock));
 			}
 			if (this.powerLimiter.hasDeepDischargeCurrentLimiter()) {
 				this.addOnSetNextValueListener(battery, Battery.ChannelId.DISCHARGE_MIN_VOLTAGE,
-						ignored -> powerLimiter.getDeepDischargeCurrentLimiter().accept(clock));
+						ignored -> this.powerLimiter.getDeepDischargeCurrentLimiter().accept(clock));
 			}
 			this.addOnSetNextValueListener(battery, Battery.ChannelId.CHARGE_MAX_CURRENT,
 					ignored -> this.powerLimiter.accept(clock));

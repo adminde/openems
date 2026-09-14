@@ -42,7 +42,7 @@ public abstract class CurrentLimiter implements Consumer<ClockProvider> {
 		if (values == null) {
 			return;
 		}
-		var maxCurrent = calculateMaxCurrent(values, this.maxCurrentLimitFilter);
+		var maxCurrent = this.calculateMaxCurrent(values, this.maxCurrentLimitFilter);
 
 		this.maxCurrentChannel.setNextValue(maxCurrent);
 		this.maxCurrent = maxCurrent;

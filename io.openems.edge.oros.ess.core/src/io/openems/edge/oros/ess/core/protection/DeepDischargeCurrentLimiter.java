@@ -15,6 +15,15 @@ import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 
 public class DeepDischargeCurrentLimiter extends CurrentLimiter {
 
+	/**
+	 * Creates a deep discharge current limiter for the given system.
+	 *
+	 * @param parent   the {@link EnergyStorageSystem} the limiter belongs to
+	 * @param inverter the {@link PowerConversionSystem} providing the current
+	 * @param battery  the {@link BatteryManagementSystem} providing the limits
+	 * @return the limiter, or an empty {@link Optional} if the parent does not
+	 *         implement {@link EnergyStorageProtection}
+	 */
 	public static Optional<DeepDischargeCurrentLimiter> of(EnergyStorageSystem parent, 
 			PowerConversionSystem inverter, BatteryManagementSystem battery) {
 

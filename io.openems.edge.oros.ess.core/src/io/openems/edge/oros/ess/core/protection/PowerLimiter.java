@@ -64,6 +64,11 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 		this.deepDischargeCurrentLimiter = DeepDischargeCurrentLimiter.of(parent, inverter, battery);
 	}
 
+	/**
+	 * Checks whether an over charge current limiter is available.
+	 *
+	 * @return true if the limiter is present
+	 */
 	public boolean hasOverChargeCurrentLimiter() {
 		return this.overChargeCurrentLimiter.isPresent();
 	}
@@ -72,6 +77,11 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 		return this.overChargeCurrentLimiter.get();
 	}
 
+	/**
+	 * Checks whether a deep discharge current limiter is available.
+	 *
+	 * @return true if the limiter is present
+	 */
 	public boolean hasDeepDischargeCurrentLimiter() {
 		return this.deepDischargeCurrentLimiter.isPresent();
 	}
@@ -84,11 +94,13 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 	public void accept(ClockProvider clockProvider) {
 		var chargeMaxCurrent = this.battery.getChargeMaxCurrentChannel().getNextValue().get();
 		var dischargeMaxCurrent = this.battery.getDischargeMaxCurrentChannel().getNextValue().get();
-		if (overChargeCurrentLimiter.isPresent()) {
-			chargeMaxCurrent = IntUtils.minInteger(chargeMaxCurrent, overChargeCurrentLimiter.get().getMaxCurrent());
+		if (this.overChargeCurrentLimiter.isPresent()) {
+			chargeMaxCurrent = IntUtils.minInteger(chargeMaxCurrent,
+					this.overChargeCurrentLimiter.get().getMaxCurrent());
 		}
-		if (deepDischargeCurrentLimiter.isPresent()) {
-			dischargeMaxCurrent = IntUtils.minInteger(dischargeMaxCurrent, deepDischargeCurrentLimiter.get().getMaxCurrent());
+		if (this.deepDischargeCurrentLimiter.isPresent()) {
+			dischargeMaxCurrent = IntUtils.minInteger(dischargeMaxCurrent,
+					this.deepDischargeCurrentLimiter.get().getMaxCurrent());
 		}
 		final var voltage = this.battery.getRackVoltageChannel().getNextValue().get();
 		if (voltage == null || chargeMaxCurrent == null || dischargeMaxCurrent == null) {
@@ -241,6 +253,15 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 		return min(newValue, lastValue + maxIncrease * seconds);
 	}
 
+	/**
+	 * Sets the protection channels of the parent when the measured current stays at
+	 * an extreme longer than the protection timeout.
+	 *
+	 * @param clockProvider       the {@link ClockProvider}
+	 * @param chargeMaxCurrent    the maximum charge current in [A]
+	 * @param dischargeMaxCurrent the maximum discharge current in [A]
+	 * @param current             the measured battery current
+	 */
 	public void checkProtectionExtremes(ClockProvider clockProvider,
 				Integer chargeMaxCurrent, Integer dischargeMaxCurrent, Value<Integer> current) {
 		if (dischargeMaxCurrent == null || chargeMaxCurrent == null || !current.isDefined()) {
@@ -270,6 +291,13 @@ public class PowerLimiter implements Consumer<ClockProvider> {
 		}
 	}
 
+	/**
+	 * Checks whether the protection timeout elapsed since the first extreme was
+	 * seen.
+	 *
+	 * @param instant the {@link Instant} to compare the first extreme against
+	 * @return true if the timeout elapsed
+	 */
 	public boolean hasProtectionExtremeTimeout(Instant instant) {
 		return Duration.between(this.lastProtectionEntry, instant).getSeconds() > PROTECTION_TIMEOUT;
 	}
