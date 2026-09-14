@@ -169,12 +169,12 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 						m(PvInverterSungrow.ChannelId.OUTPUT_TYPE, new UnsignedWordElement(5002 - OFFSET)),
 						m(PvInverterSungrow.ChannelId.DAILY_PRODUCTION_ENERGY, new UnsignedWordElement(5003 - OFFSET),
 								U16_SCALE_FACTOR_2_OR_NULL),
-						m(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY, UINT32(5004 - OFFSET),
+						m(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY, uint32(5004 - OFFSET),
 								U32_SCALE_FACTOR_3_OR_NULL),
-						m(PvInverterSungrow.ChannelId.TOTAL_RUNNING_TIME, UINT32(5006 - OFFSET), U32_OR_NULL),
+						m(PvInverterSungrow.ChannelId.TOTAL_RUNNING_TIME, uint32(5006 - OFFSET), U32_OR_NULL),
 						m(PvInverterSungrow.ChannelId.INTERNAL_TEMPERATURE, new SignedWordElement(5008 - OFFSET),
 								S16_OR_NULL),
-						m(PvInverterSungrow.ChannelId.APPARENT_POWER, UINT32(5009 - OFFSET), U32_OR_NULL),
+						m(PvInverterSungrow.ChannelId.APPARENT_POWER, uint32(5009 - OFFSET), U32_OR_NULL),
 						m(PvInverterSungrow.ChannelId.MPPT_1_VOLTAGE, new UnsignedWordElement(5011 - OFFSET),
 								U16_SCALE_FACTOR_2_OR_NULL),
 						m(PvInverterSungrow.ChannelId.MPPT_1_CURRENT, new UnsignedWordElement(5012 - OFFSET),
@@ -187,7 +187,7 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 								U16_SCALE_FACTOR_2_OR_NULL),
 						m(PvInverterSungrow.ChannelId.MPPT_3_CURRENT, new UnsignedWordElement(5016 - OFFSET),
 								U16_SCALE_FACTOR_2_OR_NULL),
-						m(PvInverterSungrow.ChannelId.DC_POWER, UINT32(5017 - OFFSET), U32_OR_NULL),
+						m(PvInverterSungrow.ChannelId.DC_POWER, uint32(5017 - OFFSET), U32_OR_NULL),
 						m(voltage1, new UnsignedWordElement(5019 - OFFSET), U16_SCALE_FACTOR_2_OR_NULL),
 						m(voltage2, new UnsignedWordElement(5020 - OFFSET), U16_SCALE_FACTOR_2_OR_NULL),
 						m(voltage3, new UnsignedWordElement(5021 - OFFSET), U16_SCALE_FACTOR_2_OR_NULL),
@@ -198,8 +198,8 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 						m(ElectricityMeter.ChannelId.CURRENT_L3, new UnsignedWordElement(5024 - OFFSET),
 								U16_SCALE_FACTOR_2_OR_NULL),
 						new DummyRegisterElement(5025 - OFFSET, 5030 - OFFSET),
-						m(ElectricityMeter.ChannelId.ACTIVE_POWER, UINT32(5031 - OFFSET), U32_OR_NULL),
-						m(ElectricityMeter.ChannelId.REACTIVE_POWER, INT32(5033 - OFFSET), S32_OR_NULL),
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER, uint32(5031 - OFFSET), U32_OR_NULL),
+						m(ElectricityMeter.ChannelId.REACTIVE_POWER, int32(5033 - OFFSET), S32_OR_NULL),
 						m(PvInverterSungrow.ChannelId.POWER_FACTOR, new SignedWordElement(5035 - OFFSET),
 								S16_POWER_FACTOR_OR_NULL),
 						m(ElectricityMeter.ChannelId.FREQUENCY, new UnsignedWordElement(5036 - OFFSET),
@@ -231,7 +231,7 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 						m(PvInverterSungrow.ChannelId.MPPT_8_CURRENT, new UnsignedWordElement(5124 - OFFSET),
 								U16_SCALE_FACTOR_2_OR_NULL),
 						new DummyRegisterElement(5125 - OFFSET, 5127 - OFFSET),
-						m(PvInverterSungrow.ChannelId.MONTHLY_PRODUCTION_ENERGY, UINT32(5128 - OFFSET),
+						m(PvInverterSungrow.ChannelId.MONTHLY_PRODUCTION_ENERGY, uint32(5128 - OFFSET),
 								U32_SCALE_FACTOR_2_OR_NULL),
 						m(PvInverterSungrow.ChannelId.MPPT_9_VOLTAGE, new UnsignedWordElement(5130 - OFFSET),
 								U16_SCALE_FACTOR_2_OR_NULL),
@@ -308,11 +308,11 @@ public class PvInverterSungrowImpl extends AbstractOpenemsModbusComponent implem
 				return v == null ? null : v / 1000F;
 			}));
 
-	private static UnsignedDoublewordElement UINT32(int address) {
+	private static UnsignedDoublewordElement uint32(int address) {
 		return new UnsignedDoublewordElement(address).wordOrder(LSWMSW);
 	}
 
-	private static SignedDoublewordElement INT32(int address) {
+	private static SignedDoublewordElement int32(int address) {
 		return new SignedDoublewordElement(address).wordOrder(LSWMSW);
 	}
 }
