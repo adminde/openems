@@ -351,6 +351,12 @@ public interface RctCessMeter extends
 		return this.getCurrentRatioChannel().value();
 	}
 
+	/**
+	 * Calculates active and reactive power of every phase from voltage, current and
+	 * power factor.
+	 *
+	 * @param meter the {@link RctCessMeter}
+	 */
 	public static void calculatePhasePowersFromVoltageAndCurrent(RctCessMeter meter) {
 		calculateL1PowersFromVoltageAndCurrent(meter);
 		calculateL2PowersFromVoltageAndCurrent(meter);
@@ -384,6 +390,11 @@ public interface RctCessMeter extends
 	    );
 	}
 
+	/**
+	 * Derives the power factor of every phase from the current harmonic distortion.
+	 *
+	 * @param meter the {@link RctCessMeter}
+	 */
 	public static void calculatePhasePowerFactorsFromHarmonics(RctCessMeter meter) {
 		meter.getCurrentHarmonicDistortionL1Channel().onSetNextValue(value -> {
 			meter._setPowerFactorL1(calculatePhasePowerFactorFromHarmonics(value.get(), meter.getPowerFactor().get()));

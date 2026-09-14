@@ -26,11 +26,11 @@ public class StoppingHandler extends StateHandler<State, Context> {
 		case RunState.STOPPED:
 			return State.STANDBY;
 
-        case RunState.CHARGING:
-        case RunState.CHARGING_DERATED:
-        case RunState.DISCHARGING:
-        case RunState.DISCHARGING_DERATED:
-        	// TODO: Initiate stopping procedure
+		case RunState.CHARGING:
+		case RunState.CHARGING_DERATED:
+		case RunState.DISCHARGING:
+		case RunState.DISCHARGING_DERATED:
+			// TODO: Initiate stopping procedure
 			// return State.STOPPING;
 		default:
 			if (this.errorTimeout.elapsed(context.clock)) {

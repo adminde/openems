@@ -44,7 +44,7 @@ public interface RctCessBatteryInverter extends PowerConversionSystem,
 
 	public static final int APPARENT_POWER_PRECISION = 100; // [W]
 
-	/** FIXME: This are just placeholder values and needs to be validated at some point */
+	/** FIXME: These are placeholder values that still need validation. */
 	public static final float APPARENT_POWER_FACTOR = 1.1F;
 	public static final float REACTIVE_POWER_FACTOR = 0.45F;
 	public static final int MAX_ACTIVE_POWER = 116_500; // [W]

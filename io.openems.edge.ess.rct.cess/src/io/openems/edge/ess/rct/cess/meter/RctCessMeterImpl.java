@@ -164,36 +164,36 @@ public class RctCessMeterImpl extends AbstractOpenemsModbusComponent implements 
 		var modbusProtocol = new ModbusProtocol(this,
 				new FC3ReadRegistersTask(0x0006, Priority.HIGH,
 						m(ElectricityMeter.ChannelId.VOLTAGE_L1, new UnsignedWordElement(0x0006),
-								chain(SCALE_FACTOR_2, multiplyByVoltageRatio())),
+								chain(SCALE_FACTOR_2, this.multiplyByVoltageRatio())),
 						m(ElectricityMeter.ChannelId.VOLTAGE_L2, new UnsignedWordElement(0x0007),
-								chain(SCALE_FACTOR_2, multiplyByVoltageRatio())),
+								chain(SCALE_FACTOR_2, this.multiplyByVoltageRatio())),
 						m(ElectricityMeter.ChannelId.VOLTAGE_L3, new UnsignedWordElement(0x0008),
-								chain(SCALE_FACTOR_2, multiplyByVoltageRatio())),
+								chain(SCALE_FACTOR_2, this.multiplyByVoltageRatio())),
 
 						m(ElectricityMeter.ChannelId.CURRENT_L1, new UnsignedWordElement(0x0009),
-								chain(SCALE_FACTOR_1, multiplyByCurrentRatio())),
+								chain(SCALE_FACTOR_1, this.multiplyByCurrentRatio())),
 						m(ElectricityMeter.ChannelId.CURRENT_L2, new UnsignedWordElement(0x000A),
-								chain(SCALE_FACTOR_1, multiplyByCurrentRatio())),
+								chain(SCALE_FACTOR_1, this.multiplyByCurrentRatio())),
 						m(ElectricityMeter.ChannelId.CURRENT_L3, new UnsignedWordElement(0x000B),
-								chain(SCALE_FACTOR_1, multiplyByCurrentRatio())),
+								chain(SCALE_FACTOR_1, this.multiplyByCurrentRatio())),
 
 						m(ElectricityMeter.ChannelId.ACTIVE_POWER, new SignedWordElement(0x000C),
-								chain(INVERT_IF_TRUE(this.invert), multiplyByVoltageRatio(), multiplyByCurrentRatio())),
-//						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1, new SignedWordElement(0x0000),
-//							chain(INVERT_IF_TRUE(this.invert))),
-//						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2, new SignedWordElement(0x0000),
-//							chain(INVERT_IF_TRUE(this.invert))),
-//						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3, new SignedWordElement(0x0000),
-//							chain(INVERT_IF_TRUE(this.invert))),
+								chain(INVERT_IF_TRUE(this.invert), this.multiplyByVoltageRatio(), this.multiplyByCurrentRatio())),
+						//m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1, new SignedWordElement(0x0000),
+						//	chain(INVERT_IF_TRUE(this.invert))),
+						//m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2, new SignedWordElement(0x0000),
+						//	chain(INVERT_IF_TRUE(this.invert))),
+						//m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3, new SignedWordElement(0x0000),
+						//	chain(INVERT_IF_TRUE(this.invert))),
 
 						m(ElectricityMeter.ChannelId.REACTIVE_POWER, new SignedWordElement(0x000D),
-								chain(INVERT_IF_TRUE(this.invert), multiplyByVoltageRatio(), multiplyByCurrentRatio())),
-//						m(ElectricityMeter.ChannelId.REACTIVE_POWER_L1, new SignedWordElement(0x0000),
-//								INVERT_IF_TRUE(this.invert)),
-//						m(ElectricityMeter.ChannelId.REACTIVE_POWER_L2, new SignedWordElement(0x0000),
-//								INVERT_IF_TRUE(this.invert)),
-//						m(ElectricityMeter.ChannelId.REACTIVE_POWER_L3, new SignedWordElement(0x0000),
-//								INVERT_IF_TRUE(this.invert)),
+								chain(INVERT_IF_TRUE(this.invert), this.multiplyByVoltageRatio(), this.multiplyByCurrentRatio())),
+						//m(ElectricityMeter.ChannelId.REACTIVE_POWER_L1, new SignedWordElement(0x0000),
+						//		INVERT_IF_TRUE(this.invert)),
+						//m(ElectricityMeter.ChannelId.REACTIVE_POWER_L2, new SignedWordElement(0x0000),
+						//		INVERT_IF_TRUE(this.invert)),
+						//m(ElectricityMeter.ChannelId.REACTIVE_POWER_L3, new SignedWordElement(0x0000),
+						//		INVERT_IF_TRUE(this.invert)),
 
 						m(RctCessMeter.ChannelId.POWER_FACTOR, new UnsignedWordElement(0x000E),
 								chain(CONVERT_FLOAT, SCALE_FACTOR_MINUS_3)),
@@ -217,19 +217,19 @@ public class RctCessMeterImpl extends AbstractOpenemsModbusComponent implements 
 						m(RctCessMeter.ChannelId.VOLTAGE_RATIO, new UnsignedWordElement(0x0010)),
 						m(RctCessMeter.ChannelId.CURRENT_RATIO, new UnsignedWordElement(0x0011))));
 
-//		if (!this.invert) {
-//			modbusProtocol.addTask(new FC3ReadRegistersTask(0x0002, Priority.LOW,
-//					m(ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY, new UnsignedDoublewordElement(0x0002),
-//							chain(SCALE_FACTOR_1, multiplyByVoltageRatio(), multiplyByCurrentRatio())),
-//					m(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY, new UnsignedDoublewordElement(0x0004),
-//							chain(SCALE_FACTOR_1, multiplyByVoltageRatio(), multiplyByCurrentRatio()))));
-//		} else {
-//			modbusProtocol.addTask(new FC3ReadRegistersTask(0x0002, Priority.LOW,
-//					m(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY, new UnsignedDoublewordElement(0x0004),
-//							chain(SCALE_FACTOR_1, multiplyByVoltageRatio(), multiplyByCurrentRatio())),
-//					m(ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY, new UnsignedDoublewordElement(0x0002),
-//							chain(SCALE_FACTOR_1, multiplyByVoltageRatio(), multiplyByCurrentRatio()))));
-//		}
+		//if (!this.invert) {
+		//	modbusProtocol.addTask(new FC3ReadRegistersTask(0x0002, Priority.LOW,
+		//			m(ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY, new UnsignedDoublewordElement(0x0002),
+		//					chain(SCALE_FACTOR_1, multiplyByVoltageRatio(), multiplyByCurrentRatio())),
+		//			m(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY, new UnsignedDoublewordElement(0x0004),
+		//					chain(SCALE_FACTOR_1, multiplyByVoltageRatio(), multiplyByCurrentRatio()))));
+		//} else {
+		//	modbusProtocol.addTask(new FC3ReadRegistersTask(0x0002, Priority.LOW,
+		//			m(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY, new UnsignedDoublewordElement(0x0004),
+		//					chain(SCALE_FACTOR_1, multiplyByVoltageRatio(), multiplyByCurrentRatio())),
+		//			m(ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY, new UnsignedDoublewordElement(0x0002),
+		//					chain(SCALE_FACTOR_1, multiplyByVoltageRatio(), multiplyByCurrentRatio()))));
+		//}
 
 		return modbusProtocol;
 	}

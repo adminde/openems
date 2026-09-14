@@ -385,6 +385,11 @@ public interface RctCessBattery extends BatteryManagementSystem, Battery,
 		return this.getSwitchBoxTemperatureChannel().value();
 	}
 
+	/**
+	 * Mirrors the Open Circuit Voltage from the precharge measurement.
+	 *
+	 * @param battery the {@link RctCessBattery}
+	 */
 	public static void mirrorOpenCircuitVoltageFromPrecharge(RctCessBattery battery) {
 		final Consumer<Value<Integer>> accept = value -> {
 			if (value.isDefined()) {

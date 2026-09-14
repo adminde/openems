@@ -49,6 +49,13 @@ public interface RctCessDcCharger extends
 	 */
 	public void unbindInverter();
 
+    /**
+     * Derives the actual charger power from the values of the bound
+     * Battery-Inverter.
+     *
+     * @param charger  the {@link RctCessDcCharger}
+     * @param inverter the {@link RctCessBatteryInverter} the charger is bound to
+     */
     public static void calculateActualPowerFromBindings(RctCessDcCharger charger,
 			RctCessBatteryInverter inverter) {
         var battery = inverter.getBatteryManagementSystem();

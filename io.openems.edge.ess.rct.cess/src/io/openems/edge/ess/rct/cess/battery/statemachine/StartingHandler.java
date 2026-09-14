@@ -26,9 +26,9 @@ public class StartingHandler extends StateHandler<State, Context> {
 		case PreChargeState.CONNECTED:
 			return State.RUNNING;
 
-        case PreChargeState.CONNECTION_START:
-        case PreChargeState.CONNECTING:
-        	// TODO: Initiate starting procedure
+		case PreChargeState.CONNECTION_START:
+		case PreChargeState.CONNECTING:
+			// TODO: Initiate starting procedure
 			// return State.STARTING;
 		default:
 			if (this.errorTimeout.elapsed(context.clock)) {

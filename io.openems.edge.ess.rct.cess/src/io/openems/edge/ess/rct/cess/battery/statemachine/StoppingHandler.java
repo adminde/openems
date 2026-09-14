@@ -26,8 +26,8 @@ public class StoppingHandler extends StateHandler<State, Context> {
 		case PreChargeState.DISCONNECTED:
 			return State.STANDBY;
 
-        case PreChargeState.CONNECTED:
-        	// TODO: Initiate stopping procedure
+		case PreChargeState.CONNECTED:
+			// TODO: Initiate stopping procedure
 			// return State.STOPPING;
 		default:
 			if (this.errorTimeout.elapsed(context.clock)) {
