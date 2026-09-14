@@ -171,6 +171,15 @@ public class PhoenixContactMeterImpl extends AbstractOpenemsModbusComponent
 			modbusProtocol.addTask(new FC4ReadInputRegistersTask(0x8043, Priority.LOW, //
 					m(PhoenixContactMeter.ChannelId.PHASE_ANGLE, float32(0x8043))
 			));
+			// 3P3W: THD of U31 (0x8804) and I2 (0x880E) are not provided by the device.
+			modbusProtocol.addTask(new FC4ReadInputRegistersTask(0x8800, Priority.LOW, //
+					m(PhoenixContactMeter.ChannelId.VOLTAGE_HARMONIC_DISTORTION_L1_L2, float32(0x8800)),
+					m(PhoenixContactMeter.ChannelId.VOLTAGE_HARMONIC_DISTORTION_L2_L3, float32(0x8802)),
+					new DummyRegisterElement(0x8804, 0x880B),
+					m(PhoenixContactMeter.ChannelId.CURRENT_HARMONIC_DISTORTION_L1, float32(0x880C)),
+					new DummyRegisterElement(0x880E, 0x880F),
+					m(PhoenixContactMeter.ChannelId.CURRENT_HARMONIC_DISTORTION_L3, float32(0x8810))
+			));
 		}
 		case SINGLE_PHASE_TWO_WIRE -> {
 			// 1P2W (e.g. EEM-XM157): only L1 values are available.
