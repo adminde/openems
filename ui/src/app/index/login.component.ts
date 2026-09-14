@@ -25,7 +25,7 @@ import { Edge, Service, Utils, Websocket } from "../shared/shared";
     standalone: false,
 })
 export class LoginComponent implements ViewWillEnter, AfterContentChecked, OnDestroy {
-    private static readonly DEFAULT_THEME: UserTheme = UserTheme.LIGHT;
+    private static readonly DEFAULT_THEME: UserTheme = UserTheme.SYSTEM;
     public currentThemeMode: UserTheme;
     public environment = environment;
     public form: FormGroup;
