@@ -507,7 +507,9 @@ public interface SymmetricComponent extends OpenemsComponent {
 	 *
 	 * @param value the next value
 	 */
-	public default void _setPowerFactor(float value) { this.getPowerFactorChannel().setNextValue(value); }
+	public default void _setPowerFactor(float value) {
+		this.getPowerFactorChannel().setNextValue(value);
+	}
 
 	/**
 	 * Gets the Channel for {@link ChannelId#POWER_FACTOR_L1}.
@@ -629,7 +631,9 @@ public interface SymmetricComponent extends OpenemsComponent {
 	 *
 	 * @return the Channel
 	 */
-	public default IntegerReadChannel getVoltageL1L2Channel() { return this.channel(ChannelId.VOLTAGE_L1_L2); }
+	public default IntegerReadChannel getVoltageL1L2Channel() {
+		return this.channel(ChannelId.VOLTAGE_L1_L2);
+	}
 
 	/**
 	 * Gets the Voltage L1-L2 in [mV]. See
@@ -637,7 +641,9 @@ public interface SymmetricComponent extends OpenemsComponent {
 	 *
 	 * @return the Channel {@link Value}
 	 */
-	public default Value<Integer> getVoltageL1L2() { return this.getVoltageL1L2Channel().value(); }
+	public default Value<Integer> getVoltageL1L2() {
+		return this.getVoltageL1L2Channel().value();
+	}
 
 	/**
 	 * Internal method to set the 'nextValue' on {@link ChannelId#VOLTAGE_L1_L2}
@@ -664,7 +670,9 @@ public interface SymmetricComponent extends OpenemsComponent {
 	 *
 	 * @return the Channel
 	 */
-	public default IntegerReadChannel getVoltageL2L3Channel() { return this.channel(ChannelId.VOLTAGE_L2_L3); }
+	public default IntegerReadChannel getVoltageL2L3Channel() {
+		return this.channel(ChannelId.VOLTAGE_L2_L3);
+	}
 
 	/**
 	 * Gets the Voltage L2-L3 in [mV]. See
@@ -672,7 +680,9 @@ public interface SymmetricComponent extends OpenemsComponent {
 	 *
 	 * @return the Channel {@link Value}
 	 */
-	public default Value<Integer> getVoltageL2L3() { return this.getVoltageL2L3Channel().value(); }
+	public default Value<Integer> getVoltageL2L3() {
+		return this.getVoltageL2L3Channel().value();
+	}
 
 	/**
 	 * Internal method to set the 'nextValue' on {@link ChannelId#VOLTAGE_L2_L3}
@@ -699,7 +709,9 @@ public interface SymmetricComponent extends OpenemsComponent {
 	 *
 	 * @return the Channel
 	 */
-	public default IntegerReadChannel getVoltageL3L1Channel() { return this.channel(ChannelId.VOLTAGE_L3_L1); }
+	public default IntegerReadChannel getVoltageL3L1Channel() {
+		return this.channel(ChannelId.VOLTAGE_L3_L1);
+	}
 
 	/**
 	 * Gets the Voltage L3-L1 in [mV]. See
@@ -707,7 +719,9 @@ public interface SymmetricComponent extends OpenemsComponent {
 	 *
 	 * @return the Channel {@link Value}
 	 */
-	public default Value<Integer> getVoltageL3L1() { return this.getVoltageL3L1Channel().value(); }
+	public default Value<Integer> getVoltageL3L1() {
+		return this.getVoltageL3L1Channel().value();
+	}
 
 	/**
 	 * Internal method to set the 'nextValue' on {@link ChannelId#VOLTAGE_L3_L1}
@@ -919,6 +933,11 @@ public interface SymmetricComponent extends OpenemsComponent {
 		return this.getFrequencyChannel().value();
 	}
 
+	/**
+	 * Derives the phase voltages from the measured line to line voltages.
+	 *
+	 * @param inverter the {@link SymmetricComponent}
+	 */
 	public static void calculatePhaseVoltages(SymmetricComponent inverter) {
 		inverter.getVoltageL1L2Channel().onSetNextValue(value -> {
 			inverter._setVoltageL1(calculatePhaseVoltage(value.get()));
@@ -963,10 +982,27 @@ public interface SymmetricComponent extends OpenemsComponent {
 		return (int) Math.round(phaseVoltage * Math.sqrt(3));
 	}
 
+	/**
+	 * Calculates active and reactive power of every phase from voltage, current and
+	 * power factor.
+	 *
+	 * @param symmetric the {@link SymmetricComponent}
+	 */
 	public static void calculatePhasePowersFromVoltageAndCurrent(SymmetricComponent symmetric) {
 		calculateL1PowersFromVoltageAndCurrent(symmetric);
 		calculateL2PowersFromVoltageAndCurrent(symmetric);
 		calculateL3PowersFromVoltageAndCurrent(symmetric);
+	}
+
+	private static void calculatePhasePowersFromVoltageAndCurrent(IntegerReadChannel activePower,
+			IntegerReadChannel reactivePower, Integer voltage, Integer current, Float powerFactor) {
+		if (voltage == null || current == null || powerFactor == null) {
+			return;
+		}
+		var apparentPower = calculateApparentPhasePowerFromVoltageAndCurrent(voltage, current);
+
+		activePower.setNextValue(calculateActivePhasePowerFromApparentPower(apparentPower, powerFactor));
+		reactivePower.setNextValue(calculateReactivePhasePowerFromApparentPower(apparentPower, powerFactor));
 	}
 
 	private static void calculateL1PowersFromVoltageAndCurrent(SymmetricComponent symmetric) {
@@ -1008,6 +1044,18 @@ public interface SymmetricComponent extends OpenemsComponent {
 	    );
 	}
 
+	/**
+	 * Calculates active and reactive power of one phase from voltage, current and
+	 * power factor.
+	 *
+	 * @param <S>                the type holding the Channels
+	 * @param symmetric          the object holding the Channels
+	 * @param powerFactorChannel the power factor Channel of the phase
+	 * @param activePower        accessor for the active power Channel
+	 * @param reactivePower      accessor for the reactive power Channel
+	 * @param voltage            accessor for the voltage Channel
+	 * @param current            accessor for the current Channel
+	 */
 	public static <S> void _calculatePhasePowersFromVoltageAndCurrent(
 	        S symmetric,
 	        FloatReadChannel powerFactorChannel,
@@ -1035,17 +1083,6 @@ public interface SymmetricComponent extends OpenemsComponent {
 	    });
 	}
 
-    private static void calculatePhasePowersFromVoltageAndCurrent(IntegerReadChannel activePower, IntegerReadChannel reactivePower,
-    		Integer voltage, Integer current, Float PowerFactor) {
-    	if (voltage == null || current == null || PowerFactor == null) {
-    		return;
-    	}
-    	var apparentPower = calculateApparentPhasePowerFromVoltageAndCurrent(voltage, current);
-
-    	activePower.setNextValue(calculateActivePhasePowerFromApparentPower(apparentPower, PowerFactor));
-    	reactivePower.setNextValue(calculateReactivePhasePowerFromApparentPower(apparentPower, PowerFactor));
-    }
-
 	private static int calculateApparentPhasePowerFromVoltageAndCurrent(int voltage, int current) {
 		return (int) (((double) voltage / 1000.0) * ((double) current / 1000.0));
 	}
@@ -1059,6 +1096,11 @@ public interface SymmetricComponent extends OpenemsComponent {
 		return (int) (apparentPower * Math.sin(phi));
 	}
 
+	/**
+	 * Mirrors the power factor of the component onto all three phases.
+	 *
+	 * @param symmetric the {@link SymmetricComponent}
+	 */
 	public static void calculatePhasePowerFactorsFromSymmetry(SymmetricComponent symmetric) {
 		var powerFactorChannel = symmetric.getPowerFactorChannel();
 
