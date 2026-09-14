@@ -64,14 +64,16 @@ export type NavigationTreeOptions = {
     pageFilter?: PageFilterSet | null;
     customLink?: string | null;
     isCommonWidget?: boolean;
+    accordionOpenedOnDefault?: boolean;
 };
 
 export class NavigationTree {
-    public showOrder: "VERY_HIGH" | "HIGH" | "LOW" | "HIDE";
-    public availableScope: AvailableScope.LOCAL | AvailableScope.LIVE_AND_OVERVIEW;
-    public pageFilter: PageFilterSet | null;
-    public customLink: string | null;
-    public isCommonWidget: boolean;
+    public showOrder: NavigationTreeOptions["showOrder"];
+    public availableScope: NavigationTreeOptions["availableScope"];
+    public pageFilter: NavigationTreeOptions["pageFilter"];
+    public customLink: NavigationTreeOptions["customLink"];
+    public isCommonWidget: NavigationTreeOptions["isCommonWidget"];
+    public accordionOpenedOnDefault: NavigationTreeOptions["accordionOpenedOnDefault"];
 
     constructor(
         public id: NavigationId | string,
@@ -80,7 +82,7 @@ export class NavigationTree {
             queryParams?: { [key: string]: string };
         },
         public icon: PartialedIcon,
-        public label: string,
+        public label: string | { desktop: string; mobile: string },
         public mode: "icon" | "label" | "hidden",
         public children: NavigationTree[],
         public parent: NavigationTree | null,
@@ -91,6 +93,7 @@ export class NavigationTree {
         this.pageFilter = options.pageFilter ?? null;
         this.customLink = options.customLink ?? null;
         this.isCommonWidget = options.isCommonWidget ?? false;
+        this.accordionOpenedOnDefault = options.accordionOpenedOnDefault ?? false;
     }
 
     /**
@@ -117,12 +120,33 @@ export class NavigationTree {
                 pageFilter: navigationTree.pageFilter,
                 customLink: navigationTree.customLink,
                 isCommonWidget: navigationTree.isCommonWidget,
+                accordionOpenedOnDefault: navigationTree.accordionOpenedOnDefault,
             },
         );
     }
 
     public static dummy() {
         return new NavigationTree("", { baseString: "" }, { name: "help-outline" }, "", "label", [], null);
+    }
+
+    public static findById(tree: NavigationTree | null, id: NavigationId | string): NavigationTree | null {
+        if (!tree) {
+            return null;
+        }
+
+        if (tree.id === id) {
+            return tree;
+        }
+
+        for (const child of tree.children ?? []) {
+            const result = this.findById(child, id);
+
+            if (result) {
+                return result;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -366,6 +390,7 @@ export class NavigationTree {
                 pageFilter: this.pageFilter,
                 isCommonWidget: this.isCommonWidget,
                 customLink: this.customLink,
+                accordionOpenedOnDefault: this.accordionOpenedOnDefault,
             },
         ];
     }
@@ -483,7 +508,7 @@ export class NavigationTree {
         this.icon.color = color;
     }
 
-    private setParentRecursively() {
+    public setParentRecursively() {
         function traverse(node: NavigationTree, parent: NavigationTree | null): void {
             if (node.parent == null) {
                 node.parent = parent;

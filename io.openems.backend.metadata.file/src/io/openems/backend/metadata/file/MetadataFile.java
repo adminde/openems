@@ -201,6 +201,17 @@ public class MetadataFile extends AbstractMetadata implements Metadata,
 	}
 
 	@Override
+	public CompletableFuture<Void> updateEdgeSettings(String edgeId, JsonObject settings) {
+		final var edge = this.edges.get(edgeId);
+		if (edge == null) {
+			return CompletableFuture
+					.failedFuture(new OpenemsException("Unable to find edge with id [" + edgeId + "]"));
+		}
+		edge.setSettings(settings);
+		return CompletableFuture.completedFuture(null);
+	}
+
+	@Override
 	public Role getUserRole(User user, String edgeId) {
 		var fileUser = this.users.get(user.getUserId());
 		if (!fileUser.getEdges().contains(edgeId)) {
@@ -389,7 +400,8 @@ public class MetadataFile extends AbstractMetadata implements Metadata,
 		var userEdgeIds = this.users.get(user.getUserId()).getEdges();
         var userEdges = this.edges.values()
         		.stream().filter(e -> userEdgeIds.contains(e.getId())).collect(Collectors.toList());        
-        return CompletableFuture.completedFuture(MetadataUtils.getPageDevice(user, userEdges, paginationOptions));
+        return CompletableFuture.completedFuture(
+				MetadataUtils.getPageDevice(user, userEdges, FileEdge::getSettings, paginationOptions));
 	}
 
 	@Override

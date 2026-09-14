@@ -1,0 +1,547 @@
+package io.openems.edge.ess.rct.cess.batteryinverter;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_1;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_1;
+import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.chain;
+import static io.openems.edge.common.sum.GridMode.ON_GRID;
+import static io.openems.edge.common.type.Phase.SingleOrAllPhase.ALL;
+import static io.openems.edge.common.type.TypeUtils.subtract;
+import static io.openems.edge.ess.power.api.Pwr.ACTIVE;
+import static io.openems.edge.ess.power.api.Pwr.REACTIVE;
+import static io.openems.edge.ess.power.api.Relationship.GREATER_OR_EQUALS;
+import static io.openems.edge.ess.power.api.Relationship.LESS_OR_EQUALS;
+import static io.openems.edge.ess.rct.cess.batteryinverter.statemachine.StateMachine.State.UNDEFINED;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
+
+import org.osgi.service.cm.ConfigurationAdmin;
+import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.ConfigurationPolicy;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
+import org.osgi.service.component.annotations.ReferencePolicyOption;
+import org.osgi.service.event.Event;
+import org.osgi.service.event.EventHandler;
+import org.osgi.service.event.propertytypes.EventTopics;
+import org.osgi.service.metatype.annotations.Designate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.openems.common.channel.AccessMode;
+import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
+import io.openems.common.exceptions.OpenemsException;
+import io.openems.edge.battery.api.Battery;
+import io.openems.edge.batteryinverter.api.BatteryInverterConstraint;
+import io.openems.edge.batteryinverter.api.BatteryInverterErrorAcknowledge;
+import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter;
+import io.openems.edge.batteryinverter.api.ManagedSymmetricBatteryInverter;
+import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
+import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
+import io.openems.edge.bridge.modbus.api.BridgeModbus;
+import io.openems.edge.bridge.modbus.api.ElementToChannelConverter;
+import io.openems.edge.bridge.modbus.api.ModbusComponent;
+import io.openems.edge.bridge.modbus.api.ModbusProtocol;
+import io.openems.edge.bridge.modbus.api.element.BitsWordElement;
+import io.openems.edge.bridge.modbus.api.element.SignedWordElement;
+import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
+import io.openems.edge.bridge.modbus.api.task.FC3ReadRegistersTask;
+import io.openems.edge.common.component.ComponentManager;
+import io.openems.edge.common.component.OpenemsComponent;
+import io.openems.edge.common.event.EdgeEventConstants;
+import io.openems.edge.common.modbusslave.ModbusSlave;
+import io.openems.edge.common.modbusslave.ModbusSlaveNatureTable;
+import io.openems.edge.common.modbusslave.ModbusSlaveTable;
+import io.openems.edge.common.startstop.StartStop;
+import io.openems.edge.common.startstop.StartStoppable;
+import io.openems.edge.common.taskmanager.Priority;
+import io.openems.edge.ess.rct.cess.battery.RctCessBattery;
+import io.openems.edge.ess.rct.cess.batteryinverter.statemachine.Context;
+import io.openems.edge.ess.rct.cess.batteryinverter.statemachine.StateMachine;
+import io.openems.edge.ess.rct.cess.batteryinverter.statemachine.StateMachine.State;
+import io.openems.edge.ess.rct.cess.charger.RctCessDcCharger;
+import io.openems.edge.oros.bms.api.BatteryManagementProvider;
+import io.openems.edge.oros.common.SymmetricComponent;
+import io.openems.edge.oros.pcs.api.PowerConversionSystem;
+import io.openems.edge.timedata.api.Timedata;
+import io.openems.edge.timedata.api.TimedataProvider;
+import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
+
+@Designate(ocd = Config.class, factory = true)
+@Component(
+		name = "Ess.Rct.CESS.200.PCS",
+		immediate = true,
+		configurationPolicy = ConfigurationPolicy.REQUIRE
+)
+@EventTopics({
+		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
+})
+public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent implements
+		RctCessBatteryInverter, PowerConversionSystem, HybridManagedSymmetricBatteryInverter,
+		ManagedSymmetricBatteryInverter, SymmetricBatteryInverter, SymmetricComponent,
+		OpenemsComponent, ModbusComponent, ModbusSlave, BatteryInverterErrorAcknowledge,
+		BatteryManagementProvider, TimedataProvider, EventHandler, StartStoppable {
+
+	private final Logger log = LoggerFactory.getLogger(RctCessBatteryInverterImpl.class);
+	private final StateMachine stateMachine = new StateMachine(State.UNDEFINED);
+
+	private final AtomicReference<StartStop> startStopTarget = new AtomicReference<>(StartStop.UNDEFINED);
+
+	private final CalculateEnergyFromPower calculateDcChargeEnergy = new CalculateEnergyFromPower(this,
+			HybridManagedSymmetricBatteryInverter.ChannelId.DC_CHARGE_ENERGY);
+	private final CalculateEnergyFromPower calculateDcDischargeEnergy = new CalculateEnergyFromPower(this,
+			HybridManagedSymmetricBatteryInverter.ChannelId.DC_DISCHARGE_ENERGY);
+
+	private final CalculateEnergyFromPower calculateAcChargeEnergy = new CalculateEnergyFromPower(this,
+			SymmetricBatteryInverter.ChannelId.ACTIVE_CHARGE_ENERGY);
+	private final CalculateEnergyFromPower calculateAcDischargeEnergy = new CalculateEnergyFromPower(this,
+			SymmetricBatteryInverter.ChannelId.ACTIVE_DISCHARGE_ENERGY);
+
+	private final List<RctCessDcCharger> chargers = new CopyOnWriteArrayList<>();
+
+	private Config config = null;
+
+	@Reference
+	private ConfigurationAdmin cm;
+
+	@Reference
+	private ComponentManager componentManager;
+
+	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
+	private volatile Timedata timedata = null;
+
+	@Override
+	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
+	protected void setModbus(BridgeModbus modbus) {
+		super.setModbus(modbus);
+	}
+
+	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
+	private volatile RctCessBattery bms;
+
+	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MULTIPLE)
+	protected void addCharger(RctCessDcCharger charger) {
+		this.chargers.add(charger);
+	}
+
+	protected void removeCharger(RctCessDcCharger charger) {
+		this.chargers.remove(charger);
+	}
+
+	public RctCessBatteryInverterImpl() {
+		super(OpenemsComponent.ChannelId.values(),
+				ModbusComponent.ChannelId.values(),
+				StartStoppable.ChannelId.values(),
+				SymmetricComponent.ChannelId.values(),
+				PowerConversionSystem.ChannelId.values(),
+				BatteryInverterErrorAcknowledge.ChannelId.values(),
+				SymmetricBatteryInverter.ChannelId.values(),
+				ManagedSymmetricBatteryInverter.ChannelId.values(),
+				HybridManagedSymmetricBatteryInverter.ChannelId.values(),
+				RctCessBatteryInverter.ChannelId.values());
+	}
+
+	@Activate
+	private void activate(ComponentContext context, Config config) throws OpenemsException {
+		this.config = config;
+		if (super.activate(context, config.id(), config.alias(), config.enabled(), 1, this.cm,
+				"Modbus", config.modbus_id())) {
+			return;
+		}
+		if (OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "bms", config.bms_id())) {
+			return;
+		}
+		if (OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "charger", config.charger_ids())) {
+			return;
+		}
+		this.chargers.forEach(charger -> charger.bindInverter(this));
+
+		this._setGridMode(ON_GRID);
+		this._setMaxActivePower(
+				RctCessBatteryInverter.MAX_ACTIVE_POWER);
+		this._setMaxReactivePower((int) Math.floor(
+				RctCessBatteryInverter.MAX_ACTIVE_POWER * RctCessBatteryInverter.REACTIVE_POWER_FACTOR));
+		this._setMaxApparentPower((int) Math.floor(
+				RctCessBatteryInverter.MAX_ACTIVE_POWER * RctCessBatteryInverter.APPARENT_POWER_FACTOR));
+
+		// Calculate the Phase Voltages from Phase to Phase Voltages
+		SymmetricComponent.calculatePhaseVoltages(this);
+
+		// Calculate the Phase Powers from Voltage, Current and Power Factor
+		SymmetricComponent.calculatePhasePowersFromVoltageAndCurrent(this);
+	}
+
+	@Override
+	@Deactivate
+	protected void deactivate() {
+		this.chargers.forEach(RctCessDcCharger::unbindInverter);
+		super.deactivate();
+	}
+
+	@Override
+	public void executeBatteryInverterErrorAcknowledge() {
+		try {
+			this._setTimeoutStartBatteryInverter(false);
+			this._setTimeoutStopBatteryInverter(false);
+
+			this.stateMachine.forceNextState(UNDEFINED);
+		} catch (Exception e) {
+			this.logError(this.log, e.getClass().getSimpleName() + ": " + e.getMessage());
+		}
+	}
+
+	@Override
+	public void run(Battery battery, int setActivePower, int setReactivePower) throws OpenemsNamedException {
+		if (this.stateMachine.getCurrentState() != State.RUNNING) {
+			return;
+		}
+		// TODO Set battery limits and other business logic
+	}
+
+	@Override
+	public void handleEvent(Event event) {
+		switch (event.getTopic()) {
+		case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
+			this.handleStateMachine();
+			break;
+		}
+	}
+
+	private void handleStateMachine() {
+		// Store the current State
+		this._setStateMachine(this.stateMachine.getCurrentState());
+
+		// Initialize 'Start-Stop' Channel
+		this._setStartStop(StartStop.UNDEFINED);
+
+		// Calculate the PV Power and battery-only DC Discharge Power from total DC Power.
+		this.calculateDcPower();
+
+		// Calculate the Energy values from DC Discharge Power.
+		this.calculateDcEnergy();
+
+		// Calculate the Energy values from AC Power.
+		this.calculateAcEnergy();
+
+		// Prepare Context
+		var context = new Context(this, this.config, this.componentManager.getClock());
+
+		// Call the StateMachine
+		try {
+			this.stateMachine.run(context);
+			this._setRunFailed(false);
+
+		} catch (OpenemsNamedException e) {
+			this._setRunFailed(true);
+			this.logError(this.log, "StateMachine failed: " + e.getMessage());
+		}
+	}
+
+	/**
+	 * Calculates the PV Power and the battery-only DC Discharge Power from the total DC Power.
+	 */
+	private void calculateDcPower() {
+		var dcPower = this.getDcPower().get();
+		if (dcPower == null) {
+			return;
+		}
+		if (this.hasDcChargers()) {
+			var pvPower = 0;
+			for (RctCessDcCharger charger : this.getDcChargers()) {
+				pvPower += charger.getActualPower().orElse(0);
+			}
+			dcPower = subtract(dcPower, pvPower);
+
+			this._setDcPvPower(pvPower);
+		}
+		this._setDcDischargePower(dcPower);
+	}
+
+	/**
+	 * Calculate the Energy values from DC Discharge Power.
+	 */
+	private void calculateDcEnergy() {
+		var dischargePower = this.getDcDischargePowerChannel().getNextValue().get();
+		if (dischargePower == null) {
+			// Not available
+			this.calculateDcChargeEnergy.update(null);
+			this.calculateDcDischargeEnergy.update(null);
+		} else if (dischargePower >= 0) {
+			this.calculateDcChargeEnergy.update(0);
+			this.calculateDcDischargeEnergy.update(dischargePower);
+		} else {
+			this.calculateDcChargeEnergy.update(dischargePower * -1);
+			this.calculateDcDischargeEnergy.update(0);
+		}
+	}
+
+	/**
+	 * Calculate the Energy values from ActivePower.
+	 */
+	private void calculateAcEnergy() {
+		var dischargePower = this.getActivePower().get();
+		if (dischargePower == null) {
+			// Not available
+			this.calculateAcChargeEnergy.update(null);
+			this.calculateAcDischargeEnergy.update(null);
+		} else if (dischargePower > 0) {
+			// Load-From-Grid
+			this.calculateAcChargeEnergy.update(0);
+			this.calculateAcDischargeEnergy.update(dischargePower);
+		} else {
+			// Feed-To-Grid
+			this.calculateAcChargeEnergy.update(dischargePower * -1);
+			this.calculateAcDischargeEnergy.update(0);
+		}
+	}
+
+	@Override
+	public Integer getSurplusPower() {
+		var soc = this.getBatteryManagementSystem().getSoc();
+		var pvPower = this.getDcPvPowerChannel().getNextValue();
+		if (!this.hasDcChargers() || !pvPower.isDefined() || !soc.isDefined()) {
+			return null;
+		}
+		// Is the Battery full?
+		if (soc.get() < 100) {
+			return 0;
+		}
+		return pvPower.get();
+	}
+
+	@Override
+	public boolean hasDcChargers() {
+		return !this.chargers.isEmpty();
+	}
+
+	@Override
+	public List<RctCessDcCharger> getDcChargers() {
+		return this.chargers;
+	}
+
+	@Override
+	public RctCessBattery getBatteryManagementSystem() {
+		return this.bms;
+	}
+
+	@Override
+	public void setStartStop(StartStop value) {
+		if (this.startStopTarget.getAndSet(value) != value) {
+			// Set only if value changed
+			this.stateMachine.forceNextState(State.UNDEFINED);
+		}
+	}
+
+	@Override
+	public StartStop getStartStopTarget() {
+		return switch (this.config.startStop()) {
+			case AUTO -> this.startStopTarget.get(); // read StartStop-Channel
+			case START -> StartStop.START; // force START
+			case STOP -> StartStop.STOP; // force STOP
+		};
+	}
+
+	@Override
+	public Timedata getTimedata() {
+		return this.timedata;
+	}
+
+	@Override
+	public BatteryInverterConstraint[] getStaticConstraints() throws OpenemsNamedException {
+		var constraints = new ArrayList<BatteryInverterConstraint>();
+
+		var maxActivePower = this.getMaxActivePower().get();
+		constraints.add(new BatteryInverterConstraint("RCT Power CESS maximum Active Power",
+				ALL, ACTIVE, LESS_OR_EQUALS, maxActivePower));
+		constraints.add(new BatteryInverterConstraint("RCT Power CESS minimum Active Power",
+				ALL, ACTIVE, GREATER_OR_EQUALS, maxActivePower * -1));
+
+		var maxReactivePower = this.getMaxActivePower().get();
+		constraints.add(new BatteryInverterConstraint("RCT Power CESS maximum Reactive Power",
+				ALL, REACTIVE, LESS_OR_EQUALS, maxReactivePower));
+		constraints.add(new BatteryInverterConstraint("RCT Power CESS minimum Reactive Power",
+				ALL, REACTIVE, GREATER_OR_EQUALS, maxReactivePower * -1));
+
+		return constraints.toArray(new BatteryInverterConstraint[constraints.size()]);
+	}
+
+	@Override
+	public ModbusSlaveTable getModbusSlaveTable(AccessMode accessMode) {
+		return new ModbusSlaveTable(
+				OpenemsComponent.getModbusSlaveNatureTable(accessMode),
+				SymmetricBatteryInverter.getModbusSlaveNatureTable(accessMode),
+				ManagedSymmetricBatteryInverter.getModbusSlaveNatureTable(accessMode),
+				ModbusSlaveNatureTable.of(RctCessBatteryInverter.class, accessMode, 100)
+						.build()
+		);
+	}
+
+	@Override
+	protected ModbusProtocol defineModbusProtocol() {
+		return new ModbusProtocol(this,
+				new FC3ReadRegistersTask(0x0000, Priority.HIGH,
+						m(RctCessBatteryInverter.ChannelId.RUN_STATE, new UnsignedWordElement(0x0000))),
+
+				new FC3ReadRegistersTask(0x0001, Priority.LOW,
+						m(SymmetricComponent.ChannelId.VOLTAGE_L1_L2,
+								new UnsignedWordElement(0x0001), SCALE_FACTOR_2),
+						m(SymmetricComponent.ChannelId.VOLTAGE_L2_L3,
+								new UnsignedWordElement(0x0002), SCALE_FACTOR_2),
+						m(SymmetricComponent.ChannelId.VOLTAGE_L3_L1,
+								new UnsignedWordElement(0x0003), SCALE_FACTOR_2),
+						m(SymmetricComponent.ChannelId.CURRENT_L1,
+								new UnsignedWordElement(0x0004), SCALE_FACTOR_2),
+						m(SymmetricComponent.ChannelId.CURRENT_L2,
+								new UnsignedWordElement(0x0005), SCALE_FACTOR_2),
+						m(SymmetricComponent.ChannelId.CURRENT_L3,
+								new UnsignedWordElement(0x0006), SCALE_FACTOR_2),
+						m(SymmetricComponent.ChannelId.FREQUENCY,
+								new UnsignedWordElement(0x0007), SCALE_FACTOR_1)),
+
+				new FC3ReadRegistersTask(0x0008, Priority.HIGH,
+						m(SymmetricBatteryInverter.ChannelId.APPARENT_POWER,
+								new UnsignedWordElement(0x0008), SCALE_FACTOR_2),
+						m(SymmetricBatteryInverter.ChannelId.ACTIVE_POWER,
+								new SignedWordElement(0x0009), SCALE_FACTOR_2),
+						m(SymmetricBatteryInverter.ChannelId.REACTIVE_POWER,
+								new SignedWordElement(0x000A), SCALE_FACTOR_2),
+						m(SymmetricComponent.ChannelId.POWER_FACTOR,
+								new UnsignedWordElement(0x000B),
+								chain(CONVERT_FLOAT, SCALE_FACTOR_MINUS_1)),
+						m(PowerConversionSystem.ChannelId.DC_VOLTAGE,
+								new UnsignedWordElement(0x000C), SCALE_FACTOR_2),
+						m(PowerConversionSystem.ChannelId.DC_CURRENT,
+								new SignedWordElement(0x000D), SCALE_FACTOR_2),
+						m(PowerConversionSystem.ChannelId.DC_POWER,
+								new SignedWordElement(0x000E), SCALE_FACTOR_2)),
+
+				new FC3ReadRegistersTask(0x000F, Priority.LOW,
+						m(RctCessBatteryInverter.ChannelId.IGBT_TEMPERATURE,
+								new UnsignedWordElement(0x000F), SCALE_FACTOR_MINUS_1),
+						m(PowerConversionSystem.ChannelId.AIR_TEMPERATURE,
+								new SignedWordElement(0x0010), SCALE_FACTOR_MINUS_1),
+
+						m(new BitsWordElement(0x0011, this)
+								.bit(0, RctCessBatteryInverter.ChannelId.EP0_FAULT)
+								.bit(1, RctCessBatteryInverter.ChannelId.IGBT_CURRENT_HIGH_FAULT)
+								.bit(2, RctCessBatteryInverter.ChannelId.BUSBAR_VOLTAGE_HIGH_FAULT)
+								.bit(4, RctCessBatteryInverter.ChannelId.POWER_MODULE_CURRENT_LIMIT_FAULT)
+								.bit(5, RctCessBatteryInverter.ChannelId.BALANCE_MODULE_CURRENT_HIGH_FAULT)),
+						m(new BitsWordElement(0x0012, this)
+								.bit(0, RctCessBatteryInverter.ChannelId.VOLTAGE_24_FAULT)
+								.bit(1, RctCessBatteryInverter.ChannelId.FAN_FAULT)
+								.bit(2, RctCessBatteryInverter.ChannelId.CONNECTION_FAULT)
+								.bit(6, RctCessBatteryInverter.ChannelId.SPD_FAULT)
+								.bit(8, RctCessBatteryInverter.ChannelId.POWER_MODULE_TEMPERATURE_HIGH_FAULT)
+								.bit(9, RctCessBatteryInverter.ChannelId.BALANCE_MODULE_TEMPERATURE_HIGH_FAULT)
+								.bit(10, RctCessBatteryInverter.ChannelId.VOLTAGE_15_FAULT)
+								.bit(11, RctCessBatteryInverter.ChannelId.FIRE_SYSTEM_ALARM)
+								.bit(12, RctCessBatteryInverter.ChannelId.BATTERY_DRY_FAULT)
+								.bit(13, RctCessBatteryInverter.ChannelId.OVERLOAD_FAULT)),
+						m(new BitsWordElement(0x0013, this)
+								.bit(0, RctCessBatteryInverter.ChannelId.VOLTAGE_HIGH_L1)
+								.bit(1, RctCessBatteryInverter.ChannelId.VOLTAGE_HIGH_L2)
+								.bit(2, RctCessBatteryInverter.ChannelId.VOLTAGE_HIGH_L3)
+								.bit(3, RctCessBatteryInverter.ChannelId.VOLTAGE_LOW_L1)
+								.bit(4, RctCessBatteryInverter.ChannelId.VOLTAGE_LOW_L2)
+								.bit(5, RctCessBatteryInverter.ChannelId.VOLTAGE_LOW_L3)
+								.bit(6, RctCessBatteryInverter.ChannelId.GRID_FREQUENCY_HIGH)
+								.bit(7, RctCessBatteryInverter.ChannelId.GRID_FREQUENCY_LOW)
+								.bit(8, RctCessBatteryInverter.ChannelId.GRID_PHASE_SEQUENCE_FAULT)
+								.bit(9, RctCessBatteryInverter.ChannelId.SOFT_WORK_CURRENT_HIGH_L1)
+								.bit(10, RctCessBatteryInverter.ChannelId.SOFT_WORK_CURRENT_HIGH_L2)
+								.bit(11, RctCessBatteryInverter.ChannelId.SOFT_WORK_CURRENT_HIGH_L3)
+								.bit(12, RctCessBatteryInverter.ChannelId.GRID_VOLTAGE_UNBALANCE)
+								.bit(13, RctCessBatteryInverter.ChannelId.GRID_CURRENT_UNBALANCE)
+								.bit(14, RctCessBatteryInverter.ChannelId.GRID_LOSS_PHASE)
+								.bit(15, RctCessBatteryInverter.ChannelId.N_CURRENT_HIGH)),
+						m(new BitsWordElement(0x0014, this)
+								.bit(0, RctCessBatteryInverter.ChannelId.PRE_CHARGE_BUS_VOLTAGE_HIGH)
+								.bit(1, RctCessBatteryInverter.ChannelId.PRE_CHARGE_BUS_VOLTAGE_LOW)
+								.bit(2, RctCessBatteryInverter.ChannelId.UNCONTROLLED_RECTIFIER_BUS_VOLTAGE_HIGH)
+								.bit(3, RctCessBatteryInverter.ChannelId.UNCONTROLLED_RECTIFIER_BUS_VOLTAGE_LOW)
+								.bit(4, RctCessBatteryInverter.ChannelId.RUN_BUS_VOLTAGE_HIGH)
+								.bit(5, RctCessBatteryInverter.ChannelId.RUN_BUS_VOLTAGE_LOW)
+								.bit(6, RctCessBatteryInverter.ChannelId.POSITIVE_NEGATIVE_BUS_UNBALANCE)
+								.bit(7, RctCessBatteryInverter.ChannelId.CELL_VOLTAGE_LOW)
+								.bit(8, RctCessBatteryInverter.ChannelId.CURRENT_MODE_BUS_VOLTAGE_LOW)
+								.bit(9, RctCessBatteryInverter.ChannelId.CELL_VOLTAGE_HIGH)
+								.bit(10, RctCessBatteryInverter.ChannelId.AC_PRE_CHARGE_CURRENT_HIGH)
+								.bit(11, RctCessBatteryInverter.ChannelId.AC_CURRENT_HIGH)
+								.bit(12, RctCessBatteryInverter.ChannelId.BALANCE_MODULE_SOFTWARE_CURRENT_HIGH)
+								.bit(15, RctCessBatteryInverter.ChannelId.BATTERY_REVERSE)),
+						m(new BitsWordElement(0x0015, this)
+								.bit(0, RctCessBatteryInverter.ChannelId.PRE_CHARGE_TIMEOUT)
+								.bit(1, RctCessBatteryInverter.ChannelId.PRE_CHARGE_CURRENT_HIGH_L1)
+								.bit(2, RctCessBatteryInverter.ChannelId.PRE_CHARGE_CURRENT_HIGH_L2)
+								.bit(3, RctCessBatteryInverter.ChannelId.PRE_CHARGE_CURRENT_HIGH_L3)),
+						m(new BitsWordElement(0x0016, this)
+								.bit(2, RctCessBatteryInverter.ChannelId.AD_NULL_SHIFT_FAULT)
+								.bit(11, RctCessBatteryInverter.ChannelId.BMS_CELL_FAULT)
+								.bit(12, RctCessBatteryInverter.ChannelId.STS_COMMUNICATION_FAULT)
+								.bit(13, RctCessBatteryInverter.ChannelId.BMS_CONNECTION_FAIL)
+								.bit(14, RctCessBatteryInverter.ChannelId.CAN_CONNECTION_FAULT)
+								.bit(15, RctCessBatteryInverter.ChannelId.EMS_CONNECTION_FAULT)),
+						m(new BitsWordElement(0x0017, this)
+								.bit(0, RctCessBatteryInverter.ChannelId.PRE_CHARGE_RELAY_OPEN_FAULT)
+								.bit(1, RctCessBatteryInverter.ChannelId.PRE_CHARGE_RELAY_CLOSE_FAULT)
+								.bit(2, RctCessBatteryInverter.ChannelId.PRE_CHARGE_RELAY_OPEN_STATUS_FAULT)
+								.bit(3, RctCessBatteryInverter.ChannelId.PRE_CHARGE_RELAY_CLOSE_STATUS_FAULT)
+								.bit(4, RctCessBatteryInverter.ChannelId.MAIN_RELAY_OPEN_FAULT)
+								.bit(5, RctCessBatteryInverter.ChannelId.MAIN_RELAY_CLOSE_FAULT)
+								.bit(6, RctCessBatteryInverter.ChannelId.MAIN_RELAY_OPEN_STATUS_FAULT)
+								.bit(7, RctCessBatteryInverter.ChannelId.MAIN_RELAY_CLOSE_STATUS_FAULT)
+								.bit(8, RctCessBatteryInverter.ChannelId.AC_MAIN_RELAY_ADHESIVE_FAULT)
+								.bit(9, RctCessBatteryInverter.ChannelId.DC_RELAY_OPEN_FAULT)),
+						m(new BitsWordElement(0x0018, this)
+								.bit(0, RctCessBatteryInverter.ChannelId.INVERTER_VOLTAGE_HIGH_L1_FAULT)
+								.bit(1, RctCessBatteryInverter.ChannelId.INVERTER_VOLTAGE_HIGH_L2_FAULT)
+								.bit(2, RctCessBatteryInverter.ChannelId.INVERTER_VOLTAGE_HIGH_L3_FAULT)
+								.bit(3, RctCessBatteryInverter.ChannelId.ISLAND_ENABLE_FAULT)
+								.bit(5, RctCessBatteryInverter.ChannelId.SYSTEM_RESONANCE_FAULT)
+								.bit(6, RctCessBatteryInverter.ChannelId.SOFT_WORK_VOLTAGE_HIGH_CURRENT_HIGH_FAULT)
+								.bit(8, RctCessBatteryInverter.ChannelId.MODULE_DIAL_UP_ADDRESS_FAULT)
+								.bit(9, RctCessBatteryInverter.ChannelId.INVERTER_VOLTAGE_LOW_L1_FAULT)
+								.bit(10, RctCessBatteryInverter.ChannelId.INVERTER_VOLTAGE_LOW_L2_FAULT)
+								.bit(11, RctCessBatteryInverter.ChannelId.INVERTER_VOLTAGE_LOW_L3_FAULT)
+								.bit(12, RctCessBatteryInverter.ChannelId.OFFGRID_NO_SYNCHRONIZATION_SIGNAL_FAULT)
+								.bit(14, RctCessBatteryInverter.ChannelId.OFFGRID_SHORT_CIRCUIT_FAULT)
+								.bit(15, RctCessBatteryInverter.ChannelId.VOLTAGE_LOW_CROSS_OVER_TIME_FAULT))
+			)
+		);
+	}
+
+	private static final ElementToChannelConverter CONVERT_FLOAT = new ElementToChannelConverter(v -> {
+		if (v == null) {
+			return null;
+		}
+		if (v instanceof Number n) {
+			return n.floatValue();
+		}
+		if (v instanceof String s) {
+			return Float.valueOf(s);
+		}
+		throw new IllegalArgumentException(
+			"Type [" + v.getClass().getName() + "] not supported by float converter");
+	});
+
+	@Override
+	public String debugLog() {
+		return PowerConversionSystem.generateDebugLog(this, this.stateMachine);
+	}
+
+	@Override
+	public String toString() {
+		return toStringHelper(this)
+				.addValue(this.id())
+				.toString();
+	}
+}

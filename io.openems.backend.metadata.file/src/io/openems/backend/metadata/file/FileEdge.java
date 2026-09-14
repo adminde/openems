@@ -13,6 +13,8 @@ public class FileEdge extends Edge {
 
 	private final boolean isPublic;
 
+	private JsonObject settings;
+
 	public FileEdge(MetadataFile parent, String id, String apikey, String setupPassword, String comment, String version,
 			String producttype, boolean isPublic) {
 		super(parent, id, comment, version, producttype, null);
@@ -31,6 +33,14 @@ public class FileEdge extends Edge {
 
 	public String getSetupPassword() {
 		return this.setupPassword;
+	}
+
+	public JsonObject getSettings() {
+		return this.settings;
+	}
+
+	public void setSettings(JsonObject settings) {
+		this.settings = settings;
 	}
 
 	public static FileEdge fromJson(MetadataFile parent, String id, JsonObject json) throws OpenemsNamedException {
