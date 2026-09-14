@@ -1,24 +1,27 @@
 package io.openems.edge.common.modbusslave;
 
+import java.nio.ByteBuffer;
+
 import io.openems.common.types.OpenemsType;
 import io.openems.common.types.OptionsEnum;
 import io.openems.edge.common.type.TypeUtils;
 
-public class ModbusRecordInt16 extends ModbusRecordConstant {
-	public static final int UNDEFINED_VALUE = Short.MAX_VALUE;
+public class ModbusRecordInt64 extends ModbusRecordConstant {
+
+	public static final long UNDEFINED_VALUE = Long.MAX_VALUE;
 	public static final byte[] UNDEFINED_BYTE_ARRAY = toByteArray(UNDEFINED_VALUE);
-	public static final int BYTE_LENGTH = 2;
+	public static final int BYTE_LENGTH = 8;
 
-	protected final Integer value;
+	protected final Long value;
 
-	public ModbusRecordInt16(int offset, String name, Integer value) {
-		super(offset, name, ModbusType.INT16, toByteArray(value));
+	public ModbusRecordInt64(int offset, String name, Long value) {
+		super(offset, name, ModbusType.INT64, toByteArray(value));
 		this.value = value;
 	}
 
 	@Override
 	public String toString() {
-		return generateToString("ModbusRecordInt16", this.value, Integer::toHexString);
+		return this.generateToString("ModbusRecordInt64", this.value, Long::toHexString);
 	}
 
 	/**
@@ -27,11 +30,8 @@ public class ModbusRecordInt16 extends ModbusRecordConstant {
 	 * @param value the value
 	 * @return the byte array
 	 */
-	public static byte[] toByteArray(int value) {
-		return new byte[] { //
-				(byte) (value >> 8), //
-				(byte) (value) //
-		};
+	public static byte[] toByteArray(long value) {
+		return ByteBuffer.allocate(BYTE_LENGTH).putLong(value).array();
 	}
 
 	/**
@@ -44,13 +44,14 @@ public class ModbusRecordInt16 extends ModbusRecordConstant {
 		if (value == null || (value instanceof OptionsEnum oe && oe.isUndefined())) {
 			return UNDEFINED_BYTE_ARRAY;
 		}
-		return toByteArray((int) TypeUtils.getAsType(OpenemsType.INTEGER, value));
+		return toByteArray((long) TypeUtils.getAsType(OpenemsType.LONG, value));
 	}
 
 	@Override
 	public String getValueDescription() {
 		return this.value != null //
-				? "\"" + Integer.toString(this.value) + "\""
+				? "\"" + Long.toString(this.value) + "\"" //
 				: "";
 	}
+
 }
