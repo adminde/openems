@@ -1,5 +1,6 @@
 package io.openems.edge.ess.hyperstrong.hypercube.bms;
 
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_1;
 import static io.openems.edge.ess.hyperstrong.AlarmAnalysis.decodeAlarm;
@@ -11,7 +12,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -52,6 +52,7 @@ import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 		immediate = true,
 		configurationPolicy = ConfigurationPolicy.REQUIRE
 )
+@GenerateTargetsFromReferences("Modbus")
 public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent implements
 		HyperCubeBattery, BatteryManagementSystem, Battery,
 		OpenemsComponent, ModbusComponent, ModbusSlave, StartStoppable {
@@ -59,13 +60,11 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 	/** Capacity of a HyperStrong Battery Rack in [Wh]. */
 	public static final int CAPACITY = 233_000;
 
-	@Reference
-	private ConfigurationAdmin cm;
-
 	@Override
 	@Reference(policy = ReferencePolicy.STATIC,
 			policyOption = ReferencePolicyOption.GREEDY,
-			cardinality = ReferenceCardinality.MANDATORY)
+			cardinality = ReferenceCardinality.MANDATORY, //
+			target = "(&(id=${config.modbus_id})(enabled=true))")
 	protected void setModbus(BridgeModbus modbus) {
 		super.setModbus(modbus);
 	}
@@ -82,10 +81,7 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
-		if (super.activate(context, config.id(), config.alias(), config.enabled(),
-				config.modbusUnitId(), this.cm, "Modbus", config.modbus_id())) {
-			return;
-		}
+		super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId());
 		this._setCapacity(CAPACITY);
 
 		HyperCubeBattery.mirrorOpenCircuitVoltageFromPrecharge(this);

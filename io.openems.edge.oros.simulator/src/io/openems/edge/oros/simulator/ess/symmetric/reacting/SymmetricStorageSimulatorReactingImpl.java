@@ -1,5 +1,6 @@
 package io.openems.edge.oros.simulator.ess.symmetric.reacting;
 
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import static io.openems.edge.common.type.Phase.SingleOrAllPhase.ALL;
 import static io.openems.edge.ess.power.api.Pwr.ACTIVE;
 import static io.openems.edge.ess.power.api.Pwr.REACTIVE;
@@ -14,7 +15,6 @@ import static org.osgi.service.component.annotations.ReferencePolicyOption.GREED
 import java.io.IOException;
 import java.util.ArrayList;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -49,6 +49,7 @@ import io.openems.edge.timedata.api.TimedataProvider;
 		name = "Simulator.ESS.Symmetric.OROS",
 		immediate = true,
 		configurationPolicy = REQUIRE)
+@GenerateTargetsFromReferences({ "pcs", "bms" })
 public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsComponent implements SymmetricStorageSimulatorReacting,
 		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, SymmetricComponent,
 		OpenemsComponent, ModbusSlave, TimedataProvider, StartStoppable {
@@ -59,18 +60,17 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 	private Power power;
 
 	@Reference
-	private ConfigurationAdmin cm;
-
-	@Reference
 	private ComponentManager componentManager;
 
 	@Reference(policy = DYNAMIC, policyOption = GREEDY, cardinality = OPTIONAL)
 	private volatile Timedata timedata = null;
 
-	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY)
+	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY, //
+			target = "(&(id=${config.pcs_id})(enabled=true))")
 	private volatile PowerConversionSimulator pcs;
 
-	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY)
+	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY, //
+			target = "(&(id=${config.bms_id})(enabled=true))")
 	private volatile BatteryManagementSimulator bms;
 
 	public SymmetricStorageSimulatorReactingImpl() {
@@ -88,16 +88,6 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 	@Activate
 	private void activate(ComponentContext context, Config config) throws IOException, OpenemsException {
 		super.activate(context, config.id(), config.alias(), config.enabled());
-
-		// update filter for 'PowerConversionSystem'
-		if (OpenemsComponent.updateReferenceFilter(cm, this.servicePid(), "pcs", config.pcs_id())) {
-			return;
-		}
-
-		// update filter for 'BatteryManagementSystem'
-		if (OpenemsComponent.updateReferenceFilter(cm, this.servicePid(), "bms", config.bms_id())) {
-			return;
-		}
 
 		var powerLimiter = new PowerLimiter(this, this.pcs, this.bms);
 		this.channelManager.setPowerLimiter(powerLimiter);

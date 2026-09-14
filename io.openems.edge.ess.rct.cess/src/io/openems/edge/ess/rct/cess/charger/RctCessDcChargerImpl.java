@@ -1,6 +1,5 @@
 package io.openems.edge.ess.rct.cess.charger;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -43,9 +42,6 @@ public class RctCessDcChargerImpl extends AbstractOpenemsComponent implements Rc
 
 	private final CalculateEnergyFromPower calculateActualEnergy = new CalculateEnergyFromPower(this,
 			EssDcCharger.ChannelId.ACTUAL_ENERGY);
-
-	@Reference
-	private ConfigurationAdmin cm;
 
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
 	private volatile Timedata timedata = null;

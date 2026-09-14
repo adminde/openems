@@ -1,8 +1,8 @@
 package io.openems.edge.ess.hyperstrong.hypercube.tms;
 
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_1;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -33,16 +33,15 @@ import io.openems.edge.common.taskmanager.Priority;
 		immediate = true,
 		configurationPolicy = ConfigurationPolicy.REQUIRE
 )
+@GenerateTargetsFromReferences("Modbus")
 public class ThermalManagementSystemImpl extends AbstractOpenemsModbusComponent implements
 		ThermalManagementSystem, OpenemsComponent, ModbusComponent {
-
-	@Reference
-	private ConfigurationAdmin cm;
 
 	@Override
 	@Reference(policy = ReferencePolicy.STATIC,
 			policyOption = ReferencePolicyOption.GREEDY,
-			cardinality = ReferenceCardinality.MANDATORY)
+			cardinality = ReferenceCardinality.MANDATORY, //
+			target = "(&(id=${config.modbus_id})(enabled=true))")
 	protected void setModbus(BridgeModbus modbus) {
 		super.setModbus(modbus);
 	}
@@ -55,10 +54,7 @@ public class ThermalManagementSystemImpl extends AbstractOpenemsModbusComponent 
 
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
-		if (super.activate(context, config.id(), config.alias(), config.enabled(),
-				config.modbusUnitId(), this.cm, "Modbus", config.modbus_id())) {
-			return;
-		}
+		super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId());
 	}
 
 	@Override

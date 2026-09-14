@@ -9,13 +9,11 @@ import static io.openems.edge.ess.power.api.Relationship.EQUALS;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventHandler;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
-import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.jsonrpc.serialization.EmptyObject;
 import io.openems.common.session.Role;
 import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
@@ -70,36 +68,21 @@ public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent i
 		throw new IllegalArgumentException("Invalid activate() method");
 	}
 
-	protected boolean activate(ComponentContext context, String id, String alias, boolean enabled, ConfigurationAdmin cm,
-			int unitId, String modbusId, String pcsId, String bmsId,
-			StartStopConfig startStop) throws OpenemsException {
-		return activate(context, id, alias, enabled, cm, unitId, modbusId, pcsId, bmsId, startStop, true);
+	protected void activate(ComponentContext context, String id, String alias, boolean enabled,
+			int unitId, StartStopConfig startStop) {
+		this.activate(context, id, alias, enabled, unitId, startStop, true);
 	}
 
-	protected boolean activate(ComponentContext context, String id, String alias, boolean enabled, ConfigurationAdmin cm,
-			int unitId, String modbusId, String pcsId, String bmsId,
-			StartStopConfig startStop, boolean activateChannelManager) throws OpenemsException {
-		if (super.activate(context, id, alias, enabled, unitId, cm, "Modbus", modbusId)) {
-			return true;
-		}
+	protected void activate(ComponentContext context, String id, String alias, boolean enabled,
+			int unitId, StartStopConfig startStop, boolean activateChannelManager) {
+		super.activate(context, id, alias, enabled, unitId);
 		this.startStopConfig = startStop;
-
-		// update filter for 'PowerConversionSystem'
-		if (OpenemsComponent.updateReferenceFilter(cm, this.servicePid(), "pcs", pcsId)) {
-			return true;
-		}
-
-		// update filter for 'BatteryManagementSystem'
-		if (OpenemsComponent.updateReferenceFilter(cm, this.servicePid(), "bms", bmsId)) {
-			return true;
-		}
 
 		if (activateChannelManager) {
 			this.getChannelManager().activate(this.getComponentManager(),
 					this.getPowerConversionSystem(),
 					this.getBatteryManagementSystem());
 		}
-		return false;
 	}
 
 	@Override

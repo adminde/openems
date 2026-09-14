@@ -1,5 +1,6 @@
 package io.openems.edge.ess.rct.cess.meter;
 
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.INVERT_IF_TRUE;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_1;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
@@ -7,7 +8,6 @@ import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_3;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.chain;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -56,6 +56,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 @EventTopics({ //
 	EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE, //
 })
+@GenerateTargetsFromReferences("Modbus")
 public class RctCessMeterImpl extends AbstractOpenemsModbusComponent implements RctCessMeter,
 		ElectricityMeter, OpenemsComponent, ModbusComponent, ModbusSlave, EventHandler, TimedataProvider {
 
@@ -67,14 +68,12 @@ public class RctCessMeterImpl extends AbstractOpenemsModbusComponent implements 
 	private final CalculateEnergyFromPower calculateAcProductionEnergy = new CalculateEnergyFromPower(this,
 			ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY);
 
-	@Reference
-	private ConfigurationAdmin cm;
-
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
 	private volatile Timedata timedata = null;
 
 	@Override
-	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
+	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY, //
+			target = "(&(id=${config.modbus_id})(enabled=true))")
 	protected void setModbus(BridgeModbus modbus) {
 		super.setModbus(modbus);
 	}
@@ -92,10 +91,7 @@ public class RctCessMeterImpl extends AbstractOpenemsModbusComponent implements 
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
 		this.invert = config.invert();
 		this.meterType = config.type();
-		if (super.activate(context, config.id(), config.alias(), config.enabled(), 1, this.cm,
-				"Modbus", config.modbus_id())) {
-			return;
-		}
+		super.activate(context, config.id(), config.alias(), config.enabled(), 1);
 		ElectricityMeter.calculateAverageVoltageFromPhases(this);
 		ElectricityMeter.calculateSumCurrentFromPhases(this);
 		RctCessMeter.calculatePhasePowerFactorsFromHarmonics(this);

@@ -1,7 +1,6 @@
 package io.openems.edge.ess.rct.cess.batteryinverter;
 
 import io.openems.common.test.AbstractComponentConfig;
-import io.openems.common.utils.ConfigUtils;
 import io.openems.edge.common.startstop.StartStopConfig;
 
 @SuppressWarnings("all")
@@ -74,28 +73,13 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	}
 
 	@Override
-	public String Modbus_target() {
-		return ConfigUtils.generateReferenceTargetFilter(this.id(), this.modbus_id());
-	}
-
-	@Override
 	public String bms_id() {
 		return this.builder.bmsId;
 	}
 
 	@Override
-	public String bms_target() {
-		return ConfigUtils.generateReferenceTargetFilter(this.id(), this.bms_id());
-	}
-
-	@Override
 	public String[] charger_ids() {
 		return this.builder.chargerIds;
-	}
-
-	@Override
-	public String charger_target() {
-		return ConfigUtils.generateReferenceTargetFilter(this.id(), this.charger_ids());
 	}
 
 }

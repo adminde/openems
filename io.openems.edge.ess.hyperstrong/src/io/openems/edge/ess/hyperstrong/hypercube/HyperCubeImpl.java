@@ -15,7 +15,6 @@ import java.time.Duration;
 import java.time.Instant;
 
 import io.openems.edge.oros.ess.core.RuntimeComponent;
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -33,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.bridge.modbus.api.BridgeModbus;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
@@ -84,6 +84,7 @@ import io.openems.edge.timedata.api.TimedataProvider;
 @EventTopics({
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
 })
+@GenerateTargetsFromReferences({ "Modbus", "pcs", "bms", "tms" })
 public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, SymmetricComponent, 
 		EssErrorAcknowledge, OpenemsComponent, RuntimeComponent, ModbusComponent, ModbusSlave,
@@ -105,25 +106,26 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 	private Power power;
 
 	@Reference
-	private ConfigurationAdmin cm;
-
-	@Reference
 	private ComponentManager componentManager;
 
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
 	private volatile Timedata timedata;
 
-	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY)
+	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY, //
+			target = "(&(id=${config.pcs_id})(enabled=true))")
 	private volatile PowerConversionSystem pcs;
 
-	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY)
+	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY, //
+			target = "(&(id=${config.bms_id})(enabled=true))")
 	private volatile BatteryManagementSystem bms;
 
-	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
+	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL, //
+			target = "(&(id=${config.tms_id})(enabled=true))")
 	private volatile ThermalManagementSystem tms;
 
 	@Override
-	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
+	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY, //
+			target = "(&(id=${config.modbus_id})(enabled=true))")
 	protected void setModbus(BridgeModbus modbus) {
 		super.setModbus(modbus);
 	}
@@ -146,13 +148,7 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
-		if (super.activate(context, config.id(), config.alias(), config.enabled(), this.cm, 1,
-				config.modbus_id(), config.pcs_id(), config.bms_id(), config.startStop(), false)) {
-			return;
-		}
-		if (OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "tms", config.tms_id())) {
-			return;
-		}
+		super.activate(context, config.id(), config.alias(), config.enabled(), 1, config.startStop(), false);
 		this.config = config;
 
 		this.channelManager.setStateOfChargeListener(

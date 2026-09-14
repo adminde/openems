@@ -1,6 +1,7 @@
 package io.openems.edge.ess.rct.cess.batteryinverter;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_1;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_1;
@@ -19,7 +20,6 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -84,6 +84,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 @EventTopics({
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
 })
+@GenerateTargetsFromReferences({ "Modbus", "bms", "Charger" })
 public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent implements
 		RctCessBatteryInverter, PowerConversionSystem, HybridManagedSymmetricBatteryInverter,
 		ManagedSymmetricBatteryInverter, SymmetricBatteryInverter, SymmetricComponent,
@@ -110,24 +111,25 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 	private Config config = null;
 
 	@Reference
-	private ConfigurationAdmin cm;
-
-	@Reference
 	private ComponentManager componentManager;
 
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
 	private volatile Timedata timedata = null;
 
 	@Override
-	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
+	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY, //
+			target = "(&(id=${config.modbus_id})(enabled=true))")
 	protected void setModbus(BridgeModbus modbus) {
 		super.setModbus(modbus);
 	}
 
-	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
+	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY, //
+			target = "(&(id=${config.bms_id})(enabled=true))")
 	private volatile RctCessBattery bms;
 
-	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MULTIPLE)
+	@Reference(name = "Charger", policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, //
+			cardinality = ReferenceCardinality.MULTIPLE, //
+			target = "(&(id=${config.charger_ids})(enabled=true))")
 	protected void addCharger(RctCessDcCharger charger) {
 		this.chargers.add(charger);
 	}
@@ -152,16 +154,7 @@ public class RctCessBatteryInverterImpl extends AbstractOpenemsModbusComponent i
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
 		this.config = config;
-		if (super.activate(context, config.id(), config.alias(), config.enabled(), 1, this.cm,
-				"Modbus", config.modbus_id())) {
-			return;
-		}
-		if (OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "bms", config.bms_id())) {
-			return;
-		}
-		if (OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "charger", config.charger_ids())) {
-			return;
-		}
+		super.activate(context, config.id(), config.alias(), config.enabled(), 1);
 		this.chargers.forEach(charger -> charger.bindInverter(this));
 
 		this._setGridMode(ON_GRID);

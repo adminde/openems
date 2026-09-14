@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -23,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
@@ -47,6 +47,7 @@ import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 @EventTopics({ //
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE //
 })
+@GenerateTargetsFromReferences("Ess")
 public class EssClusterImpl extends AbstractOpenemsComponent implements EssCluster,
 		EnergyStorageSystem, ManagedAsymmetricEss, AsymmetricEss, ManagedSymmetricEss, SymmetricEss, MetaEss,
 		OpenemsComponent, ModbusSlave, EventHandler, StartStoppable {
@@ -62,15 +63,12 @@ public class EssClusterImpl extends AbstractOpenemsComponent implements EssClust
 	@Reference
 	protected ComponentManager componentManager;
 
-	@Reference
-	private ConfigurationAdmin cm;
-
 	@Reference(//
+			name = "Ess", //
 			policy = ReferencePolicy.DYNAMIC, //
 			policyOption = ReferencePolicyOption.GREEDY, //
 			cardinality = ReferenceCardinality.MULTIPLE, //
-			target = "(&(enabled=true)(!(service.factoryPid=Ess.Cluster)))")
-
+			target = "(&(id=${config.ess_ids})(enabled=true)(!(service.factoryPid=Ess.Cluster)))")
 	protected synchronized void addEss(EnergyStorageSystem ess) {
 		this.esss.add(ess);
 		this.channelManager.deactivate();
@@ -102,9 +100,6 @@ public class EssClusterImpl extends AbstractOpenemsComponent implements EssClust
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
 		this.config = config;
 		this.activate(context, config.id(), config.alias(), config.enabled());
-		if (OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "Ess", config.ess_ids())) {
-			return;
-		}
 		this.channelManager.activate(this.esss);
 	}
 

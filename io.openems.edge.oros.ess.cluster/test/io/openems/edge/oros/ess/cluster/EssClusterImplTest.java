@@ -14,7 +14,6 @@ import java.util.List;
 
 import org.junit.Test;
 
-import io.openems.common.test.DummyConfigurationAdmin;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStopConfig;
 import io.openems.edge.common.sum.GridMode;
@@ -30,7 +29,6 @@ public class EssClusterImplTest {
 		final var ess = new EssClusterImpl();
 		new ComponentTest(ess) //
 				.addReference("power", new DummyPower()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("addEss", new DummyEnergyStorageSystem("ess1")) //
 				.addReference("addEss", new DummyEnergyStorageSystem("ess2")) //
 				.activate(MyConfig.create() //
@@ -67,7 +65,6 @@ public class EssClusterImplTest {
 	public void testGridMode() throws Exception {
 		new ComponentTest(new EssClusterImpl()) //
 				.addReference("power", new DummyPower()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("addEss", new DummyEnergyStorageSystem("ess1")) //
 				.addReference("addEss", new DummyEnergyStorageSystem("ess2")) //
 				.addReference("addEss", new DummyEnergyStorageSystem("ess3")) //
@@ -101,7 +98,6 @@ public class EssClusterImplTest {
 	public void testSoc() throws Exception {
 		new ComponentTest(new EssClusterImpl()) //
 				.addReference("power", new DummyPower()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("addEss", new DummyEnergyStorageSystem("ess1").withCapacity(50000)) //
 				.addReference("addEss", new DummyEnergyStorageSystem("ess2").withCapacity(3000)) //
 				.activate(MyConfig.create() //
@@ -129,7 +125,6 @@ public class EssClusterImplTest {
 	public void testStartStop() throws Exception {
 		new ComponentTest(new EssClusterImpl()) //
 				.addReference("power", new DummyPower()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("addEss", new DummyEnergyStorageSystem("ess1")) //
 				.addReference("addEss", new DummyEnergyStorageSystem("ess2")) //
 				.activate(MyConfig.create() //

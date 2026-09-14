@@ -1,6 +1,7 @@
 package io.openems.edge.ess.rct.cess.battery;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.DIRECT_1_TO_1;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
@@ -9,7 +10,6 @@ import static io.openems.edge.ess.rct.cess.battery.statemachine.StateMachine.Sta
 
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -59,6 +59,7 @@ import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 @EventTopics({
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE
 })
+@GenerateTargetsFromReferences("Modbus")
 public class RctCessBatteryImpl extends AbstractOpenemsModbusComponent implements
 		RctCessBattery, BatteryManagementSystem, Battery,
 		OpenemsComponent, ModbusComponent, ModbusSlave, 
@@ -79,13 +80,11 @@ public class RctCessBatteryImpl extends AbstractOpenemsModbusComponent implement
 	private Config config = null;
 
 	@Reference
-	private ConfigurationAdmin cm;
-
-	@Reference
 	private ComponentManager componentManager;
 
 	@Override
-	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
+	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY, //
+			target = "(&(id=${config.modbus_id})(enabled=true))")
 	protected void setModbus(BridgeModbus modbus) {
 		super.setModbus(modbus);
 	}
@@ -113,10 +112,7 @@ public class RctCessBatteryImpl extends AbstractOpenemsModbusComponent implement
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
 		this.config = config;
-		if (super.activate(context, config.id(), config.alias(), config.enabled(), 1, this.cm,
-				"Modbus", config.modbus_id())) {
-			return;
-		}
+		super.activate(context, config.id(), config.alias(), config.enabled(), 1);
 		// TODO: Validate Open Circuit Voltage of CESS for improved battery protection
 		// RctCessBattery.mirrorOpenCircuitVoltageFromPrecharge(this);
 		BatteryManagementSystem.calculateRackPowerFromVoltageAndCurrent(this);

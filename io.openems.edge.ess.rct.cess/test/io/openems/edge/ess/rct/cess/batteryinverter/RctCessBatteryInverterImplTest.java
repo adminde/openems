@@ -6,7 +6,6 @@ import static org.junit.Assert.assertNull;
 import org.junit.Test;
 
 import io.openems.common.channel.AccessMode;
-import io.openems.common.test.DummyConfigurationAdmin;
 import io.openems.edge.battery.api.Battery;
 import io.openems.edge.battery.api.BatteryErrorAcknowledge;
 import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter;
@@ -79,7 +78,6 @@ public class RctCessBatteryInverterImplTest {
 	private static ComponentTest prepareTest(RctCessBatteryInverterImpl sut, DummyBms bms,
 			RctCessDcChargerImpl... chargers) throws Exception {
 		var test = new ComponentTest(sut) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("componentManager", new DummyComponentManager()) //
 				.addReference("setModbus", new DummyModbusBridge("modbus0")) //
 				.addReference("bms", bms);

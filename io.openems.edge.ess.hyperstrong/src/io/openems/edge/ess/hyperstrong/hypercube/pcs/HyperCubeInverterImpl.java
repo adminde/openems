@@ -1,5 +1,6 @@
 package io.openems.edge.ess.hyperstrong.hypercube.pcs;
 
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_MINUS_3;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.chain;
@@ -13,7 +14,6 @@ import static io.openems.edge.ess.power.api.Relationship.LESS_OR_EQUALS;
 
 import java.util.ArrayList;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -72,6 +72,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 @EventTopics({
 	EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
 })
+@GenerateTargetsFromReferences("Modbus")
 public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implements
 		HyperCubeInverter, PowerConversionSystem, ManagedSymmetricBatteryInverter, SymmetricBatteryInverter,
 		SymmetricComponent, OpenemsComponent, ModbusComponent, ModbusSlave,
@@ -82,14 +83,12 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 	private final CalculateEnergyFromPower calculateDischargeEnergy = new CalculateEnergyFromPower(this,
 			SymmetricEss.ChannelId.ACTIVE_DISCHARGE_ENERGY);
 
-	@Reference
-	private ConfigurationAdmin cm;
-
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
 	private volatile Timedata timedata;
 
 	@Override
-	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
+	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY, //
+			target = "(&(id=${config.modbus_id})(enabled=true))")
 	protected void setModbus(BridgeModbus modbus) {
 		super.setModbus(modbus);
 	}
@@ -108,10 +107,7 @@ public class HyperCubeInverterImpl extends AbstractOpenemsModbusComponent implem
 
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
-		if (super.activate(context, config.id(), config.alias(), config.enabled(),
-				config.modbusUnitId(), this.cm, "Modbus", config.modbus_id())) {
-			return;
-		}
+		super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId());
 		this._setMaxActivePower(
 				HyperCubeInverter.MAX_ACTIVE_POWER);
 		this._setMaxReactivePower((int) Math.floor(

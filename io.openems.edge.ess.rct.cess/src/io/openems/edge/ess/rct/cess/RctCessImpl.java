@@ -1,6 +1,7 @@
 package io.openems.edge.ess.rct.cess;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_2;
 import static io.openems.edge.ess.rct.cess.statemachine.StateMachine.State.UNDEFINED;
 import static org.osgi.service.component.annotations.ReferenceCardinality.MANDATORY;
@@ -9,7 +10,6 @@ import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
 import static org.osgi.service.component.annotations.ReferencePolicy.STATIC;
 import static org.osgi.service.component.annotations.ReferencePolicyOption.GREEDY;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -72,6 +72,7 @@ import io.openems.edge.timedata.api.TimedataProvider;
 @EventTopics({
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE,
 })
+@GenerateTargetsFromReferences({ "Modbus", "pcs", "bms" })
 public class RctCessImpl extends AbstractModbusEss implements RctCess,
 		EnergyStorageSystem, HybridEss, ManagedSymmetricEss, SymmetricEss, SymmetricComponent, 
 		EnergyStorageProtection, EssErrorAcknowledge, OpenemsComponent, ModbusComponent, ModbusSlave, RuntimeComponent,
@@ -89,22 +90,22 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 	private Power power;
 
 	@Reference
-	private ConfigurationAdmin cm;
-
-	@Reference
 	private ComponentManager componentManager;
 
 	@Reference(policy = DYNAMIC, policyOption = GREEDY, cardinality = OPTIONAL)
 	private volatile Timedata timedata = null;
 
-	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY)
+	@Reference(name = "pcs", policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY, //
+			target = "(&(id=${config.pcs_id})(enabled=true))")
 	private volatile RctCessBatteryInverter batteryInverter;
 
-	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY)
+	@Reference(name = "bms", policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY, //
+			target = "(&(id=${config.bms_id})(enabled=true))")
 	private volatile RctCessBattery battery;
 
 	@Override
-	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY)
+	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY, //
+			target = "(&(id=${config.modbus_id})(enabled=true))")
 	protected void setModbus(BridgeModbus modbus) {
 		super.setModbus(modbus);
 	}
@@ -128,10 +129,7 @@ public class RctCessImpl extends AbstractModbusEss implements RctCess,
 
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
-		if (super.activate(context, config.id(), config.alias(), config.enabled(), this.cm, 1,
-				config.modbus_id(), config.pcs_id(), config.bms_id(), config.startStop(), false)) {
-			return;
-		}
+		super.activate(context, config.id(), config.alias(), config.enabled(), 1, config.startStop(), false);
 		this.config = config;
 
 		this.channelManager.setPowerLimiter(
