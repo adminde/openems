@@ -34,7 +34,7 @@ import io.openems.common.types.ChannelAddress;
 import io.openems.common.utils.JsonUtils;
 
 /**
- * Represents a JSON-RPC Response for 'queryHistoricTimeseriesExportXlxs'.
+ * Represents a JSON-RPC Response for 'queryHistoricTimeseriesExportXlsx'.
  *
  * <pre>
  * {
