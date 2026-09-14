@@ -265,6 +265,12 @@ public class JSCalendar<PAYLOAD> {
 
 					} else { // END is exclusive
 						this.oneTasks.removeFirst(); // Remove outdated OneTasks
+						if (!this.oneTasks.isEmpty() && now.isBefore(this.oneTasks.getFirst().start)) {
+							// All remaining entries start in the future. They cannot be trusted: the
+							// expired entry may have been truncated to the query horizon and far-future
+							// entries would hide occurrences in between. Clear to force a refill.
+							this.oneTasks.clear();
+						}
 						result = this.getActiveOneTask();
 					}
 				}
