@@ -29,7 +29,6 @@ import io.openems.common.channel.AccessMode;
 	String bridge_id() default "bridge0";
 
 	@AttributeDefinition(name = "Bridge-Target")
-	String Bridge_target();
 
 	String webconsole_configurationFactory_nameHint() default "Edge-2-Edge PV-Inverter Websocket [{id}]";
 
