@@ -140,9 +140,9 @@
                 }
               </ion-select>
             </ion-item>
-            <ion-item id="theme-switcher" lines="none">
+            <ion-item id="theme-switcher" lines="none" class="page-content">
               <ion-select #themeSelect (ionChange)="setTheme(themeSelect.value)" [value]="userTheme" interface="popover" [interfaceOptions]="{ cssClass: 'custom-ion-popover' }" label-placement="fixed" [label]="'ABOUT.THEME' | translate">
-                @for (theme of themes; track theme.value) {
+                @for (theme of themes; track theme) {
                   <ion-select-option [value]="theme.value">
                     {{ theme.key }}
                   </ion-select-option>
