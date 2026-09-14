@@ -72,7 +72,7 @@ export class ScheduleGridSellChartComponent extends AbstractHistoryChart impleme
                     name: this.translate.instant("GENERAL.GRID_SELL"),
                     converter: () => data["gridSell"] ?? [],
                     yAxisId: ChartAxis.RIGHT,
-                    color: ChartConstants.Colors.PURPLE,
+                    color: ChartConstants.Colors.GRID_SELL,
                     stepped: false,
                     stack: 0,
                     order: 1,

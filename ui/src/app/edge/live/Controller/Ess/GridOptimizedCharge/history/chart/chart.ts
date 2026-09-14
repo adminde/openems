@@ -43,7 +43,7 @@ export class GridOptimizedChargeChartComponent extends AbstractHistoryChart {
                 {
                     name: translate.instant("EDGE.INDEX.WIDGETS.GRID_OPTIMIZED_CHARGE.MAXIMUM_CHARGE"),
                     converter: () => data["DelayChargeMaximumChargeLimit"],
-                    color: ChartConstants.Colors.YELLOW,
+                    color: ChartConstants.Colors.LIMIT,
                     borderDash: [3, 3],
                 },
                 {
@@ -61,7 +61,7 @@ export class GridOptimizedChargeChartComponent extends AbstractHistoryChart {
                               })
                             : data["EssActivePower"]
                         )?.map((val) => HistoryUtils.ValueConverter.POSITIVE_AS_ZERO_AND_INVERT_NEGATIVE(val)) ?? null,
-                    color: ChartConstants.Colors.GREEN,
+                    color: ChartConstants.Colors.STORAGE_CHARGE,
                 },
                 {
                     name: translate.instant("GENERAL.SOC"),

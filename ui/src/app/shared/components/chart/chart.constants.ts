@@ -490,56 +490,60 @@ export namespace ChartConstants {
         };
     }
 
-    export namespace Colors {
-        export const LEGEND_LABEL_BG_OPACITY: number = 0.2;
-        export const BLUE: string = new RGBColor(54, 174, 209).toString();
-        export const RED: string = new RGBColor(255, 98, 63).toString();
-        export const GREEN: string = new RGBColor(14, 190, 84).toString();
-        export const ORANGE: string = new RGBColor(234, 147, 45).toString();
-        export const PURPLE: string = new RGBColor(91, 92, 214).toString();
-        export const YELLOW: string = new RGBColor(255, 206, 0).toString();
-        export const TURQUOISE: string = new RGBColor(0, 204, 204).toString();
-        export const DARK_GREY: string = new RGBColor(169, 169, 169).toString();
-        export const BLUE_GREY: string = new RGBColor(77, 106, 130).toString();
-        export const GREY: string = new RGBColor(189, 189, 189).toString();
-        export const LIGHT_GREY: string = new RGBColor(160, 160, 160).toString();
-        export const BLACK: string = new RGBColor(0, 0, 0).toString();
-        export const LIGHT_SKY_BLUE: string = "rgb(18, 184, 224)";
+    export class Colors {
 
-        export const SHADES_OF_GREEN: string[] = [
-            GREEN,
-            "rgb(11,152,67)",
-            "rgb(8,114,50)",
-            "rgb(6,76,34)",
-            "rgb(3,38,17)",
-        ];
-        export const SHADES_OF_GREY: string[] = ["rgb(215,211,211)", "rgb(168,169,173)", "rgb(125,125,125)"];
-        export const SHADES_OF_RED: string[] = [
-            RED,
-            "rgb(204,78,50)",
-            "rgb(153,59,38)",
-            "rgb(102,39,25)",
-            "rgb(51,20,13)",
-        ];
-        export const SHADES_OF_YELLOW: string[] = [
-            YELLOW,
-            "rgb(204,165,0)",
-            "rgb(153,124,0)",
-            "rgb(102,82,0)",
-            "rgb(255,221,77)",
-        ];
+        public static readonly LEGEND_LABEL_BG_OPACITY: number = 0.2;
 
-        export const DEFAULT_PHASES_COLORS: string[] = ["rgb(255,127,80)", "rgb(91, 92, 214)", "rgb(128,128,0)"];
+        public static readonly BLUE: string = new RGBColor(54, 174, 209).toString();
+        public static readonly RED: string = new RGBColor(255, 98, 63).toString();
+        public static readonly GREEN: string = new RGBColor(14, 190, 84).toString();
+        public static readonly ORANGE: string = new RGBColor(234, 147, 45).toString();
+        public static readonly YELLOW: string = new RGBColor(255, 206, 0).toString();
+        public static readonly BLUE_GREY: string = new RGBColor(77, 106, 130).toString();
+        public static readonly DARK_GREY: string = new RGBColor(169, 169, 169).toString();
+        public static readonly GREY: string = new RGBColor(189, 189, 189).toString();
+        public static readonly LIGHT_GREY: string = new RGBColor(160, 160, 160).toString();
+        public static readonly BLACK: string = new RGBColor(0, 0, 0).toString();
+        public static readonly LIGHT_SKY_BLUE: string = "rgb(18, 184, 224)";
 
-        export const ESS_MODE_DELAY_DISCHARGE: string = "rgb(168, 50, 71)";
-        export const ESS_MODE_BALANCING: string = LIGHT_SKY_BLUE;
-        export const ESS_MODE_CHARGE_GRID: string = "rgb(0, 107, 82)";
-        export const ESS_MODE_PEAK_SHAVING: string = "rgb(233, 120, 47)";
-        export const ESS_MODE_DELAY_CHARGE: string = "rgb(73, 194, 168)";
-        export const ESS_MODE_LIMIT_CHARGE: string = "rgb(0, 153, 120)";
-        export const ESS_MODE_AVOID_FEED_IN_LIMIT: string = "rgb(107, 77, 255)";
-        export const ESS_MODE_DISCHARGE_CONSUMPTION: string = "rgb(230, 69, 107)";
-        export const ESS_MODE_DISCHARGE_GRID: string = RED;
+        /**
+         * Fixed state colors of the ESS scheduler.
+         *
+         * These encode discrete operating modes rather than a themeable component,
+         * so they stay literal instead of resolving to a CSS custom property.
+         */
+        public static readonly ESS_MODE_DELAY_DISCHARGE: string = "rgb(168, 50, 71)";
+        public static readonly ESS_MODE_BALANCING: string = Colors.LIGHT_SKY_BLUE;
+        public static readonly ESS_MODE_CHARGE_GRID: string = "rgb(0, 107, 82)";
+        public static readonly ESS_MODE_PEAK_SHAVING: string = "rgb(233, 120, 47)";
+        public static readonly ESS_MODE_DELAY_CHARGE: string = "rgb(73, 194, 168)";
+        public static readonly ESS_MODE_LIMIT_CHARGE: string = "rgb(0, 153, 120)";
+        public static readonly ESS_MODE_AVOID_FEED_IN_LIMIT: string = "rgb(107, 77, 255)";
+        public static readonly ESS_MODE_DISCHARGE_CONSUMPTION: string = "rgb(230, 69, 107)";
+        public static readonly ESS_MODE_DISCHARGE_GRID: string = Colors.RED;
+
+        public static get CONSUMPTION(): string { return cssRgb("--ion-color-consumption-rgb"); }
+        public static get PRODUCTION(): string { return cssRgb("--ion-color-production-rgb"); }
+        public static get STORAGE(): string { return cssRgb("--ion-color-storage-rgb"); }
+        public static get STORAGE_CHARGE(): string { return cssRgb("--ion-color-storage-charge-rgb"); }
+        public static get STORAGE_DISCHARGE(): string { return cssRgb("--ion-color-storage-discharge-rgb"); }
+        public static get EV_CHARGE(): string { return cssRgb("--ion-color-ev-charge-rgb"); }
+        public static get GRID_BUY(): string { return cssRgb("--ion-color-grid-buy-rgb"); }
+        public static get GRID_SELL(): string { return cssRgb("--ion-color-grid-sell-rgb"); }
+        public static get PHASE_L1(): string { return cssRgb("--ion-color-phase-l1-rgb"); }
+        public static get PHASE_L2(): string { return cssRgb("--ion-color-phase-l2-rgb"); }
+        public static get PHASE_L3(): string { return cssRgb("--ion-color-phase-l3-rgb"); }
+        public static get LIMIT(): string { return cssRgb("--ion-color-limit-rgb"); }
+        public static get HEAT(): string { return cssRgb("--ion-color-heat-rgb"); }
+
+        public static get SHADES_OF_EV_CHARGE(): string[] { return shadesOf(Colors.EV_CHARGE, 5); }
+        public static get SHADES_OF_HEAT(): string[] { return shadesOf(Colors.HEAT, 5); }
+        public static get SHADES_OF_CONSUMPTION(): string[] { return shadesOf(Colors.CONSUMPTION, 5); }
+        public static get SHADES_OF_PRODUCTION(): string[] { return shadesOf(Colors.PRODUCTION, 5); }
+
+        public static get DEFAULT_PHASES_COLORS(): string[] {
+            return [Colors.PHASE_L1, Colors.PHASE_L2, Colors.PHASE_L3];
+        }
     }
 
     export class NumberFormat {
@@ -694,6 +698,89 @@ export namespace ChartConstants {
                 { min: null, max: null, stepSize: null },
             ) ?? null
         );
+    }
+
+    /**
+     * Resolves a CSS custom property of form "R, G, B" to an "rgb(R,G,B)" string.
+     * Falls back to black when the variable is undefined so downstream
+     * RGBColor.fromString does not crash.
+     */
+    const cssRgb = (name: string): string => {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return v ? `rgb(${v})` : "rgb(0,0,0)";
+    };
+
+    /**
+     * Generates `count` rgb-string shades around a base rgb-string by varying
+     * the HSL lightness symmetrically. Used so multi-series datasets sharing a
+     * semantic color remain visually distinguishable while staying theme-driven.
+     */
+    const shadesOf = (baseRgb: string, count: number): string[] => {
+        const m = baseRgb.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+        if (!m) {
+            return Array(count).fill(baseRgb);
+        }
+        const [, rs, gs, bs] = m;
+        const [h, s, lBase] = rgbToHsl(Number(rs), Number(gs), Number(bs));
+        const step = 0.12;
+        const result: string[] = [];
+        for (let i = 0; i < count; i++) {
+            const offset = (i - Math.floor(count / 2)) * step;
+            const l = Math.min(0.9, Math.max(0.1, lBase + offset));
+            const [r, g, b] = hslToRgb(h, s, l);
+            result.push(`rgb(${r},${g},${b})`);
+        }
+        return result;
+    };
+
+    function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+        const rn = r / 255, gn = g / 255, bn = b / 255;
+        const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+        const l = (max + min) / 2;
+        let h = 0, s = 0;
+        if (max !== min) {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case rn: h = (gn - bn) / d + (gn < bn ? 6 : 0); break;
+                case gn: h = (bn - rn) / d + 2; break;
+                default: h = (rn - gn) / d + 4; break;
+            }
+            h /= 6;
+        }
+        return [h, s, l];
+    }
+
+    function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+        if (s === 0) {
+            const v = Math.round(l * 255);
+            return [v, v, v];
+        }
+        const hue2rgb = (p: number, q: number, t: number) => {
+            if (t < 0) {
+                t += 1;
+            }
+            if (t > 1) {
+                t -= 1;
+            }
+            if (t < 1 / 6) {
+                return p + (q - p) * 6 * t;
+            }
+            if (t < 1 / 2) {
+                return q;
+            }
+            if (t < 2 / 3) {
+                return p + (q - p) * (2 / 3 - t) * 6;
+            }
+            return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        return [
+            Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
+            Math.round(hue2rgb(p, q, h) * 255),
+            Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+        ];
     }
 
     /**

@@ -69,7 +69,7 @@ export class ChartComponent extends AbstractHistoryChart {
                     <HistoryUtils.DisplayValue<HistoryUtils.DataLabelsCustomOptions>>{
                         name: Name.METER_ALIAS_OR_ID(component),
                         converter: () => data,
-                        color: ChartConstants.Colors.GREEN,
+                        color: ChartConstants.Colors.EV_CHARGE,
                         custom: {
                             pluginType: "datalabels",
                             datalabels: {

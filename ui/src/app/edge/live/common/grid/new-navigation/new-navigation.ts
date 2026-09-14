@@ -158,13 +158,13 @@ export const GRID_BUY_OR_SELL =
             if (value > 0) {
                 return displayText(
                     Converter.POWER_IN_KILO_WATT(value),
-                    ChartConstants.Colors.BLUE_GREY,
+                    ChartConstants.Colors.GRID_BUY,
                     translate.instant("GENERAL.GRID_BUY_ADVANCED"),
                 );
             } else if (value < 0) {
                 return displayText(
                     Converter.POWER_IN_KILO_WATT(Math.abs(value)),
-                    ChartConstants.Colors.PURPLE,
+                    ChartConstants.Colors.GRID_SELL,
                     translate.instant("GENERAL.GRID_SELL_ADVANCED"),
                 );
             } else {

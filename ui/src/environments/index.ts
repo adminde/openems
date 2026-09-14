@@ -13,6 +13,11 @@ export interface Environment {
     readonly uiTitleShort: string;
     readonly edgeShortName: string;
     readonly edgeLongName: string;
+    readonly headerLogo?: string;
+    readonly headerTitleShow?: boolean;
+    readonly headerTitleHtml?: string;
+    readonly footerTextHtml?: string;
+    readonly enableFena?: boolean;
 
     readonly url: string;
     readonly backend: DefaultTypes.Backend;

@@ -42,7 +42,7 @@ export class StorageSectionComponent extends AbstractSection implements OnInit, 
         super(
             "EDGE.INDEX.ENERGYMONITOR.STORAGE",
             "down",
-            "var(--ion-color-success)",
+            "var(--ion-color-storage)",
             translate,
             service,
             navigationService,

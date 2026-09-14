@@ -168,7 +168,7 @@ export class ChartComponent extends AbstractHistoryChart {
                     {
                         name: this.translate.instant("GENERAL.GRID_BUY_ADVANCED"),
                         converter: () => data["GridBuy"],
-                        color: ChartConstants.Colors.BLUE_GREY,
+                        color: ChartConstants.Colors.GRID_BUY,
                         yAxisId: ChartAxis.RIGHT_2,
                         custom: {
                             type: "line",

@@ -39,7 +39,7 @@ export class ConsumptionMeterChartDetailsComponent extends AbstractHistoryChart 
                     nameSuffix: (energyQueryResponse: QueryHistoricTimeseriesEnergyResponse) =>
                         energyQueryResponse.result.data[component.id + "/ActiveProductionEnergy"],
                     converter: () => data[component.id],
-                    color: ChartConstants.Colors.RED,
+                    color: ChartConstants.Colors.CONSUMPTION,
                     hiddenOnInit: false,
                     stack: 2,
                 },

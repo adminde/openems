@@ -233,21 +233,21 @@ export namespace Controller_Ess_TimeOfUseTariffUtils {
             yAxisID: ChartAxis.RIGHT_2,
             order: 2,
             backgroundColor: ColorUtils.rgbStringToRgba(
-                ChartConstants.Colors.BLUE_GREY,
+                ChartConstants.Colors.GRID_BUY,
                 ChartConstants.Colors.LEGEND_LABEL_BG_OPACITY,
             ),
             borderColor: ColorUtils.rgbStringToRgba(
-                ChartConstants.Colors.BLUE_GREY,
+                ChartConstants.Colors.GRID_BUY,
                 1,
             ),
         });
         colors.push({
             backgroundColor: ColorUtils.rgbStringToRgba(
-                ChartConstants.Colors.BLUE_GREY,
+                ChartConstants.Colors.GRID_BUY,
                 ChartConstants.Colors.LEGEND_LABEL_BG_OPACITY,
             ),
             borderColor: ColorUtils.rgbStringToRgba(
-                ChartConstants.Colors.BLUE_GREY,
+                ChartConstants.Colors.GRID_BUY,
                 1,
             ),
         });

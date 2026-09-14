@@ -31,14 +31,14 @@ export class UserService {
             const user = this.currentUser();
 
             if (user != null) {
-                this.showThemeSelection(user);
+                this.initializeTheme(user);
                 this.isNewNavigation.set(NavigationService.isNewNavigation(user, this.service.currentEdge()?.getConfigSignal()()));
             }
         });
     }
 
     public static get DEFAULT_THEME(): UserTheme {
-        return UserTheme.LIGHT;
+        return UserTheme.SYSTEM;
     }
 
     /**
@@ -57,15 +57,21 @@ export class UserService {
         this.finalizeThemeSelection(theme);
     }
 
+    /**
+     * Resolves a theme preference to the theme the browser should render.
+     *
+     * @param userTheme the stored theme preference, may be null
+     * @returns either light or dark, never system
+     */
     public getValidBrowserTheme(userTheme: UserTheme | null): UserTheme {
 
-        const theme = userTheme === UserTheme.SYSTEM
+        const theme = userTheme ?? UserService.DEFAULT_THEME;
+
+        return theme === UserTheme.SYSTEM
             ? window.matchMedia("(prefers-color-scheme: dark)").matches
                 ? UserTheme.DARK
                 : UserTheme.LIGHT
-            : userTheme;
-
-        return theme ?? UserService.DEFAULT_THEME;
+            : theme;
     }
 
     /**
@@ -87,19 +93,34 @@ export class UserService {
     }
 
     /**
-     * Shows the theme selection popover, only for new customers
+     * Shows the theme selection popover and applies the selected theme.
      *
-     * @returns
+     * @param currentTheme the theme to preselect
+     * @returns the selected theme, or null if the popover was dismissed without saving
      */
-    private showThemeSelection(user: User): void {
-        const theme: UserTheme | null = this.getTheme(user);
+    public async showThemeSelectionModal(currentTheme: UserTheme): Promise<UserTheme | null> {
+        const modal = await this.modalCtrl.create({
+            component: ThemePopoverComponent,
+            componentProps: { userTheme: currentTheme },
+        });
+        await modal.present();
 
-        if (theme != null) {
-            this.updateTheme(theme);
-            return;
+        const { data } = await modal.onDidDismiss();
+        if (data?.selectedTheme == null) {
+            return null;
         }
 
-        this.showModal();
+        this.selectTheme(data.selectedTheme);
+        return data.selectedTheme;
+    }
+
+    /**
+     * Applies the stored theme of the user, falling back to the default theme.
+     *
+     * @param user the current user
+     */
+    private initializeTheme(user: User): void {
+        this.updateTheme(this.getTheme(user));
     }
 
     /**
@@ -122,38 +143,16 @@ export class UserService {
      * @param userTheme the new user theme
      */
     private updateTheme(userTheme: UserTheme | null): void {
-        const validTheme = this.getValidBrowserTheme(userTheme);
-        let attr: Exclude<`${UserTheme}`, UserTheme.SYSTEM> = validTheme;
-
-        if (validTheme === UserTheme.SYSTEM) {
-            attr = window.matchMedia("(prefers-color-scheme: dark)").matches ? UserTheme.DARK : UserTheme.LIGHT;
-        }
+        // Store the raw preference so a system preference keeps following the OS setting
+        const theme = userTheme ?? UserService.DEFAULT_THEME;
+        const attr = this.getValidBrowserTheme(theme);
 
         // Provide color to set before angular app inits
         const backgroundColor = getComputedStyle(document.documentElement).getPropertyValue("--ion-background-color");
         localStorage.setItem("THEME_COLOR", backgroundColor);
-        localStorage.setItem("THEME", validTheme);
+        localStorage.setItem("THEME", theme);
 
         document.documentElement.setAttribute("data-theme", attr);
-    }
-
-    /**
-     * Shows the theme selection popover
-    *
-    * @param currentTheme current theme
-    */
-    private async showModal(): Promise<void> {
-
-        const modal = await this.modalCtrl.create({
-            component: ThemePopoverComponent,
-        });
-
-        await modal.present();
-
-        const { data } = await modal.onDidDismiss();
-
-        const selectedTheme = data?.selectedTheme ?? UserService.DEFAULT_THEME;
-        this.finalizeThemeSelection(selectedTheme);
     }
 
     /**

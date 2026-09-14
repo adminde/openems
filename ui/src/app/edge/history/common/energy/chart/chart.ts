@@ -119,7 +119,7 @@ export class ChartComponent extends AbstractHistoryChart {
                         nameSuffix: (energyValues: QueryHistoricTimeseriesEnergyResponse) =>
                             energyValues.result.data["_sum/ProductionActiveEnergy"],
                         converter: () => data["ProductionActivePower"],
-                        color: ChartConstants.Colors.BLUE,
+                        color: ChartConstants.Colors.PRODUCTION,
                         stack: 0,
                         hiddenOnInit: chartType == "line" ? false : true,
                         order: 1,
@@ -142,7 +142,7 @@ export class ChartComponent extends AbstractHistoryChart {
                                         Utils.subtractSafely(value, data["GridSell"][index], data["EssCharge"][index]),
                                     )
                                     ?.map((value) => HistoryUtils.ValueConverter.NEGATIVE_AS_ZERO(value)),
-                            color: ChartConstants.Colors.ORANGE,
+                            color: ChartConstants.Colors.HEAT,
                             stack: [1, 2],
                             order: 2,
                         },
@@ -161,7 +161,7 @@ export class ChartComponent extends AbstractHistoryChart {
                                       );
                                   })
                                 : data["EssCharge"],
-                        color: ChartConstants.Colors.GREEN,
+                        color: ChartConstants.Colors.STORAGE_CHARGE,
                         stack: 1,
                         ...(chartType === "line" && { order: 6 }),
                     },
@@ -180,7 +180,7 @@ export class ChartComponent extends AbstractHistoryChart {
                                   })
                                 : data["EssDischarge"];
                         },
-                        color: ChartConstants.Colors.RED,
+                        color: ChartConstants.Colors.STORAGE_DISCHARGE,
                         stack: 2,
                         ...(chartType === "line" && { order: 5 }),
                     },
@@ -191,7 +191,7 @@ export class ChartComponent extends AbstractHistoryChart {
                         nameSuffix: (energyValues: QueryHistoricTimeseriesEnergyResponse) =>
                             energyValues.result.data["_sum/GridSellActiveEnergy"],
                         converter: () => data["GridSell"],
-                        color: ChartConstants.Colors.PURPLE,
+                        color: ChartConstants.Colors.GRID_SELL,
                         stack: 1,
                         ...(chartType === "line" && { order: 4 }),
                     },
@@ -202,7 +202,7 @@ export class ChartComponent extends AbstractHistoryChart {
                         nameSuffix: (energyValues: QueryHistoricTimeseriesEnergyResponse) =>
                             energyValues.result.data["_sum/GridBuyActiveEnergy"],
                         converter: () => data["GridBuy"],
-                        color: ChartConstants.Colors.BLUE_GREY,
+                        color: ChartConstants.Colors.GRID_BUY,
                         stack: 2,
                         ...(chartType === "line" && { order: 2 }),
                     },
@@ -213,7 +213,7 @@ export class ChartComponent extends AbstractHistoryChart {
                         nameSuffix: (energyValues: QueryHistoricTimeseriesEnergyResponse) =>
                             energyValues.result.data["_sum/ConsumptionActiveEnergy"],
                         converter: () => data["Consumption"],
-                        color: ChartConstants.Colors.YELLOW,
+                        color: ChartConstants.Colors.CONSUMPTION,
                         stack: 3,
                         hiddenOnInit: chartType == "line" ? false : true,
                         ...(chartType === "line" && { order: 0 }),

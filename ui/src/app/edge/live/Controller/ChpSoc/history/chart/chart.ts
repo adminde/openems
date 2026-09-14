@@ -62,7 +62,7 @@ export class ControllerChpChartComponent extends AbstractHistoryChart {
                                 const value = NumberUtils.multiplySafely(val, 1000);
                                 return value ?? null;
                             }),
-                        color: ChartConstants.Colors.BLUE,
+                        color: ChartConstants.Colors.SHADES_OF_CONSUMPTION[0],
                         stack: 0,
                     });
                 }
@@ -78,7 +78,7 @@ export class ControllerChpChartComponent extends AbstractHistoryChart {
                                 const value = NumberUtils.multiplySafely(val, 1000);
                                 return value ?? null;
                             }),
-                        color: ChartConstants.Colors.YELLOW,
+                        color: ChartConstants.Colors.SHADES_OF_CONSUMPTION[0],
                     });
                 }
                 return output;

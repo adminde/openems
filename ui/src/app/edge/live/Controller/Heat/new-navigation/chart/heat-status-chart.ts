@@ -55,7 +55,7 @@ export class HeatStatusChartComponent extends ScheduleChartComponent {
         });
 
         return this.createDatasetPair(
-            ChartConstants.Colors.LIGHT_SKY_BLUE,
+            ChartConstants.Colors.HEAT,
             this.translate.instant("EDGE.INDEX.WIDGETS.HEAT.HEATING"),
             data.map((d) => d.history.isHeating),
             data.map((d) => d.prediction.isHeating),

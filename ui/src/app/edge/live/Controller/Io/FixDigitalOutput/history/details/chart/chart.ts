@@ -88,7 +88,7 @@ export class ChartComponent extends AbstractHistoryChart {
                                 ?.map((val) => NumberUtils.multiplySafely(val, 1000))
                         );
                     },
-                    color: ChartConstants.Colors.YELLOW,
+                    color: ChartConstants.Colors.SHADES_OF_CONSUMPTION[0],
                     stack: 0,
                 });
 

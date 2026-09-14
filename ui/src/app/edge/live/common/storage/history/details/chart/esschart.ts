@@ -105,13 +105,13 @@ export class StorageEssChartComponent extends AbstractHistoryChart {
                             chartType,
                         ),
                         stack: 0,
-                        color: ChartConstants.Colors.GREEN,
+                        color: ChartConstants.Colors.STORAGE_CHARGE,
                     },
                     {
                         name: translate.instant("GENERAL.DISCHARGE"),
                         ...StorageEssChartComponent.getDischargeDisplayValues(essComponent.id, data, isHybridEss),
                         stack: 1,
-                        color: ChartConstants.Colors.RED,
+                        color: ChartConstants.Colors.STORAGE_DISCHARGE,
                     },
                 ];
 

@@ -123,8 +123,8 @@ export class SchedulePowerChartComponent extends AbstractHistoryChart implements
                     order: 1,
                 });
                 this.colors.push({
-                    backgroundColor: ColorUtils.rgbStringToRgba(ChartConstants.Colors.BLUE_GREY, 0.2),
-                    borderColor: ChartConstants.Colors.BLUE_GREY,
+                    backgroundColor: ColorUtils.rgbStringToRgba(ChartConstants.Colors.GRID_BUY, 0.2),
+                    borderColor: ChartConstants.Colors.GRID_BUY,
                 });
 
                 datasets.push({
@@ -135,8 +135,8 @@ export class SchedulePowerChartComponent extends AbstractHistoryChart implements
                     order: 1,
                 });
                 this.colors.push({
-                    backgroundColor: ColorUtils.rgbStringToRgba(ChartConstants.Colors.PURPLE, 0.2),
-                    borderColor: ChartConstants.Colors.PURPLE,
+                    backgroundColor: ColorUtils.rgbStringToRgba(ChartConstants.Colors.GRID_SELL, 0.2),
+                    borderColor: ChartConstants.Colors.GRID_SELL,
                 });
 
                 datasets.push({
@@ -147,8 +147,8 @@ export class SchedulePowerChartComponent extends AbstractHistoryChart implements
                     order: 1,
                 });
                 this.colors.push({
-                    backgroundColor: ColorUtils.rgbStringToRgba(ChartConstants.Colors.BLUE, 0.2),
-                    borderColor: ChartConstants.Colors.BLUE,
+                    backgroundColor: ColorUtils.rgbStringToRgba(ChartConstants.Colors.PRODUCTION, 0.2),
+                    borderColor: ChartConstants.Colors.PRODUCTION,
                 });
 
                 datasets.push({
@@ -159,8 +159,8 @@ export class SchedulePowerChartComponent extends AbstractHistoryChart implements
                     order: 1,
                 });
                 this.colors.push({
-                    backgroundColor: ColorUtils.rgbStringToRgba(ChartConstants.Colors.YELLOW, 0.2),
-                    borderColor: ChartConstants.Colors.YELLOW,
+                    backgroundColor: ColorUtils.rgbStringToRgba(ChartConstants.Colors.CONSUMPTION, 0.2),
+                    borderColor: ChartConstants.Colors.CONSUMPTION,
                 });
                 datasets.push({
                     type: "line",

@@ -32,11 +32,11 @@ export class ProductionChartComponent extends ScheduleChartComponent {
 
         return [
             {
-                color: ChartConstants.Colors.BLUE,
+                color: ChartConstants.Colors.PRODUCTION,
                 data: data.history,
             },
             {
-                color: ChartConstants.Colors.BLUE,
+                color: ChartConstants.Colors.PRODUCTION,
                 data: data.prediction,
                 borderDash: ScheduleChartComponent.BORDER_DASHED,
                 opacity: ScheduleChartComponent.OPACITY_TRANSPARENT,

@@ -82,7 +82,7 @@ export class CommonProductionSumChartDetailsComponent extends AbstractHistoryCha
                     nameSuffix: (energyQueryResponse: QueryHistoricTimeseriesEnergyResponse) =>
                         energyQueryResponse.result.data["_sum/ProductionActiveEnergy"],
                     converter: () => data[component.id],
-                    color: ChartConstants.Colors.BLUE,
+                    color: ChartConstants.Colors.PRODUCTION,
                     hiddenOnInit: false,
                     stack: 2,
                 },

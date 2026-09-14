@@ -142,7 +142,7 @@ export class StorageTotalChartComponent extends AbstractHistoryChart {
                                 : data["_sum/Charge"],
                         nameSuffix: (energyResponse: QueryHistoricTimeseriesEnergyResponse) =>
                             energyResponse.result.data["_sum/EssDcChargeEnergy"],
-                        color: ChartConstants.Colors.GREEN,
+                        color: ChartConstants.Colors.STORAGE_CHARGE,
                         stack: 0,
                     },
                     {
@@ -153,7 +153,7 @@ export class StorageTotalChartComponent extends AbstractHistoryChart {
                                 : data["_sum/Discharge"],
                         nameSuffix: (energyResponse: QueryHistoricTimeseriesEnergyResponse) =>
                             energyResponse.result.data["_sum/EssDcDischargeEnergy"],
-                        color: ChartConstants.Colors.RED,
+                        color: ChartConstants.Colors.STORAGE_DISCHARGE,
                         stack: 1,
                     },
                 ];

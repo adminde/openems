@@ -70,12 +70,12 @@
                                 "src/assets",
                                 {
                                     "glob": "**/*",
-                                    "input": "src/themes/openems/root",
+                                    "input": "src/themes/oros/root",
                                     "output": ""
                                 },
                                 {
                                     "glob": "**/*",
-                                    "input": "src/themes/openems/assets",
+                                    "input": "src/themes/oros/assets",
                                     "output": "./assets"
                                 },
                                 {
@@ -91,11 +91,11 @@
                             ],
                             "stylePreprocessorOptions": {
                                 "includePaths": [
-                                    "src/themes/openems/scss"
+                                    "src/themes/oros/scss"
                                 ]
                             },
                             "styles": [
-                                "src/themes/openems/scss/variables.scss",
+                                "src/themes/oros/scss/variables.scss",
                                 "src/global.scss",
                                 "src/global-ion-custom.scss"
                             ]
@@ -104,15 +104,15 @@
                             "fileReplacements": [
                                 {
                                     "replace": "src/environments/theme.ts",
-                                    "with": "src/themes/openems/environments/theme.ts"
+                                    "with": "src/themes/oros/environments/theme.ts"
                                 },
                                 {
                                     "replace": "src/environments/dummy.ts",
-                                    "with": "src/themes/openems/environments/backend-dev.ts"
+                                    "with": "src/themes/oros/environments/backend-dev.ts"
                                 },
                                 {
                                     "replace": "src/environments/oem-meta.ts",
-                                    "with": "src/themes/openems/environments/oem-meta.ts"
+                                    "with": "src/themes/oros/environments/oem-meta.ts"
                                 }
                             ]
                         },
@@ -120,15 +120,15 @@
                             "fileReplacements": [
                                 {
                                     "replace": "src/environments/theme.ts",
-                                    "with": "src/themes/openems/environments/theme.ts"
+                                    "with": "src/themes/oros/environments/theme.ts"
                                 },
                                 {
                                     "replace": "src/environments/dummy.ts",
-                                    "with": "src/themes/openems/environments/backend-prod.ts"
+                                    "with": "src/themes/oros/environments/backend-prod.ts"
                                 },
                                 {
                                     "replace": "src/environments/oem-meta.ts",
-                                    "with": "src/themes/openems/environments/oem-meta.ts"
+                                    "with": "src/themes/oros/environments/oem-meta.ts"
                                 }
                             ]
                         },
@@ -136,15 +136,15 @@
                             "fileReplacements": [
                                 {
                                     "replace": "src/environments/theme.ts",
-                                    "with": "src/themes/openems/environments/theme.ts"
+                                    "with": "src/themes/oros/environments/theme.ts"
                                 },
                                 {
                                     "replace": "src/environments/dummy.ts",
-                                    "with": "src/themes/openems/environments/edge-dev.ts"
+                                    "with": "src/themes/oros/environments/edge-dev.ts"
                                 },
                                 {
                                     "replace": "src/environments/oem-meta.ts",
-                                    "with": "src/themes/openems/environments/oem-meta.ts"
+                                    "with": "src/themes/oros/environments/oem-meta.ts"
                                 }
                             ]
                         },
@@ -152,15 +152,15 @@
                             "fileReplacements": [
                                 {
                                     "replace": "src/environments/theme.ts",
-                                    "with": "src/themes/openems/environments/theme.ts"
+                                    "with": "src/themes/oros/environments/theme.ts"
                                 },
                                 {
                                     "replace": "src/environments/dummy.ts",
-                                    "with": "src/themes/openems/environments/edge-prod.ts"
+                                    "with": "src/themes/oros/environments/edge-prod.ts"
                                 },
                                 {
                                     "replace": "src/environments/oem-meta.ts",
-                                    "with": "src/themes/openems/environments/oem-meta.ts"
+                                    "with": "src/themes/oros/environments/oem-meta.ts"
                                 }
                             ]
                         },
@@ -168,15 +168,15 @@
                             "fileReplacements": [
                                 {
                                     "replace": "src/environments/theme.ts",
-                                    "with": "src/themes/openems/environments/theme.ts"
+                                    "with": "src/themes/oros/environments/theme.ts"
                                 },
                                 {
                                     "replace": "src/environments/dummy.ts",
-                                    "with": "src/themes/openems/environments/edge-docker.ts"
+                                    "with": "src/themes/oros/environments/edge-docker.ts"
                                 },
                                 {
                                     "replace": "src/environments/oem-meta.ts",
-                                    "with": "src/themes/openems/environments/oem-meta.ts"
+                                    "with": "src/themes/oros/environments/oem-meta.ts"
                                 }
                             ]
                         },
@@ -184,15 +184,15 @@
                             "fileReplacements": [
                                 {
                                     "replace": "src/environments/theme.ts",
-                                    "with": "src/themes/openems/environments/theme.ts"
+                                    "with": "src/themes/oros/environments/theme.ts"
                                 },
                                 {
                                     "replace": "src/environments/dummy.ts",
-                                    "with": "src/themes/openems/environments/backend-docker.ts"
+                                    "with": "src/themes/oros/environments/backend-docker.ts"
                                 },
                                 {
                                     "replace": "src/environments/oem-meta.ts",
-                                    "with": "src/themes/openems/environments/oem-meta.ts"
+                                    "with": "src/themes/oros/environments/oem-meta.ts"
                                 }
                             ]
                         },
@@ -200,15 +200,15 @@
                             "fileReplacements": [
                                 {
                                     "replace": "src/environments/theme.ts",
-                                    "with": "src/themes/openems/environments/theme.ts"
+                                    "with": "src/themes/oros/environments/theme.ts"
                                 },
                                 {
                                     "replace": "src/environments/dummy.ts",
-                                    "with": "src/themes/openems/environments/gitpod.ts"
+                                    "with": "src/themes/oros/environments/gitpod.ts"
                                 },
                                 {
                                     "replace": "src/environments/oem-meta.ts",
-                                    "with": "src/themes/openems/environments/oem-meta.ts"
+                                    "with": "src/themes/oros/environments/oem-meta.ts"
                                 }
                             ]
                         }
@@ -257,7 +257,7 @@
                         "fileReplacements": [
                             {
                                 "replace": "src/environments/dummy.ts",
-                                "with": "src/themes/openems/environments/karma.ts"
+                                "with": "src/themes/oros/environments/karma.ts"
                             }
                         ]
                     },

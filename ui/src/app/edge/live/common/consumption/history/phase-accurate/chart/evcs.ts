@@ -40,7 +40,7 @@ export class EvcsChartDetailsComponent extends AbstractHistoryChart {
                     nameSuffix: (energyQueryResponse: QueryHistoricTimeseriesEnergyResponse) =>
                         energyQueryResponse.result.data[evcs.energyChannel.toString()],
                     converter: () => data[evcs.id],
-                    color: ChartConstants.Colors.GREEN,
+                    color: ChartConstants.Colors.EV_CHARGE,
                     hiddenOnInit: false,
                     stack: 2,
                 },

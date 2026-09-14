@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-import { AfterViewChecked, ChangeDetectorRef, Component, effect, inject, Input, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy, computed, } from "@angular/core";
+import { AfterViewChecked, ChangeDetectorRef, Component, effect, inject, Input, OnDestroy, OnInit, signal, ViewChild, ChangeDetectionStrategy, computed, } from "@angular/core";
 import { NavigationEnd, Router } from "@angular/router";
 import { MenuController, ModalController, NavController } from "@ionic/angular";
 import { Subject } from "rxjs";
@@ -27,6 +27,7 @@ export class HeaderComponent implements OnInit, OnDestroy, AfterViewChecked {
     public currentPage: "EdgeSettings" | "Other" | "IndexLive" | "IndexHistory" = "Other";
     public isSystemLogEnabled: boolean = false;
 
+    protected headerLogo = signal<string | null>(null);
     protected isHeaderAllowed: boolean = true;
     protected showBackButton: boolean = false;
     protected edge = this.service.currentEdge;
@@ -50,6 +51,19 @@ export class HeaderComponent implements OnInit, OnDestroy, AfterViewChecked {
     ) {
         effect(() => {
             this.showBackButton = this.navigationService.headerOptions().showBackButton;
+        });
+
+        effect(() => {
+            const currentUser = this.userService.currentUser();
+            if (currentUser == null) {
+                return;
+            }
+
+            this.headerLogo.set(
+                this.userService.getValidBrowserTheme(currentUser.getThemeFromSettings()) === "dark"
+                    ? environment.images.LOGO.DARK
+                    : environment.images.LOGO.LIGHT,
+            );
         });
     }
 

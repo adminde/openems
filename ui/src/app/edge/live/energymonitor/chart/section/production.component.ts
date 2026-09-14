@@ -36,7 +36,7 @@ export class ProductionSectionComponent extends AbstractSection implements OnIni
         super(
             "GENERAL.PRODUCTION",
             "up",
-            "var(--ion-color-primary)",
+            "var(--ion-color-production)",
             translate,
             service,
             navigationService,

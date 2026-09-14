@@ -13,13 +13,13 @@ import io.openems.common.jsonrpc.base.JsonrpcRequest;
 import io.openems.common.utils.JsonUtils;
 
 /**
- * Represents a JSON-RPC Request for 'queryHistoricTimeseriesExportXlxs'.
+ * Represents a JSON-RPC Request for 'queryHistoricTimeseriesExportXlsx'.
  *
  * <pre>
  * {
  *   "jsonrpc": "2.0",
  *   "id": "UUID",
- *   "method": "queryHistoricTimeseriesExportXlxs",
+ *   "method": "queryHistoricTimeseriesExportXlsx",
  *   "params": {
  *     "timezone": Number,
  *     "fromDate": YYYY-MM-DD,
@@ -28,19 +28,28 @@ import io.openems.common.utils.JsonUtils;
  * }
  * </pre>
  */
-public class QueryHistoricTimeseriesExportXlxsRequest extends JsonrpcRequest {
+public class QueryHistoricTimeseriesExportXlsxRequest extends JsonrpcRequest {
 
-	public static final String METHOD = "queryHistoricTimeseriesExportXlxs";
+	public static final String METHOD = "queryHistoricTimeseriesExportXlsx";
 
 	/**
-	 * Create {@link QueryHistoricTimeseriesExportXlxsRequest} from a template
+	 * Misspelled method name ("Xlxs"). Kept as an alias for older UIs to keep working.
+	 * Handled identically to {@link #METHOD}.
+	 *
+	 * @deprecated use {@link #METHOD}
+	 */
+	@Deprecated
+	public static final String METHOD_ALIAS = "queryHistoricTimeseriesExportXlxs";
+
+	/**
+	 * Create {@link QueryHistoricTimeseriesExportXlsxRequest} from a template
 	 * {@link JsonrpcRequest}.
 	 *
 	 * @param r the template {@link JsonrpcRequest}
-	 * @return the {@link QueryHistoricTimeseriesExportXlxsRequest}
+	 * @return the {@link QueryHistoricTimeseriesExportXlsxRequest}
 	 * @throws OpenemsNamedException on parse error
 	 */
-	public static QueryHistoricTimeseriesExportXlxsRequest from(JsonrpcRequest r) throws OpenemsNamedException {
+	public static QueryHistoricTimeseriesExportXlsxRequest from(JsonrpcRequest r) throws OpenemsNamedException {
 		var p = r.getParams();
 		var jTimezone = JsonUtils.getAsPrimitive(p, "timezone");
 		final ZoneId timezone;
@@ -53,7 +62,7 @@ public class QueryHistoricTimeseriesExportXlxsRequest extends JsonrpcRequest {
 
 		var fromDate = JsonUtils.getAsZonedDateWithZeroTime(p, "fromDate", timezone);
 		var toDate = JsonUtils.getAsZonedDateWithZeroTime(p, "toDate", timezone).plusDays(1);
-		return new QueryHistoricTimeseriesExportXlxsRequest(r, fromDate, toDate);
+		return new QueryHistoricTimeseriesExportXlsxRequest(r, fromDate, toDate);
 
 	}
 
@@ -62,17 +71,17 @@ public class QueryHistoricTimeseriesExportXlxsRequest extends JsonrpcRequest {
 	private final ZonedDateTime fromDate;
 	private final ZonedDateTime toDate;
 
-	private QueryHistoricTimeseriesExportXlxsRequest(JsonrpcRequest request, ZonedDateTime fromDate,
+	private QueryHistoricTimeseriesExportXlsxRequest(JsonrpcRequest request, ZonedDateTime fromDate,
 			ZonedDateTime toDate) throws OpenemsNamedException {
-		super(request, QueryHistoricTimeseriesExportXlxsRequest.METHOD);
+		super(request, QueryHistoricTimeseriesExportXlsxRequest.METHOD);
 
 		this.fromDate = fromDate;
 		this.toDate = toDate;
 	}
 
-	public QueryHistoricTimeseriesExportXlxsRequest(ZonedDateTime fromDate, ZonedDateTime toDate)
+	public QueryHistoricTimeseriesExportXlsxRequest(ZonedDateTime fromDate, ZonedDateTime toDate)
 			throws OpenemsNamedException {
-		super(QueryHistoricTimeseriesExportXlxsRequest.METHOD);
+		super(QueryHistoricTimeseriesExportXlsxRequest.METHOD);
 
 		this.fromDate = fromDate;
 		this.toDate = toDate;
@@ -81,8 +90,8 @@ public class QueryHistoricTimeseriesExportXlxsRequest extends JsonrpcRequest {
 	@Override
 	public JsonObject getParams() {
 		return JsonUtils.buildJsonObject() //
-				.addProperty("fromDate", QueryHistoricTimeseriesExportXlxsRequest.FORMAT.format(this.fromDate)) //
-				.addProperty("toDate", QueryHistoricTimeseriesExportXlxsRequest.FORMAT.format(this.toDate)) //
+				.addProperty("fromDate", QueryHistoricTimeseriesExportXlsxRequest.FORMAT.format(this.fromDate)) //
+				.addProperty("toDate", QueryHistoricTimeseriesExportXlsxRequest.FORMAT.format(this.toDate)) //
 				.build();
 	}
 

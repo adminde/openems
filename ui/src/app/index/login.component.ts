@@ -21,11 +21,12 @@ import { Edge, Service, Utils, Websocket } from "../shared/shared";
 @Component({
     selector: "login",
     templateUrl: "./login.component.html",
+    styleUrls: ["./login.component.scss"],
     changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false,
 })
 export class LoginComponent implements ViewWillEnter, AfterContentChecked, OnDestroy {
-    private static readonly DEFAULT_THEME: UserTheme = UserTheme.LIGHT;
+    private static readonly DEFAULT_THEME: UserTheme = UserTheme.SYSTEM;
     public currentThemeMode: UserTheme;
     public environment = environment;
     public form: FormGroup;
