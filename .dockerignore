@@ -1,0 +1,46 @@
+# dependencies
+/node_modules
+/bower_components
+
+# misc
+/.sass-cache
+/connect.lock
+/coverage/*
+/libpeerconnection.log
+npm-debug.log
+testem.log
+/typings
+
+# eclipse files
+/generated/
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.loadpath
+.recommenders
+
+# VCS
+.git/
+.gitignore
+
+# Caches & Temp
+.DS_Store
+.gradle/
+.cache/
+cache/
+build/
+dist/
+data/
+tmp/
+
+# data/artefacts
+data/
+*.zip
+*.tar
+*.tar.gz
+*.tgz

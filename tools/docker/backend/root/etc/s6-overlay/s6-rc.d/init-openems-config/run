@@ -4,7 +4,7 @@
 CONF_DIR="/var/opt/openems/config"
 CONF_DIR_DEFAULT="/var/lib/openems-default-config"
 METADATA_DEFAULT="/var/lib/openems-default-metadata/metadata.json"
-METADATA_DEST="/var/opt/openems/metadata.json"
+METADATA_DEST="/var/opt/openems/config/metadata.json"
 
 if [ ! -d "$CONF_DIR" ] || [ -z "$(ls -A "$CONF_DIR" 2>/dev/null)" ]; then
     echo "Copying default configuration files to $CONF_DIR"
