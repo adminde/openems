@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
-   viewBox="0 0 389 58.192135"
-   width="179.24678"
+   viewBox="0 0 394.34382 58.192135"
+   width="177.11107"
    height="26.814274"
    aria-label="OROS ENERGY"
    b-6g31gk41cz=""
@@ -14,20 +14,20 @@
   <g
      fill="#0059ff"
      b-6g31gk41cz=""
-     transform="matrix(0.49492574,0,0,0.49492574,0,-0.7749894)"
+     transform="matrix(0.49492574,0,0,0.49492574,0,-0.75537868)"
      id="g1">
-    <polygon
-       points="62,55.32 62,0 31.94,0 0,55.32 "
-       b-6g31gk41cz=""
-       id="polygon1" />
-    <polygon
-       points="62,65.32 0,65.32 31.94,120.63 62,120.63 "
-       b-6g31gk41cz=""
-       id="polygon2" />
     <path
        d="m 98.03,65.32 v 39.02 c 0,2.76 -2.24,5 -5,5 -2.76,0 -5,-2.24 -5,-5 V 16.3 c 0,-2.76 2.24,-5 5,-5 2.76,0 5,2.24 5,5 v 39.02 h 35.5 L 101.58,0 H 72 v 120.63 h 29.58 l 31.94,-55.32 h -35.5 z"
        b-6g31gk41cz=""
        id="path2" />
+    <polygon
+       points="31.94,0 0,55.32 62,55.32 62,0 "
+       b-6g31gk41cz=""
+       id="polygon1" />
+    <polygon
+       points="31.94,120.63 62,120.63 62,65.32 0,65.32 "
+       b-6g31gk41cz=""
+       id="polygon2" />
   </g>
   <text
      fill="#f8f8f8"
@@ -37,8 +37,6 @@
      letter-spacing="-0.08em"
      b-6g31gk41cz=""
      x="76.863991"
-     y="47.282116"
-     id="text1">
-	  OROS ENERGY
-  </text>
+     y="47.301727"
+     id="text1">OROS ENERGY</text>
 </svg>
