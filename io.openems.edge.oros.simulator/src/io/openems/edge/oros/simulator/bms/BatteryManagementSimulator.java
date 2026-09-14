@@ -24,5 +24,10 @@ public interface BatteryManagementSimulator extends
 		}
 	}
 
+	/**
+	 * Runs the simulation of one Cycle.
+	 *
+	 * @param setPower the power set point in [W]
+	 */
 	public void run(int setPower);
 }

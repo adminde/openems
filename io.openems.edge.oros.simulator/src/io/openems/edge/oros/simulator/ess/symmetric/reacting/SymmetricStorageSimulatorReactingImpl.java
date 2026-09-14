@@ -139,14 +139,12 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 					ALL, ACTIVE, EQUALS, 0));
 			constraints.add(this.createPowerConstraint("Reactive Power Constraint ESS not Started",
 					ALL, REACTIVE, EQUALS, 0));
-		}
-		else if (this.isReadOnly()) {
+		} else if (this.isReadOnly()) {
 			constraints.add(this.createPowerConstraint("Active Power Constraint ESS Read-Only Mode",
 					ALL, ACTIVE, EQUALS, 0));
 			constraints.add(this.createPowerConstraint("Reactive Power Constraint ESS Read-Only Mode",
 					ALL, REACTIVE, EQUALS, 0));
-		}
-		else {
+		} else {
 			// Get PCS constraints
 			var pcsConstraints = this.pcs.getStaticConstraints();
 			for (var constraint : pcsConstraints) {

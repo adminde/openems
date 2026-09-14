@@ -99,6 +99,15 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent imple
 		}
 	}
 
+	/**
+	 * Applies the given set points and publishes the resulting simulated values.
+	 *
+	 * @param bms              the {@link BatteryManagementSimulator} holding the
+	 *                         State of Charge
+	 * @param activePower      the active power set point in [W]
+	 * @param reactivePower    the reactive power set point in [var]
+	 * @throws OpenemsNamedException on error
+	 */
 	public void run(BatteryManagementSimulator bms, int activePower, int reactivePower) throws OpenemsNamedException {
 		if (!this.isEnabled()) {
 			return;
@@ -106,21 +115,19 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent imple
 		// RACK_SOC channel is in [0.1 %] (per-mille) -> divide by 10 to get percent.
 		var soc = bms.getRackSocChannel().value().get() / 10F;
 
-		int maxActivePower = config.maxActivePower();
+		int maxActivePower = this.config.maxActivePower();
 		int maxChargePower = calculateAllowedChargePower(soc, maxActivePower);
 		int maxDischargePower = calculateAllowedDischargePower(soc, maxActivePower);
 		if (soc >= 100F && activePower < 0) {
 			activePower = 0;
 			maxChargePower = 0;
-		}
-		else if (activePower < maxChargePower * -1) {
+		} else if (activePower < maxChargePower * -1) {
 			activePower = maxChargePower * -1;
 		}
 		if (soc <= 0F && activePower > 0) {
 			activePower = 0;
 			maxDischargePower = 0;
-		}
-		else if (activePower > maxDischargePower) {
+		} else if (activePower > maxDischargePower) {
 			activePower = maxDischargePower;
 		}
 		bms._setChargeMaxPower(maxChargePower);

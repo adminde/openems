@@ -85,8 +85,7 @@ public class BatteryManagementSimulatorImpl extends AbstractOpenemsComponent
 		if (this.lastTimestamp == null) {
 			// Initialise energy from configured initial SoC
 			this.energy = (long) (capacity * this.getRackSoc().get() /* [current SoC, in 0.1%] */ / 1000L);
-		}
-		else {
+		} else {
 			// Calculate duration since last value
 			var duration /* [msec] */ = Duration.between(this.lastTimestamp, now).toMillis();
 
@@ -100,13 +99,13 @@ public class BatteryManagementSimulatorImpl extends AbstractOpenemsComponent
 		this.lastTimestamp = now;
 
 		float soc = this.energy / (float) capacity * 100F;
-		var voltage = calculateRackVoltage(soc);
+		var voltage = this.calculateRackVoltage(soc);
 		var current = power / voltage;
 
 		this._setRackSoc(Math.round(soc * 10));
 		this._setRackCurrent(current);
 		this._setRackVoltage(voltage);
-		this._setOpenCircuitVoltage(calculateOpenCircuitVoltage(soc));
+		this._setOpenCircuitVoltage(this.calculateOpenCircuitVoltage(soc));
 	}
 
 	/**
@@ -133,9 +132,14 @@ public class BatteryManagementSimulatorImpl extends AbstractOpenemsComponent
 		return Math.round(voltage * 1000F);
 	}
 
-	/** Calculates Open Circuit Voltage in [V] */
+	/**
+	 * Calculates the Open Circuit Voltage.
+	 *
+	 * @param soc the State of Charge in [%]
+	 * @return the Open Circuit Voltage in [V]
+	 */
 	private int calculateOpenCircuitVoltage(float soc) {
-		return calculateRackVoltage(soc) / 1000;
+		return this.calculateRackVoltage(soc) / 1000;
 	}
 
 	@Override

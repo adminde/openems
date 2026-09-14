@@ -3,7 +3,7 @@ package io.openems.edge.oros.simulator.pcs;
 import org.osgi.service.metatype.annotations.AttributeDefinition;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
-@ObjectClassDefinition( //
+@ObjectClassDefinition(//
 		name = "Simulator PowerConversionSystem OROS", //
 		description = "This simulates an OROS Power Conversion System.")
 @interface Config {
