@@ -28,10 +28,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		private String lwtMessage = "";
 		private QoS lwtQos = QoS.AT_LEAST_ONCE;
 		private boolean lwtRetained = false;
-		private String trustStorePath = "";
-		private String trustStorePassword = "";
-		private String keyStorePath = "";
-		private String keyStorePassword = "";
+		private String caCertificateFile = "";
+		private String caCertificatePassword = "";
+		private String clientCertificateFile = "";
+		private String clientKeyFile = "";
+		private String clientKeyPassword = "";
 		private boolean debugMode = false;
 
 		private Builder() {
@@ -134,6 +135,31 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 
 		public Builder setLwtRetained(boolean lwtRetained) {
 			this.lwtRetained = lwtRetained;
+			return this;
+		}
+
+		public Builder setCaCertificateFile(String caCertificateFile) {
+			this.caCertificateFile = caCertificateFile;
+			return this;
+		}
+
+		public Builder setCaCertificatePassword(String caCertificatePassword) {
+			this.caCertificatePassword = caCertificatePassword;
+			return this;
+		}
+
+		public Builder setClientCertificateFile(String clientCertificateFile) {
+			this.clientCertificateFile = clientCertificateFile;
+			return this;
+		}
+
+		public Builder setClientKeyFile(String clientKeyFile) {
+			this.clientKeyFile = clientKeyFile;
+			return this;
+		}
+
+		public Builder setClientKeyPassword(String clientKeyPassword) {
+			this.clientKeyPassword = clientKeyPassword;
 			return this;
 		}
 
@@ -264,23 +290,28 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	}
 
 	@Override
-	public String trustStorePath() {
-		return this.builder.trustStorePath;
+	public String caCertificateFile() {
+		return this.builder.caCertificateFile;
 	}
 
 	@Override
-	public String trustStorePassword() {
-		return this.builder.trustStorePassword;
+	public String caCertificatePassword() {
+		return this.builder.caCertificatePassword;
 	}
 
 	@Override
-	public String keyStorePath() {
-		return this.builder.keyStorePath;
+	public String clientCertificateFile() {
+		return this.builder.clientCertificateFile;
 	}
 
 	@Override
-	public String keyStorePassword() {
-		return this.builder.keyStorePassword;
+	public String clientKeyFile() {
+		return this.builder.clientKeyFile;
+	}
+
+	@Override
+	public String clientKeyPassword() {
+		return this.builder.clientKeyPassword;
 	}
 
 	@Override
