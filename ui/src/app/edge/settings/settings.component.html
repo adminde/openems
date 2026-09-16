@@ -48,7 +48,7 @@
             </ion-card>
           </ion-col>
         }
-        @if (isAtLeastOwner() && !isNewNavigation()) {
+        @if (isAtLeastOwner() && hasAppCenter()) {
           <ion-col size="12" size-sm="4">
             <ion-card>
               <ion-item lines="full" color="light">

@@ -7,7 +7,7 @@ import { FlatWidgetButtonComponent } from "src/app/shared/components/flat/flat-w
 import { NavigationService } from "src/app/shared/components/navigation/service/navigation.service";
 import { UserService } from "src/app/shared/service/user.service";
 import { Role } from "src/app/shared/type/role";
-import { environment } from "src/environments";
+import { environment, Theme } from "src/environments";
 import { Edge, Service, Utils } from "../../shared/shared";
 import { JsonrpcTestPermission } from "./jsonrpctest/jsonrpctest.permission";
 
@@ -19,6 +19,8 @@ import { JsonrpcTestPermission } from "./jsonrpctest/jsonrpctest.permission";
     imports: [CommonUiModule, RouterModule, FlatWidgetButtonComponent, ComponentsBaseModule],
 })
 export class SettingsComponent implements OnInit {
+    private static readonly APP_CENTER_THEMES: Theme[] = ["OpenEMS", "FENECON", "FENECONBeta"];
+
     public edge: Edge | null = null;
     public environment = environment;
 
@@ -52,5 +54,11 @@ export class SettingsComponent implements OnInit {
                 ),
             );
         });
+    }
+
+    protected hasAppCenter(): boolean {
+        return (
+            SettingsComponent.APP_CENTER_THEMES.includes(environment.theme) && !this.isNewNavigation()
+        );
     }
 }
