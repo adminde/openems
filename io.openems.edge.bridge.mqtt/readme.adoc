@@ -53,10 +53,13 @@ MQTT is a perfect alternative to direct device protocols when devices support br
 * `lwtRetained` (Boolean): Retain LWT message; default: `false`
 
 .SSL/TLS Certificates
-* `trustStorePath` (String): Path to trust store file for server verification (optional)
-* `trustStorePassword` (String): Trust store password (optional)
-* `keyStorePath` (String): Path to client certificate key store (optional)
-* `keyStorePassword` (String): Key store password (optional)
+Certificate files may be PEM encoded or PKCS12/JKS stores, detected from the file content. Without a CA certificate file the JVM default CAs are trusted.
+
+* `caCertificateFile` (String): CA certificates for verifying the broker. PEM with one or more certificates, or a JKS/PKCS12 trust store (optional)
+* `caCertificatePassword` (String): Password of a PKCS12/JKS trust store, not used for PEM. Without it the store integrity is not checked and password protected PKCS12 entries cannot be read (optional)
+* `clientCertificateFile` (String): Client certificate chain for mutual TLS in leaf-first order. PEM, or a PKCS12/JKS key store that also holds the private key (optional)
+* `clientKeyFile` (String): PEM private key for the client certificate, PKCS#8 or traditional OpenSSL, plain or encrypted. Not needed if the key is contained in the client certificate file (optional)
+* `clientKeyPassword` (String): Password of an encrypted PEM key or of a PKCS12/JKS key store (optional)
 
 .Debugging
 * `debugMode` (Boolean): Enable debug logging for MQTT communication; default: `false`
