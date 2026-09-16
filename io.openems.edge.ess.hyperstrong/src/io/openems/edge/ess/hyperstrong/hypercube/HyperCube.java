@@ -3,10 +3,12 @@ package io.openems.edge.ess.hyperstrong.hypercube;
 import io.openems.common.channel.AccessMode;
 import io.openems.common.channel.Level;
 import io.openems.common.channel.Unit;
+import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.channel.Doc;
+import io.openems.edge.common.channel.EnumWriteChannel;
 import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.modbusslave.ModbusSlave;
@@ -46,12 +48,11 @@ public interface HyperCube extends EnergyStorageSystem,
 				.text("Current State of State-Machine")),
 		RUN_FAILED(Doc.of(Level.FAULT)
 				.text("Running the Logic failed")),
-		RUN_MODE_TARGET(Doc.of(RunModeTarget.values())
-				.accessMode(AccessMode.WRITE_ONLY)),
 		CHARGE_MODE(Doc.of(ChargingMode.values())),
 		CHARGE_CONSTRAINT(Doc.of(ChargingConstraint.values())),
 		OPERATING_STATUS(Doc.of(OperatingStatus.values())),
-		OPERATING_TARGET(Doc.of(OperatingTarget.values())),
+		OPERATING_TARGET(Doc.of(OperatingTarget.values())
+				.accessMode(AccessMode.READ_WRITE)),
 		REMOTE_COMMUNICATION_ENABLED(Doc.of(OpenemsType.BOOLEAN)),
 		REMOTE_COMMUNICATION_CONNECTED(Doc.of(OpenemsType.BOOLEAN)),
 		REMOTE_COMMUNICATION_ABNORMAL(Doc.of(Level.WARNING)),
@@ -224,6 +225,36 @@ public interface HyperCube extends EnergyStorageSystem,
 	 */
 	public default Value<OperatingStatus> getOperationState() {
 		return this.getOperationStateChannel().value();
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#OPERATING_TARGET}.
+	 *
+	 * @return the Channel
+	 */
+	public default EnumWriteChannel getOperatingTargetChannel() {
+		return this.channel(ChannelId.OPERATING_TARGET);
+	}
+
+	/**
+	 * Gets the target operating mode the HyperCube has accepted. See
+	 * {@link ChannelId#OPERATING_TARGET}.
+	 *
+	 * @return the {@link OperatingTarget}
+	 */
+	public default OperatingTarget getOperatingTarget() {
+		return this.getOperatingTargetChannel().value().asEnum();
+	}
+
+	/**
+	 * Sets the target operating mode of the HyperCube. See
+	 * {@link ChannelId#OPERATING_TARGET}.
+	 *
+	 * @param value the next write value
+	 * @throws OpenemsNamedException on error
+	 */
+	public default void setOperatingTarget(OperatingTarget value) throws OpenemsNamedException {
+		this.getOperatingTargetChannel().setNextWriteValue(value);
 	}
 
 }

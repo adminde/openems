@@ -370,7 +370,7 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 				new FC6WriteRegisterTask(302, 
 						m(SymmetricEss.ChannelId.GRID_MODE, new UnsignedWordElement(302))),
 				new FC6WriteRegisterTask(303, 
-						m(HyperCube.ChannelId.RUN_MODE_TARGET, new UnsignedWordElement(303))),
+						m(HyperCube.ChannelId.OPERATING_TARGET, new UnsignedWordElement(303))),
 
 				new FC16WriteRegistersTask(315,
 						m(HyperCube.ChannelId.SET_ACTIVE_POWER,

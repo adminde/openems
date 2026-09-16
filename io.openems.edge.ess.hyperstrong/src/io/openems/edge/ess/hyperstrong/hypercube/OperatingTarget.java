@@ -4,9 +4,9 @@ import io.openems.common.types.OptionsEnum;
 
 public enum OperatingTarget implements OptionsEnum {
 	UNDEFINED(-1, "Undefined"),
-	STOP(1, "Stop"),
-	RUN(3, "Run"),
-	SHUTDOWN(9, "Shutdown");
+	STOP(0, "Stop"),
+	RUN(1, "Run"),
+	SHUTDOWN(3, "Shutdown");
 
 	private final int value;
 	private final String name;
