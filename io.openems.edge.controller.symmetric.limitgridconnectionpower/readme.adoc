@@ -1,0 +1,29 @@
+= Symmetric Limit Grid-Connection Power
+
+Limits the charge and discharge power of a symmetric ESS so that the power at the Grid Connection Point (GCP) stays within the hard limits configured in the `Core.Meta` component.
+
+== How it works
+
+Every cycle the Controller derives the power at the GCP without the ESS contribution from `_sum/GridActivePower` and the ESS `ActivePower`. From this value it calculates an upper and a lower limit for the ESS active power and applies them as `SetActivePowerLessOrEquals` and `SetActivePowerGreaterOrEquals` constraints:
+
+* Grid import stays below the Grid-Buy Hard-Limit (derived from the GCP fuse limit) minus a safety buffer.
+* Grid export stays below the Grid-Sell Hard-Limit (derived from the GCP fuse limit and the maximum feed-in limit) minus a safety buffer.
+* If charging from grid is not allowed, the ESS only charges from local surplus.
+* If discharging to grid is not allowed, the ESS only covers the local consumption.
+
+If a physical limit is already exceeded by other consumers or producers, the constraint forces the ESS to charge or discharge the excess as far as its own limits allow. The permission-based limits never force the ESS.
+
+== Scheduling
+
+The Controller only adds constraints and never sets an active power itself. Schedule it before all Controllers that set an active power setpoint (e.g. Balancing, Peak-Shaving, Time-of-Use-Tariff), so that their setpoints are clamped into the limits.
+
+== Fallback
+
+If the grid or the ESS active power is undefined, the Controller applies static limits that only consider the ESS power itself and sets the `StaticLimitFallback` warning. Off-Grid, no constraints are applied.
+
+== Limitations
+
+* Asymmetric loads are not considered. The GCP fuse limit is treated as a three-phase total.
+* While the grid measurement is undefined, other producers together with the ESS may still exceed the export limit.
+
+https://github.com/OpenEMS/openems/tree/develop/io.openems.edge.controller.symmetric.limitgridconnectionpower[Source Code icon:github[]]
