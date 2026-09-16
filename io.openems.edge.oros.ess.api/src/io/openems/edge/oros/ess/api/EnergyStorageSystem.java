@@ -250,6 +250,26 @@ public interface EnergyStorageSystem extends
 	}
 
 	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#AVAILABLE_CHARGE_ENERGY} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setAvailableChargeEnergy(Integer value) {
+		this.getAvailableChargeEnergyChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#AVAILABLE_CHARGE_ENERGY} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setAvailableChargeEnergy(int value) {
+		this.getAvailableChargeEnergyChannel().setNextValue(value);
+	}
+
+	/**
 	 * Gets the Channel for {@link ChannelId#AVAILABLE_DISCHARGE_ENERGY}.
 	 *
 	 * @return the Channel
@@ -267,6 +287,34 @@ public interface EnergyStorageSystem extends
 	public default Value<Integer> getAvailableDischargeEnergy() {
 		return this.getAvailableDischargeEnergyChannel().value();
 	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#AVAILABLE_DISCHARGE_ENERGY} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setAvailableDischargeEnergy(Integer value) {
+		this.getAvailableDischargeEnergyChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#AVAILABLE_DISCHARGE_ENERGY} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setAvailableDischargeEnergy(int value) {
+		this.getAvailableDischargeEnergyChannel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the DC Discharge Power of the Battery in [W].
+	 * Positive values for discharge, negative for charge.
+	 *
+	 * @return the {@link Value}
+	 */
+	public Value<Integer> getDcDischargePower();
 
 	@Override
 	public default ModbusSlaveTable getModbusSlaveTable(AccessMode accessMode) {

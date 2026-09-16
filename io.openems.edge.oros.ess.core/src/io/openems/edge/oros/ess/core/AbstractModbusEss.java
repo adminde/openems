@@ -16,9 +16,11 @@ import org.osgi.service.event.EventHandler;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.jsonrpc.serialization.EmptyObject;
 import io.openems.common.session.Role;
+import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
 import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
+import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.event.EdgeEventConstants;
@@ -139,6 +141,15 @@ public abstract class AbstractModbusEss extends AbstractOpenemsModbusComponent i
 	@Override
 	public int getPowerPrecision() {
 		return this.getPowerConversionSystem().getPowerPrecision();
+	}
+
+	@Override
+	public Value<Integer> getDcDischargePower() {
+		var pcs = this.getPowerConversionSystem();
+		if (pcs instanceof HybridManagedSymmetricBatteryInverter hybrid) {
+			return hybrid.getDcDischargePower();
+		}
+		return pcs.getDcPower();
 	}
 
 	protected abstract ComponentManager getComponentManager();

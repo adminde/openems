@@ -5,9 +5,13 @@ import static io.openems.edge.ess.api.CalculateGridMode.aggregateGridModes;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.groupingBy;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.openems.common.utils.IntUtils;
 import io.openems.edge.common.channel.AbstractChannelListenerManager;
@@ -17,11 +21,15 @@ import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.ess.api.CalculateSoc;
+import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
+import io.openems.edge.oros.ess.cluster.EssCluster.ChannelId;
 
 public class ChannelManager extends AbstractChannelListenerManager {
+
+	private final Logger log = LoggerFactory.getLogger(ChannelManager.class);
 	private final EssClusterImpl parent;
 
 	public ChannelManager(EssClusterImpl parent) {
@@ -55,8 +63,50 @@ public class ChannelManager extends AbstractChannelListenerManager {
 		this.calculate(INTEGER_SUM, esss, EnergyStorageSystem.ChannelId.MAX_REACTIVE_POWER);
 		this.calculate(INTEGER_SUM, esss, EnergyStorageSystem.ChannelId.AVAILABLE_CHARGE_ENERGY);
 		this.calculate(INTEGER_SUM, esss, EnergyStorageSystem.ChannelId.AVAILABLE_DISCHARGE_ENERGY);
+		// EssCluster
+		this.calculateDcChannel(INTEGER_SUM, esss, ChannelId.DC_DISCHARGE_POWER);
+		this.calculateDcChannel(LONG_SUM, esss, ChannelId.DC_DISCHARGE_ENERGY);
+		this.calculateDcChannel(LONG_SUM, esss, ChannelId.DC_CHARGE_ENERGY);
 		// StartStoppable
 		this.calculateStartStop(esss);
+	}
+
+	/**
+	 * Aggregate a DC Channel of {@link EnergyStorageSystem}s.
+	 *
+	 * <p>
+	 * The DC Channels are not part of the {@link EnergyStorageSystem} nature. A
+	 * {@link HybridEss} declares them through its own nature, any other
+	 * implementation has to declare a Channel of the same name. A member that
+	 * provides neither is left out of the aggregation.
+	 *
+	 * @param <T>         the Channel Type
+	 * @param aggregator  the aggregator function
+	 * @param esss        the List of {@link EnergyStorageSystem}
+	 * @param channelId   the {@link ChannelId} holding the result
+	 */
+	private <T> void calculateDcChannel(BiFunction<T, T, T> aggregator, List<EnergyStorageSystem> esss,
+			ChannelId channelId) {
+		final var members = new ArrayList<EnergyStorageSystem>();
+		for (EnergyStorageSystem ess : esss) {
+			if (ess.channelOrNull(channelId.id()) != null) {
+				members.add(ess);
+			} else {
+				this.log.warn("ESS [{}] does not provide Channel [{}]. ", ess.id(), channelId.id());
+			}
+		}
+		final BiConsumer<Value<T>, Value<T>> callback = (oldValue, newValue) -> {
+			T result = null;
+			for (EnergyStorageSystem ess : members) {
+				Channel<T> channel = ess.channel(channelId);
+				result = aggregator.apply(result, channel.getNextValue().get());
+			}
+			Channel<T> channel = this.parent.channel(channelId);
+			channel.setNextValue(result);
+		};
+		for (EnergyStorageSystem ess : members) {
+			this.addOnChangeListener(ess, channelId, callback);
+		}
 	}
 
 	/**

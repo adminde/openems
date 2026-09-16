@@ -19,6 +19,7 @@ import io.openems.edge.common.startstop.StartStopConfig;
 import io.openems.edge.common.sum.GridMode;
 import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.ComponentTest;
+import io.openems.edge.ess.api.HybridEss;
 import io.openems.edge.ess.test.DummyPower;
 import io.openems.edge.oros.ess.test.DummyEnergyStorageSystem;
 
@@ -122,6 +123,34 @@ public class EssClusterImplTest {
 	}
 
 	@Test
+	public void testDc() throws Exception {
+		new ComponentTest(new EssClusterImpl()) //
+				.addReference("power", new DummyPower()) //
+				.addReference("cm", new DummyConfigurationAdmin()) //
+				.addReference("addEss", new DummyHybridEnergyStorageSystem("ess1")) //
+				.addReference("addEss", new DummyDcEnergyStorageSystem("ess2")) //
+				.addReference("addEss", new DummyEnergyStorageSystem("ess3")) //
+				.activate(MyConfig.create() //
+						.setId("ess0") //
+						.setEssIds("ess1", "ess2", "ess3") //
+						.setStartStop(StartStopConfig.START) //
+						.build())
+				// The member without any DC Channel does not contribute.
+				.next(new TestCase() //
+						.input("ess1", HybridEss.ChannelId.DC_DISCHARGE_POWER, 1000) //
+						.input("ess2", HybridEss.ChannelId.DC_DISCHARGE_POWER, -400) //
+						.output(EssCluster.ChannelId.DC_DISCHARGE_POWER, 600) //
+						.input("ess1", HybridEss.ChannelId.DC_CHARGE_ENERGY, 10) //
+						.input("ess2", HybridEss.ChannelId.DC_CHARGE_ENERGY, 20) //
+						.output(EssCluster.ChannelId.DC_CHARGE_ENERGY, 30L) //
+						.input("ess1", HybridEss.ChannelId.DC_DISCHARGE_ENERGY, 1) //
+						.input("ess2", HybridEss.ChannelId.DC_DISCHARGE_ENERGY, 2) //
+						.output(EssCluster.ChannelId.DC_DISCHARGE_ENERGY, 3L) //
+				) //
+		;
+	}
+
+	@Test
 	public void testStartStop() throws Exception {
 		new ComponentTest(new EssClusterImpl()) //
 				.addReference("power", new DummyPower()) //
@@ -167,5 +196,34 @@ public class EssClusterImplTest {
 						.withPowerPrecision(100) //
 		)));
 		assertEquals(1, EssClusterImpl.calculateMinPowerPrecision(List.of()));
+	}
+
+	/**
+	 * An {@link DummyEnergyStorageSystem} that provides the DC Channels through
+	 * the {@link HybridEss} nature.
+	 */
+	private static class DummyHybridEnergyStorageSystem extends DummyEnergyStorageSystem implements HybridEss {
+
+		public DummyHybridEnergyStorageSystem(String id) {
+			super(id);
+			this.addChannels(HybridEss.ChannelId.values());
+		}
+
+		@Override
+		public Integer getSurplusPower() {
+			return null;
+		}
+	}
+
+	/**
+	 * An {@link DummyEnergyStorageSystem} that provides the DC Channels by name
+	 * without implementing the {@link HybridEss} nature.
+	 */
+	private static class DummyDcEnergyStorageSystem extends DummyEnergyStorageSystem {
+
+		public DummyDcEnergyStorageSystem(String id) {
+			super(id);
+			this.addChannels(HybridEss.ChannelId.values());
+		}
 	}
 }

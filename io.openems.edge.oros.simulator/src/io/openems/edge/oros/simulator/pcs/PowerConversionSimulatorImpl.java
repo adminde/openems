@@ -56,6 +56,8 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent imple
 
 	private Config config;
 
+	private float efficiency = EFFICIENCY_FACTOR;
+
 	@Reference(policy = DYNAMIC, policyOption = GREEDY, cardinality = OPTIONAL)
 	private volatile Timedata timedata = null;
 
@@ -75,6 +77,7 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent imple
 	private void activate(ComponentContext context, Config config) {
 		super.activate(context, config.id(), config.alias(), config.enabled());
 		this.config = config;
+		this.efficiency = Math.clamp(config.efficiency(), 1F, 100F);
 
 		setValue(this, SymmetricBatteryInverter.ChannelId.GRID_MODE, GridMode.ON_GRID);
 		this._setMaxActivePower(
@@ -132,17 +135,35 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent imple
 		}
 		bms._setChargeMaxPower(maxChargePower);
 		bms._setDischargeMaxPower(maxDischargePower);
-		bms.run(activePower);
 
-		int dcVoltage = bms.getRackVoltageChannel().getNextValue().get();
-		int dcCurrentMa = (int) ((long) activePower * 1_000_000L / dcVoltage);
-		this._setDcVoltage(dcVoltage);
-		this._setDcCurrent(dcCurrentMa);
-		this._setDcPower(activePower);
+		var dcPower = this.calculateDcPower(activePower);
+		bms.run(dcPower);
+		this._setDcPower(dcPower);
+		var dcVoltage = bms.getRackVoltageChannel().getNextValue();
+		if (dcVoltage.isDefined()) {
+			setValue(this, PowerConversionSystem.ChannelId.DC_VOLTAGE, dcVoltage.get());
+			setValue(this, PowerConversionSystem.ChannelId.DC_CURRENT,
+					(int) ((long) dcPower * 1_000_000L / dcVoltage.get()));
+		}
 
 		setValue(this, SymmetricBatteryInverter.ChannelId.ACTIVE_POWER, activePower);
 		setValue(this, SymmetricBatteryInverter.ChannelId.REACTIVE_POWER, reactivePower);
 		this.calculateEnergy();
+	}
+
+	/**
+	 * Converts an Active Power to the DC Power behind the conversion losses, keeping
+	 * the sign convention of positive discharge. Discharging draws more from the
+	 * battery than it delivers to the grid, charging stores less than it takes.
+	 *
+	 * @param activePower the Active Power in [W]
+	 * @return the DC Power in [W]
+	 */
+	private int calculateDcPower(int activePower) {
+		var efficiency = this.efficiency / 100F;
+		return Math.round(activePower > 0 //
+				? activePower / efficiency //
+				: activePower * efficiency);
 	}
 
 	private void calculateEnergy() {
@@ -200,7 +221,7 @@ public class PowerConversionSimulatorImpl extends AbstractOpenemsComponent imple
 
 	@Override
 	public float getEfficiencyFactor() {
-		return EFFICIENCY_FACTOR;
+		return this.efficiency;
 	}
 
 	@Override

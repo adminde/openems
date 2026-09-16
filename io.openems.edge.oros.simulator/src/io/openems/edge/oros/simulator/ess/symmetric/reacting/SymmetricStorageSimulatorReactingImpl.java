@@ -1,6 +1,5 @@
 package io.openems.edge.oros.simulator.ess.symmetric.reacting;
 
-import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import static io.openems.edge.common.type.Phase.SingleOrAllPhase.ALL;
 import static io.openems.edge.ess.power.api.Pwr.ACTIVE;
 import static io.openems.edge.ess.power.api.Pwr.REACTIVE;
@@ -20,14 +19,22 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.event.Event;
+import org.osgi.service.event.EventHandler;
+import org.osgi.service.event.propertytypes.EventTopics;
 import org.osgi.service.metatype.annotations.Designate;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
+import io.openems.edge.batteryinverter.api.HybridManagedSymmetricBatteryInverter;
 import io.openems.edge.batteryinverter.api.SymmetricBatteryInverter;
+import io.openems.edge.common.channel.IntegerReadChannel;
+import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
+import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
@@ -49,12 +56,17 @@ import io.openems.edge.timedata.api.TimedataProvider;
 		name = "Simulator.ESS.Symmetric.OROS",
 		immediate = true,
 		configurationPolicy = REQUIRE)
+@EventTopics({
+		EdgeEventConstants.TOPIC_CYCLE_BEFORE_PROCESS_IMAGE
+})
 @GenerateTargetsFromReferences({ "pcs", "bms" })
 public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsComponent implements SymmetricStorageSimulatorReacting,
 		EnergyStorageSystem, ManagedSymmetricEss, SymmetricEss, SymmetricComponent,
-		OpenemsComponent, ModbusSlave, TimedataProvider, StartStoppable {
+		OpenemsComponent, ModbusSlave, TimedataProvider, StartStoppable, EventHandler {
 
 	private final ChannelManager channelManager = new ChannelManager(this);
+
+	private int standbyPower = STANDBY_POWER;
 
 	@Reference
 	private Power power;
@@ -88,6 +100,7 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 	@Activate
 	private void activate(ComponentContext context, Config config) throws IOException, OpenemsException {
 		super.activate(context, config.id(), config.alias(), config.enabled());
+		this.standbyPower = config.standbyPower();
 
 		var powerLimiter = new PowerLimiter(this, this.pcs, this.bms);
 		this.channelManager.setPowerLimiter(powerLimiter);
@@ -112,6 +125,64 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 	@Override
 	public int getPowerPrecision() {
 		return this.pcs.getPowerPrecision();
+	}
+
+	@Override
+	public Value<Integer> getDcDischargePower() {
+		return this.getDcDischargePowerChannel().value();
+	}
+
+	@Override
+	public void handleEvent(Event event) {
+		if (!this.isEnabled()) {
+			return;
+		}
+		switch (event.getTopic()) {
+		case EdgeEventConstants.TOPIC_CYCLE_BEFORE_PROCESS_IMAGE:
+			this.calculateDcPower();
+			this.calculateAvailableEnergy();
+			this.calculateAuxiliaryPower();
+			break;
+		}
+	}
+
+	private void calculateDcPower() {
+		IntegerReadChannel dcPowerChannel;
+		if (this.pcs instanceof HybridManagedSymmetricBatteryInverter hybrid) {
+			dcPowerChannel = hybrid.getDcDischargePowerChannel();
+		} else {
+			dcPowerChannel = this.pcs.getDcPowerChannel();
+		}
+		this._setDcDischargePower(dcPowerChannel.getNextValue().get());
+	}
+
+	/**
+	 * Sums the power the System draws beside its AC terminals: the control
+	 * infrastructure around the clock plus the Thermal Management System of the
+	 * Battery, which only runs while the Battery carries a current.
+	 */
+	private void calculateAuxiliaryPower() {
+		var thermalManagement = this.bms.getThermalManagementPowerChannel().getNextValue();
+		this._setAuxiliaryPower(this.standbyPower + thermalManagement.orElse(0));
+	}
+
+	/**
+	 * Derives the energy that is still available in either direction from the State
+	 * of Charge and the Capacity of the Battery. Both are reported as a positive
+	 * amount, bounded by the empty and the full Battery.
+	 */
+	private void calculateAvailableEnergy() {
+		var capacity = this.bms.getCapacityChannel().getNextValue();
+		var stateOfCharge = this.bms.getRackSocChannel().getNextValue();
+		if (!capacity.isDefined() || !stateOfCharge.isDefined()) {
+			this._setAvailableDischargeEnergy(null);
+			this._setAvailableChargeEnergy(null);
+			return;
+		}
+		// RACK_SOC is in [0.1 %] (per-mille) -> divide by 1000 to get a fraction.
+		var dischargeEnergy = Math.round(capacity.get() * (stateOfCharge.get() / 1000F));
+		this._setAvailableDischargeEnergy(dischargeEnergy);
+		this._setAvailableChargeEnergy(capacity.get() - dischargeEnergy);
 	}
 
 	@Override

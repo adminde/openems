@@ -1,5 +1,6 @@
 package io.openems.edge.oros.ess.test;
 
+import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
@@ -28,5 +29,10 @@ public class DummyEnergyStorageSystem extends AbstractDummyManagedSymmetricEss<D
 	@Override
 	protected final DummyEnergyStorageSystem self() {
 		return this;
+	}
+
+	@Override
+	public Value<Integer> getDcDischargePower() {
+		return this.getActivePowerChannel().value();
 	}
 }

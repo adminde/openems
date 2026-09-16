@@ -78,6 +78,15 @@ public interface RctCess extends EnergyStorageSystem,
 	}
 
 	/**
+	 * Gets the DC Discharge Power of the Battery in [W].
+	 * Positive values for discharge, negative for charge.
+	 *
+	 * @return the {@link Value}
+	 */
+	@Override
+	public Value<Integer> getDcDischargePower();
+
+	/**
 	 * Gets the Channel for {@link ChannelId#STATE_MACHINE}.
 	 *
 	 * @return the Channel
@@ -132,9 +141,9 @@ public interface RctCess extends EnergyStorageSystem,
 	public StartStop getStartStopTarget();
 
 	@Override
-	public RctCessBattery getBatteryManagementSystem();
+	public RctCessBatteryInverter getPowerConversionSystem();
 
 	@Override
-	public RctCessBatteryInverter getPowerConversionSystem();
+	public RctCessBattery getBatteryManagementSystem();
 
 }

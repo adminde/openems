@@ -12,7 +12,7 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	String id() default "ess0";
 
 	@AttributeDefinition(name = "Alias", description = "Human-readable name of this Component; defaults to Component-ID")
-	String alias() default "";
+	String alias() default "Energy Storage System";
 
 	@AttributeDefinition(name = "Is enabled?", description = "Is this Component enabled?")
 	boolean enabled() default true;
@@ -22,6 +22,9 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 	@AttributeDefinition(name = "BMS-ID", description = "ID of Battery Management System.")
 	String bms_id() default "bms0";
+
+	@AttributeDefinition(name = "Standby Power [W]", description = "Electrical power of the control infrastructure, drawn around the clock.")
+	int standbyPower() default SymmetricStorageSimulatorReacting.STANDBY_POWER;
 
 	String webconsole_configurationFactory_nameHint() default "Simulator ESS Symmetric OROS [{id}]";
 }

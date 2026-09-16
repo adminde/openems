@@ -66,11 +66,12 @@ public interface PowerConversionSystem extends ManagedSymmetricBatteryInverter, 
 		 */
 		DC_POWER(Doc.of(INTEGER).unit(WATT).persistencePriority(HIGH)),
 
-		DC_VOLTAGE(Doc.of(OpenemsType.INTEGER).unit(Unit.MILLIVOLT).persistencePriority(PersistencePriority.HIGH)),
 		DC_CURRENT(Doc.of(OpenemsType.INTEGER).unit(Unit.MILLIAMPERE).persistencePriority(PersistencePriority.HIGH)),
+		DC_VOLTAGE(Doc.of(OpenemsType.INTEGER).unit(Unit.MILLIVOLT).persistencePriority(PersistencePriority.HIGH)),
 
 		AIR_TEMPERATURE(Doc.of(OpenemsType.INTEGER).unit(Unit.DEZIDEGREE_CELSIUS)
-				.persistencePriority(PersistencePriority.HIGH)),;
+				.persistencePriority(PersistencePriority.HIGH)),
+		;
 
 		private final Doc doc;
 

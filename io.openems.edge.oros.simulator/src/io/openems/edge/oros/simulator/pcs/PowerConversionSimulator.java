@@ -3,10 +3,11 @@ package io.openems.edge.oros.simulator.pcs;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
+import io.openems.edge.oros.simulator.bms.BatteryManagementSimulator;
 
 public interface PowerConversionSimulator extends PowerConversionSystem, OpenemsComponent {
 
-	/** Efficiency factor (%) used for AC/DC conversion. */
+	/** Default efficiency factor (%) used for AC/DC conversion. */
 	public static final float EFFICIENCY_FACTOR = 98F;
 
 	/** Power-factors. */
