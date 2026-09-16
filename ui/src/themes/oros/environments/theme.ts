@@ -5,7 +5,7 @@ export const theme: Omit<
     Environment,
     "url" | "backend" | "production" | "debugMode"
 > = {
-    theme: "OpenEMS" as Theme,
+    theme: "OROS" as Theme,
 
     uiTitle: "OROS ENERGY",
     uiTitleShort: "OROS",
