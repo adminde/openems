@@ -5,7 +5,6 @@ import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.channel.IntegerReadChannel;
-import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStoppable;
@@ -18,31 +17,7 @@ public interface SymmetricStorageSimulatorReacting extends
 		ManagedSymmetricEss, SymmetricEss, SymmetricComponent, 
 		OpenemsComponent, StartStoppable, ModbusSlave, TimedataProvider {
 
-	/** Default power of the control infrastructure, drawn around the clock [W]. */
-	public static final int STANDBY_POWER = 100;
-
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
-
-		/**
-		 * Auxiliary Power.
-		 *
-		 * <p>The electrical power the System draws beside its AC terminals: the control
-		 * infrastructure around the clock plus the Thermal Management System of the
-		 * Battery while it carries a current. The auxiliary circuit is fed separately
-		 * from the terminals of the Power Conversion System, so this power is no part
-		 * of {@link SymmetricEss.ChannelId#ACTIVE_POWER} and shows up at the point of
-		 * connection instead.
-		 *
-		 * <ul>
-		 * <li>Interface: SymmetricStorageSimulatorReacting
-		 * <li>Type: Integer
-		 * <li>Unit: W
-		 * <li>Range: zero or positive value
-		 * </ul>
-		 */
-		AUXILIARY_POWER(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.WATT) //
-				.persistencePriority(PersistencePriority.HIGH)),
 
 		/**
 		 * DC Discharge Power.
@@ -72,44 +47,6 @@ public interface SymmetricStorageSimulatorReacting extends
 		public Doc doc() {
 			return this.doc;
 		}
-	}
-
-	/**
-	 * Gets the Channel for {@link ChannelId#AUXILIARY_POWER}.
-	 *
-	 * @return the Channel
-	 */
-	public default IntegerReadChannel getAuxiliaryPowerChannel() {
-		return this.channel(ChannelId.AUXILIARY_POWER);
-	}
-
-	/**
-	 * Gets the Auxiliary Power in [W]. See {@link ChannelId#AUXILIARY_POWER}.
-	 *
-	 * @return the Channel {@link Value}
-	 */
-	public default Value<Integer> getAuxiliaryPower() {
-		return this.getAuxiliaryPowerChannel().value();
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on {@link ChannelId#AUXILIARY_POWER}
-	 * Channel.
-	 *
-	 * @param value the next value
-	 */
-	public default void _setAuxiliaryPower(Integer value) {
-		this.getAuxiliaryPowerChannel().setNextValue(value);
-	}
-
-	/**
-	 * Internal method to set the 'nextValue' on {@link ChannelId#AUXILIARY_POWER}
-	 * Channel.
-	 *
-	 * @param value the next value
-	 */
-	public default void _setAuxiliaryPower(int value) {
-		this.getAuxiliaryPowerChannel().setNextValue(value);
 	}
 
 	/**

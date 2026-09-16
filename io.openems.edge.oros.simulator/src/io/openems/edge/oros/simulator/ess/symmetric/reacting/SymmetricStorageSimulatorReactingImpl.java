@@ -66,8 +66,6 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 
 	private final ChannelManager channelManager = new ChannelManager(this);
 
-	private int standbyPower = STANDBY_POWER;
-
 	@Reference
 	private Power power;
 
@@ -100,7 +98,6 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 	@Activate
 	private void activate(ComponentContext context, Config config) throws IOException, OpenemsException {
 		super.activate(context, config.id(), config.alias(), config.enabled());
-		this.standbyPower = config.standbyPower();
 
 		var powerLimiter = new PowerLimiter(this, this.pcs, this.bms);
 		this.channelManager.setPowerLimiter(powerLimiter);
@@ -141,7 +138,6 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 		case EdgeEventConstants.TOPIC_CYCLE_BEFORE_PROCESS_IMAGE:
 			this.calculateDcPower();
 			this.calculateAvailableEnergy();
-			this.calculateAuxiliaryPower();
 			break;
 		}
 	}
@@ -154,16 +150,6 @@ public class SymmetricStorageSimulatorReactingImpl extends AbstractOpenemsCompon
 			dcPowerChannel = this.pcs.getDcPowerChannel();
 		}
 		this._setDcDischargePower(dcPowerChannel.getNextValue().get());
-	}
-
-	/**
-	 * Sums the power the System draws beside its AC terminals: the control
-	 * infrastructure around the clock plus the Thermal Management System of the
-	 * Battery, which only runs while the Battery carries a current.
-	 */
-	private void calculateAuxiliaryPower() {
-		var thermalManagement = this.bms.getThermalManagementPowerChannel().getNextValue();
-		this._setAuxiliaryPower(this.standbyPower + thermalManagement.orElse(0));
 	}
 
 	/**

@@ -23,8 +23,5 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "BMS-ID", description = "ID of Battery Management System.")
 	String bms_id() default "bms0";
 
-	@AttributeDefinition(name = "Standby Power [W]", description = "Electrical power of the control infrastructure, drawn around the clock.")
-	int standbyPower() default SymmetricStorageSimulatorReacting.STANDBY_POWER;
-
 	String webconsole_configurationFactory_nameHint() default "Simulator ESS Symmetric OROS [{id}]";
 }
