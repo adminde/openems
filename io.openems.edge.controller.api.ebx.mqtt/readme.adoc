@@ -1,0 +1,14 @@
+= Controller API EBX MQTT
+
+MQTT transport for the EBX virtual power plant interface.
+
+Connects to the EBX cloud through `io.openems.edge.bridge.mqtt`, decodes and validates the Protobuf
+command frames, and publishes power, availability and constraints telemetry at 1 Hz. All control
+logic lives in the bound `io.openems.edge.controller.ess.ebx`, this bundle is transport only:
+topics, frame encoding and decoding, sequence validation and publication timing.
+
+The Protobuf frames follow the official schema of the interface, see `frames.proto` in this
+bundle. `EbxFrameCodec` mirrors its field numbers as named constants and has to be kept in sync
+with the schema by hand.
+
+https://github.com/OpenEMS/openems/tree/develop/io.openems.edge.controller.api.ebx.mqtt[Source Code icon:github[]]

@@ -1,0 +1,15 @@
+= Controller ESS EBX
+
+Executes the aggregate active-power dispatch of the EBX virtual power plant on an energy storage
+system.
+
+The controller receives already validated dispatch commands from a transport bundle through its
+exported interface, applies them to the storage system with clamping against the effective power
+envelope, and falls back to a rate-limited ramp-down to zero whenever the EBX side loses liveness
+or the held command expires. In the `IDLE_SAFE` and `UNDEFINED` states the storage system is deliberately
+released to the remaining scheduler chain.
+
+The controller knows nothing about MQTT or Protobuf. The MQTT transport is provided by
+`io.openems.edge.controller.api.ebx.mqtt`.
+
+https://github.com/OpenEMS/openems/tree/develop/io.openems.edge.controller.ess.ebx[Source Code icon:github[]]

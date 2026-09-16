@@ -1,0 +1,47 @@
+// EBX <-> customer EMS frames per the EBX VPP MQTT Interface v1.6. Topics are ebx/vpp/{vpp_asset_id}/{suffix}/v1
+// at 1 Hz; the asset id comes from the topic. Export and discharge are positive, import and charge negative.
+syntax = "proto3";
+
+package ebx.vpp.mqtt.v1;
+
+// Values are the interface document's; 0 doubles as the proto3 default, so an unset status is fail-safe.
+enum AssetStatus {
+  // buf:lint:ignore ENUM_ZERO_VALUE_SUFFIX
+  ASSET_STATUS_NO_AVAILABILITY = 0;
+  ASSET_STATUS_RESTRICTED_AVAILABILITY = 125;
+  ASSET_STATUS_FULL_AVAILABILITY = 255;
+}
+
+// command/power/v1 — EBX publishes, QoS 1, not retained. Duplicate, expired and out-of-order commands are dropped.
+message PowerCommand {
+  int64 source_ts_ms = 1;
+  // Past this, ramp to 0 kW unless a newer setpoint arrived.
+  int64 valid_until_ms = 2;
+  float power_setpoint_kw = 3;
+}
+
+// telemetry/power/v1 — EMS publishes, QoS 0, not retained.
+message PowerTelemetry {
+  int64 source_ts_ms = 1;
+  float poc_power_actual_ac_kw = 2;
+  float bess_power_actual_ac_kw = 3;
+  float bess_power_actual_dc_kw = 4;
+  optional float frequency_hz = 5;
+}
+
+// telemetry/availability/v1 — EMS publishes, QoS 0, retained. Values are non-negative magnitudes.
+message AvailabilityTelemetry {
+  int64 source_ts_ms = 1;
+  AssetStatus asset_status = 2;
+  float available_energy_discharge_kwh = 3;
+  float available_energy_charge_kwh = 4;
+  float available_power_discharge_kw = 5;
+  float available_power_charge_kw = 6;
+}
+
+// telemetry/constraints/v1 — EMS publishes, QoS 0, retained. Non-negative kW at the POC; 0 blocks that direction.
+message ConstraintsTelemetry {
+  int64 source_ts_ms = 1;
+  optional float allowed_export_power_kw = 2;
+  optional float allowed_import_power_kw = 3;
+}
