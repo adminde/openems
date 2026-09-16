@@ -325,6 +325,17 @@ public interface Meta extends ModbusSlave {
 	public int getGridBuyHardLimit();
 
 	/**
+	 * Returns the continuous hard limit for Grid-Buy Power in [W] minus a safety
+	 * buffer.
+	 *
+	 * <p>
+	 * This value is derived from {@link #getGridBuyHardLimit()}.
+	 *
+	 * @return the value
+	 */
+	public int getGridBuyHardLimitWithBuffer();
+
+	/**
 	 * Returns the continuous limit for ESS Discharge-to-Grid Power in [W].
 	 *
 	 * <p>

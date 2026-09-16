@@ -297,6 +297,26 @@ class MetaImplTest {
 		}
 	}
 
+	@Nested
+	@ExtendWith(MockitoExtension.class)
+	@DisplayName("getGridBuyHardLimitWithBuffer()")
+	class GetGridBuyHardLimitWithBufferTest {
+
+		@ParameterizedTest(name = "gridBuyHardLimit={0} -> expected={1}")
+		@CsvSource({ "1000,850", // 5% = 50 -> min buffer 150
+				"10000,9500", // 5% = 500
+				"3333,3166" // 5% = 166.65 -> round(3166.35) = 3166
+		})
+		void shouldApplyConfiguredBufferLogic(int gridBuyHardLimit, int expected) {
+			final var sut = spy(MetaImpl.class);
+			doReturn(gridBuyHardLimit).when(sut).getGridBuyHardLimit();
+
+			final int result = sut.getGridBuyHardLimitWithBuffer();
+
+			assertEquals(expected, result);
+		}
+	}
+
 	@Test
 	public void testGetEssDischargeToGridLimitBlockedByConfig() throws Exception {
 		final var cm = new DummyConfigurationAdmin();

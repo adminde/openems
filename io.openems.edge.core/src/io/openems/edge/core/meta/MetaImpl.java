@@ -234,17 +234,29 @@ public class MetaImpl extends AbstractOpenemsComponent
 
 	@Override
 	public int getGridSellHardLimitWithBuffer() {
-		final int gridSellHardLimit = this.getGridSellHardLimit();
-
-		// Reduce limit by 5% with a minimum buffer of 150 W
-		final float buffer = max(gridSellHardLimit * 0.05F, 150);
-		return Math.round(gridSellHardLimit - buffer);
+		return subtractSafetyBuffer(this.getGridSellHardLimit());
 	}
 
 	@Override
 	public int getGridBuyHardLimit() {
 		final var powerFromFuseLimit = this.getGridConnectionPointFuseLimitInWatt();
 		return powerFromFuseLimit;
+	}
+
+	@Override
+	public int getGridBuyHardLimitWithBuffer() {
+		return subtractSafetyBuffer(this.getGridBuyHardLimit());
+	}
+
+	/**
+	 * Reduces a hard limit by a safety buffer of 5 % with a minimum of 150 W.
+	 *
+	 * @param hardLimit the hard limit in [W]
+	 * @return the reduced limit in [W]
+	 */
+	private static int subtractSafetyBuffer(int hardLimit) {
+		final float buffer = max(hardLimit * 0.05F, 150);
+		return Math.round(hardLimit - buffer);
 	}
 
 	@Override
