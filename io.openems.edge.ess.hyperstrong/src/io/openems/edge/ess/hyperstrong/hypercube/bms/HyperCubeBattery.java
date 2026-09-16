@@ -19,6 +19,12 @@ import io.openems.edge.oros.bms.api.BatteryManagementSystem;
 public interface HyperCubeBattery extends BatteryManagementSystem, Battery,
 		OpenemsComponent, ModbusComponent, ModbusSlave, StartStoppable {
 
+	/** Charge cut-off voltage of the Rack [V]. */
+	public static final int MAX_CHARGE_VOLTAGE = 936;
+
+	/** Discharge cut-off voltage of the Rack [V]. */
+	public static final int MIN_DISCHARGE_VOLTAGE = 728;
+
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 
 		POSITIVE_RELAY_STATUS(Doc.of(OpenemsType.BOOLEAN)

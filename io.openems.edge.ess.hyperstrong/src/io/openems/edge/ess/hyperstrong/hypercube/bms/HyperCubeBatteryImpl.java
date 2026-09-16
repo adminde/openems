@@ -79,6 +79,8 @@ public class HyperCubeBatteryImpl extends AbstractOpenemsModbusComponent impleme
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
 		super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId());
+		this._setChargeMaxVoltage(HyperCubeBattery.MAX_CHARGE_VOLTAGE);
+		this._setDischargeMinVoltage(HyperCubeBattery.MIN_DISCHARGE_VOLTAGE);
 
 		HyperCubeBattery.mirrorOpenCircuitVoltageFromPrecharge(this);
 		BatteryManagementSystem.calculateRackPowerFromVoltageAndCurrent(this);
