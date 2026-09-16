@@ -14,7 +14,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
-import io.openems.edge.oros.ess.core.RuntimeComponent;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -35,6 +34,7 @@ import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.bridge.modbus.api.BridgeModbus;
+import io.openems.edge.bridge.modbus.api.ElementToChannelConverter;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
 import io.openems.edge.bridge.modbus.api.ModbusProtocol;
 import io.openems.edge.bridge.modbus.api.element.BitsWordElement;
@@ -55,13 +55,14 @@ import io.openems.edge.common.modbusslave.ModbusSlave;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.common.taskmanager.Priority;
+import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.ess.api.EssErrorAcknowledge;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
+import io.openems.edge.ess.hyperstrong.hypercube.tms.ThermalManagementSystem;
 import io.openems.edge.ess.hyperstrong.statemachine.Context;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
-import io.openems.edge.ess.hyperstrong.hypercube.tms.ThermalManagementSystem;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.oros.bms.api.BatteryManagementProvider;
 import io.openems.edge.oros.bms.api.BatteryManagementSystem;
@@ -69,6 +70,7 @@ import io.openems.edge.oros.common.SymmetricComponent;
 import io.openems.edge.oros.ess.api.EnergyStorageSystem;
 import io.openems.edge.oros.ess.core.AbstractModbusEss;
 import io.openems.edge.oros.ess.core.ChannelManager.StateOfChargeListener;
+import io.openems.edge.oros.ess.core.RuntimeComponent;
 import io.openems.edge.oros.pcs.api.PowerConversionProvider;
 import io.openems.edge.oros.pcs.api.PowerConversionSystem;
 import io.openems.edge.timedata.api.Timedata;
@@ -349,7 +351,21 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 								.bit(2, HyperCube.ChannelId.REMOTE_COMMUNICATION_ENABLED)
 								.bit(3, HyperCube.ChannelId.REMOTE_COMMUNICATION_FAULT)
 						),
-						m(HyperCube.ChannelId.OPERATING_TARGET, new UnsignedWordElement(143))),
+						m(HyperCube.ChannelId.OPERATING_TARGET, new UnsignedWordElement(143),
+								new ElementToChannelConverter(value -> {
+									var intValue = TypeUtils.<Integer>getAsType(OpenemsType.INTEGER, value);
+									if (intValue != null) {
+										switch (intValue) {
+											case 0:
+												return OperatingTarget.STOP;
+											case 3:
+												return OperatingTarget.RUN;
+											case 9:
+												return OperatingTarget.SHUTDOWN;
+										}
+									}
+									return OperatingTarget.UNDEFINED;
+								}))),
 
 				// FIXME: Reading appears to not work correctly. Validate this with future firmware update.
 				// Channels were set to WRITE_ONLY to reflect this.
@@ -362,10 +378,10 @@ public class HyperCubeImpl extends AbstractModbusEss implements HyperCube,
 				new FC6WriteRegisterTask(1, 
 						m(HyperCube.ChannelId.HEARTBEAT, new UnsignedWordElement(1))),
 
-				new FC6WriteRegisterTask(302, 
+				new FC6WriteRegisterTask(302,
 						m(SymmetricEss.ChannelId.GRID_MODE, new UnsignedWordElement(302))),
-				new FC6WriteRegisterTask(303, 
-						m(HyperCube.ChannelId.RUN_MODE_TARGET, new UnsignedWordElement(303))),
+				new FC6WriteRegisterTask(303,
+						m(HyperCube.ChannelId.OPERATING_TARGET, new UnsignedWordElement(303))),
 
 				new FC16WriteRegistersTask(315,
 						m(HyperCube.ChannelId.SET_ACTIVE_POWER,

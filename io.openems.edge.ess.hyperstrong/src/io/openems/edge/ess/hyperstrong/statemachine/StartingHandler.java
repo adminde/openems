@@ -2,11 +2,10 @@ package io.openems.edge.ess.hyperstrong.statemachine;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.timedata.Timeout;
-import io.openems.edge.common.channel.EnumWriteChannel;
 import io.openems.edge.common.statemachine.StateHandler;
 import io.openems.edge.ess.hyperstrong.hypercube.HyperCube;
 import io.openems.edge.ess.hyperstrong.hypercube.OperatingStatus;
-import io.openems.edge.ess.hyperstrong.hypercube.RunModeTarget;
+import io.openems.edge.ess.hyperstrong.hypercube.OperatingTarget;
 import io.openems.edge.ess.hyperstrong.statemachine.StateMachine.State;
 
 public class StartingHandler extends StateHandler<State, Context> {
@@ -48,20 +47,19 @@ public class StartingHandler extends StateHandler<State, Context> {
 	}
 
 	/**
-	 * Requests the HyperCube to switch its work state to Run via register 303.
+	 * Requests the HyperCube to switch its operating mode to Run.
 	 *
 	 * <p>
-	 * The request is repeated every cycle while the system reports a startable
-	 * Operating Status and stops as soon as it reports Starting or Running.
+	 * The request is repeated every cycle until the HyperCube echoes Run as its
+	 * accepted Operating Target.
 	 *
 	 * @param ess the {@link HyperCube}
 	 * @throws OpenemsNamedException on write error
 	 */
 	private void requestRun(HyperCube ess) throws OpenemsNamedException {
-		if (ess.isReadOnly()) {
+		if (ess.isReadOnly() || ess.getOperatingTarget() == OperatingTarget.RUN) {
 			return;
 		}
-		EnumWriteChannel runModeTarget = ess.channel(HyperCube.ChannelId.RUN_MODE_TARGET);
-		runModeTarget.setNextWriteValue(RunModeTarget.RUN);
+		ess.setOperatingTarget(OperatingTarget.RUN);
 	}
 }
