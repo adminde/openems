@@ -70,6 +70,8 @@ public class ControllerEssLimitGridConnectionPowerImpl extends AbstractOpenemsCo
 	public void run() throws OpenemsNamedException {
 		// Check that we are On-Grid (and warn on undefined Grid-Mode)
 		if (!this.ess.isOnGridOrUndefined(m -> this.logWarn(this.log, m))) {
+			this.ess.setActivePowerLessOrEqualsWithoutFilter(this.id(), null);
+			this.ess.setActivePowerGreaterOrEqualsWithoutFilter(this.id(), null);
 			this._setActivePowerUpperLimit(null);
 			this._setActivePowerLowerLimit(null);
 			this._setStaticLimitFallback(false);
@@ -80,35 +82,28 @@ public class ControllerEssLimitGridConnectionPowerImpl extends AbstractOpenemsCo
 
 		final var gridActivePower = this.sum.getGridActivePower().get();
 		final var essActivePower = this.ess.getActivePower().get();
-
-		final var limits = calculateLimits(gridActivePower, essActivePower, //
+		final var essLimits = calculateLimits(gridActivePower, essActivePower, //
 				Math.max(0, this.meta.getGridBuyHardLimitWithBuffer()), //
 				Math.max(0, this.meta.getGridSellHardLimitWithBuffer()), //
 				this.meta.getIsEssChargeFromGridAllowed(), //
 				this.meta.getIsEssDischargeToGridAllowed());
 
-		this.ess.setActivePowerLessOrEquals(limits.upper());
-		this.ess.setActivePowerGreaterOrEquals(limits.lower());
+		if (essLimits.isFallback()) {
+			// Static limits are not derived from measurements
+			this.ess.setActivePowerLessOrEqualsWithoutFilter(this.id(), essLimits.upper());
+			this.ess.setActivePowerGreaterOrEqualsWithoutFilter(this.id(), essLimits.lower());
+		} else {
+			this.ess.setActivePowerLessOrEqualsWithFilter(this.id(), essLimits.upper());
+			this.ess.setActivePowerGreaterOrEqualsWithFilter(this.id(), essLimits.lower());
+		}
 
-		this._setActivePowerUpperLimit(limits.upper());
-		this._setActivePowerLowerLimit(limits.lower());
-		this._setStaticLimitFallback(limits.isFallback());
+		this._setActivePowerUpperLimit(essLimits.upper());
+		this._setActivePowerLowerLimit(essLimits.lower());
+		this._setStaticLimitFallback(essLimits.isFallback());
 		this._setGridImportLimitExceeded(//
 				gridActivePower != null && gridActivePower > this.meta.getGridBuyHardLimit());
 		this._setGridExportLimitExceeded(//
 				gridActivePower != null && -gridActivePower > this.meta.getGridSellHardLimit());
-	}
-
-	/**
-	 * Limits for the ESS active power in [W]. Negative values for Charge; positive
-	 * for Discharge.
-	 *
-	 * @param lower      the lower limit, applied as GreaterOrEquals constraint
-	 * @param upper      the upper limit, applied as LessOrEquals constraint
-	 * @param isFallback true if static limits are applied because the grid or ESS
-	 *                   active power is undefined
-	 */
-	record Limits(int lower, int upper, boolean isFallback) {
 	}
 
 	/**
@@ -166,5 +161,17 @@ public class ControllerEssLimitGridConnectionPowerImpl extends AbstractOpenemsCo
 		}
 
 		return new Limits(lower, upper, false);
+	}
+
+	/**
+	 * Limits for the ESS active power in [W]. Negative values for Charge; positive
+	 * for Discharge.
+	 *
+	 * @param lower      the lower limit, applied as GreaterOrEquals constraint
+	 * @param upper      the upper limit, applied as LessOrEquals constraint
+	 * @param isFallback true if static limits are applied because the load is
+	 *                   undefined
+	 */
+	record Limits(int lower, int upper, boolean isFallback) {
 	}
 }

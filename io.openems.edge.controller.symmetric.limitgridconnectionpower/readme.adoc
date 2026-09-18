@@ -13,9 +13,17 @@ Every cycle the Controller derives the power at the GCP without the ESS contribu
 
 If a physical limit is already exceeded by other consumers or producers, the constraint forces the ESS to charge or discharge the excess as far as its own limits allow. The permission-based limits never force the ESS.
 
+== Filter
+
+The grid and the ESS measurements reflect a change of the ESS power with different latencies. The derived power at the GCP without the ESS contribution therefore shows a transient error after every change of the ESS power. Without a filter this error feeds back into the limits and lets the ESS power oscillate or toggle.
+
+Both limits are therefore set via `setActivePowerLessOrEqualsWithFilter` and `setActivePowerGreaterOrEqualsWithFilter`, which pass them through a filter of `Ess.Power`. The PT1 time constant is configured centrally in `Ess.Power` (default 800 ms, disabling the PT1 filter leaves the limits unfiltered). With the default the loop stays stable for latency differences of up to about 1 s between the grid meter and the ESS measurement. Slower meters need a larger time constant, which delays the reaction of the limits accordingly. The channels `ActivePowerUpperLimit` and `ActivePowerLowerLimit` show the limits before filtering. The warnings `GridImportLimitExceeded` and `GridExportLimitExceeded` are always based on the unfiltered grid measurement. Static fallback limits are set without filter, which resets the filters, as is done Off-Grid.
+
+The setpoint filter of `Ess.Power` (PID or PT1) is a different filter. It smooths the `SetActivePowerEquals` setpoint of other Controllers, while the constraints of this Controller act as hard bounds on the solver result.
+
 == Scheduling
 
-The Controller only adds constraints and never sets an active power itself. Schedule it before all Controllers that set an active power setpoint (e.g. Balancing, Peak-Shaving, Time-of-Use-Tariff), so that their setpoints are clamped into the limits.
+The Controller only adds constraints and never sets an active power itself. Schedule it before all Controllers that set an active power setpoint (e.g. Balancing, Peak-Shaving, Time-of-Use-Tariff), so that their setpoints are clamped into the limits. Without any setpoint the Power solver applies the feasible value closest to zero, so the ESS only compensates the excess.
 
 == Fallback
 
@@ -25,5 +33,6 @@ If the grid or the ESS active power is undefined, the Controller applies static 
 
 * Asymmetric loads are not considered. The GCP fuse limit is treated as a three-phase total.
 * While the grid measurement is undefined, other producers together with the ESS may still exceed the export limit.
+* The grid measurement must include the ESS power, as it does at a physical GCP. A simulated grid meter that replays a fixed profile does not react to the ESS and lets the ESS power wind up.
 
 https://github.com/OpenEMS/openems/tree/develop/io.openems.edge.controller.symmetric.limitgridconnectionpower[Source Code icon:github[]]

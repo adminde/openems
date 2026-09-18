@@ -16,20 +16,6 @@ public interface ControllerEssLimitGridConnectionPower extends Controller, Opene
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 		/**
-		 * Upper limit for the ESS active power. Applied as
-		 * SetActivePowerLessOrEquals constraint.
-		 *
-		 * <ul>
-		 * <li>Interface: ControllerEssLimitGridConnectionPower
-		 * <li>Type: Integer
-		 * <li>Unit: W
-		 * <li>Range: negative values for Charge; positive for Discharge
-		 * </ul>
-		 */
-		ACTIVE_POWER_UPPER_LIMIT(Doc.of(INTEGER) //
-				.unit(WATT) //
-				.persistencePriority(HIGH)),
-		/**
 		 * Lower limit for the ESS active power. Applied as
 		 * SetActivePowerGreaterOrEquals constraint.
 		 *
@@ -40,7 +26,21 @@ public interface ControllerEssLimitGridConnectionPower extends Controller, Opene
 		 * <li>Range: negative values for Charge; positive for Discharge
 		 * </ul>
 		 */
-		ACTIVE_POWER_LOWER_LIMIT(Doc.of(INTEGER) //
+		ACTIVE_CHARGE_POWER_LIMIT(Doc.of(INTEGER) //
+				.unit(WATT) //
+				.persistencePriority(HIGH)),
+		/**
+		 * Upper limit for the ESS active power. Applied as
+		 * SetActivePowerLessOrEquals constraint.
+		 *
+		 * <ul>
+		 * <li>Interface: ControllerEssLimitGridConnectionPower
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: negative values for Charge; positive for Discharge
+		 * </ul>
+		 */
+		ACTIVE_DISCHARGE_POWER_LIMIT(Doc.of(INTEGER) //
 				.unit(WATT) //
 				.persistencePriority(HIGH)),
 		/**
@@ -88,17 +88,17 @@ public interface ControllerEssLimitGridConnectionPower extends Controller, Opene
 	}
 
 	/**
-	 * Gets the Channel for {@link ChannelId#ACTIVE_POWER_UPPER_LIMIT}.
+	 * Gets the Channel for {@link ChannelId#ACTIVE_DISCHARGE_POWER_LIMIT}.
 	 *
 	 * @return the Channel
 	 */
 	public default IntegerReadChannel getActivePowerUpperLimitChannel() {
-		return this.channel(ChannelId.ACTIVE_POWER_UPPER_LIMIT);
+		return this.channel(ChannelId.ACTIVE_DISCHARGE_POWER_LIMIT);
 	}
 
 	/**
 	 * Gets the upper limit for the ESS active power in [W]. See
-	 * {@link ChannelId#ACTIVE_POWER_UPPER_LIMIT}.
+	 * {@link ChannelId#ACTIVE_DISCHARGE_POWER_LIMIT}.
 	 *
 	 * @return the Channel {@link Value}
 	 */
@@ -108,7 +108,7 @@ public interface ControllerEssLimitGridConnectionPower extends Controller, Opene
 
 	/**
 	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#ACTIVE_POWER_UPPER_LIMIT} Channel.
+	 * {@link ChannelId#ACTIVE_DISCHARGE_POWER_LIMIT} Channel.
 	 *
 	 * @param value the next value
 	 */
@@ -118,7 +118,7 @@ public interface ControllerEssLimitGridConnectionPower extends Controller, Opene
 
 	/**
 	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#ACTIVE_POWER_UPPER_LIMIT} Channel.
+	 * {@link ChannelId#ACTIVE_DISCHARGE_POWER_LIMIT} Channel.
 	 *
 	 * @param value the next value
 	 */
@@ -127,17 +127,17 @@ public interface ControllerEssLimitGridConnectionPower extends Controller, Opene
 	}
 
 	/**
-	 * Gets the Channel for {@link ChannelId#ACTIVE_POWER_LOWER_LIMIT}.
+	 * Gets the Channel for {@link ChannelId#ACTIVE_CHARGE_POWER_LIMIT}.
 	 *
 	 * @return the Channel
 	 */
 	public default IntegerReadChannel getActivePowerLowerLimitChannel() {
-		return this.channel(ChannelId.ACTIVE_POWER_LOWER_LIMIT);
+		return this.channel(ChannelId.ACTIVE_CHARGE_POWER_LIMIT);
 	}
 
 	/**
 	 * Gets the lower limit for the ESS active power in [W]. See
-	 * {@link ChannelId#ACTIVE_POWER_LOWER_LIMIT}.
+	 * {@link ChannelId#ACTIVE_CHARGE_POWER_LIMIT}.
 	 *
 	 * @return the Channel {@link Value}
 	 */
@@ -147,7 +147,7 @@ public interface ControllerEssLimitGridConnectionPower extends Controller, Opene
 
 	/**
 	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#ACTIVE_POWER_LOWER_LIMIT} Channel.
+	 * {@link ChannelId#ACTIVE_CHARGE_POWER_LIMIT} Channel.
 	 *
 	 * @param value the next value
 	 */
@@ -157,7 +157,7 @@ public interface ControllerEssLimitGridConnectionPower extends Controller, Opene
 
 	/**
 	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#ACTIVE_POWER_LOWER_LIMIT} Channel.
+	 * {@link ChannelId#ACTIVE_CHARGE_POWER_LIMIT} Channel.
 	 *
 	 * @param value the next value
 	 */

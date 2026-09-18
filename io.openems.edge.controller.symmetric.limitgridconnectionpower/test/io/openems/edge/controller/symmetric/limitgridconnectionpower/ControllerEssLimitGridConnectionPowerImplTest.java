@@ -1,8 +1,8 @@
 package io.openems.edge.controller.symmetric.limitgridconnectionpower;
 
 import static io.openems.edge.common.sum.Sum.ChannelId.GRID_ACTIVE_POWER;
-import static io.openems.edge.controller.symmetric.limitgridconnectionpower.ControllerEssLimitGridConnectionPower.ChannelId.ACTIVE_POWER_LOWER_LIMIT;
-import static io.openems.edge.controller.symmetric.limitgridconnectionpower.ControllerEssLimitGridConnectionPower.ChannelId.ACTIVE_POWER_UPPER_LIMIT;
+import static io.openems.edge.controller.symmetric.limitgridconnectionpower.ControllerEssLimitGridConnectionPower.ChannelId.ACTIVE_CHARGE_POWER_LIMIT;
+import static io.openems.edge.controller.symmetric.limitgridconnectionpower.ControllerEssLimitGridConnectionPower.ChannelId.ACTIVE_DISCHARGE_POWER_LIMIT;
 import static io.openems.edge.controller.symmetric.limitgridconnectionpower.ControllerEssLimitGridConnectionPower.ChannelId.GRID_EXPORT_LIMIT_EXCEEDED;
 import static io.openems.edge.controller.symmetric.limitgridconnectionpower.ControllerEssLimitGridConnectionPower.ChannelId.GRID_IMPORT_LIMIT_EXCEEDED;
 import static io.openems.edge.controller.symmetric.limitgridconnectionpower.ControllerEssLimitGridConnectionPower.ChannelId.STATIC_LIMIT_FALLBACK;
@@ -11,16 +11,23 @@ import static io.openems.edge.ess.api.ManagedSymmetricEss.ChannelId.SET_ACTIVE_P
 import static io.openems.edge.ess.api.ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_LESS_OR_EQUALS;
 import static io.openems.edge.ess.api.SymmetricEss.ChannelId.ACTIVE_POWER;
 import static io.openems.edge.ess.api.SymmetricEss.ChannelId.GRID_MODE;
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import io.openems.common.test.TimeLeapClock;
+import io.openems.edge.common.filter.PT1Filter;
 import io.openems.edge.common.sum.DummySum;
 import io.openems.edge.common.sum.GridMode;
 import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.DummyMeta;
 import io.openems.edge.controller.test.ControllerTest;
 import io.openems.edge.ess.test.DummyManagedSymmetricEss;
+import io.openems.edge.ess.test.DummyPower;
 
 public class ControllerEssLimitGridConnectionPowerImplTest {
 
@@ -28,6 +35,8 @@ public class ControllerEssLimitGridConnectionPowerImplTest {
 	private static final int HARD_LIMIT = 22170;
 	/** Hard limit minus 5 % safety buffer. */
 	private static final int LIMIT = 21062;
+	/** Time constant of the PT1 filter in [ms], as Ess.Power applies it by default. */
+	private static final int FILTER_TIME_CONSTANT = PT1Filter.DEFAULT_TIME_CONSTANT;
 
 	private static DummyMeta dummyMeta(boolean isChargeFromGridAllowed, boolean isDischargeToGridAllowed) {
 		return new DummyMeta() //
@@ -39,12 +48,29 @@ public class ControllerEssLimitGridConnectionPowerImplTest {
 				.withIsEssDischargeToGridAllowed(isDischargeToGridAllowed);
 	}
 
+	private static DummyManagedSymmetricEss dummyEss(TimeLeapClock clock, int filterTimeConstant) {
+		return new DummyManagedSymmetricEss("ess0") //
+				.setPower(new DummyPower().withPt1Filter(clock, filterTimeConstant)) //
+				.withGridMode(GridMode.ON_GRID);
+	}
+
+	/**
+	 * Prepares a test with a disabled filter.
+	 *
+	 * @param meta the {@link DummyMeta}
+	 * @return the {@link ControllerTest}
+	 * @throws Exception on error
+	 */
 	private static ControllerTest prepareTest(DummyMeta meta) throws Exception {
-		return new ControllerTest(new ControllerEssLimitGridConnectionPowerImpl()) //
+		return prepareTest(new ControllerEssLimitGridConnectionPowerImpl(), dummyEss(new TimeLeapClock(), 0), meta);
+	}
+
+	private static ControllerTest prepareTest(ControllerEssLimitGridConnectionPowerImpl sut,
+			DummyManagedSymmetricEss ess, DummyMeta meta) throws Exception {
+		return new ControllerTest(sut) //
 				.addReference("meta", meta) //
 				.addReference("sum", new DummySum()) //
-				.addReference("ess", new DummyManagedSymmetricEss("ess0") //
-						.withGridMode(GridMode.ON_GRID)) //
+				.addReference("ess", ess) //
 				.activate(MyConfig.create() //
 						.setId("ctrl0") //
 						.setEssId("ess0") //
@@ -60,8 +86,8 @@ public class ControllerEssLimitGridConnectionPowerImplTest {
 						.input("ess0", ACTIVE_POWER, 0) //
 						.output("ess0", SET_ACTIVE_POWER_LESS_OR_EQUALS, 5000 + LIMIT) //
 						.output("ess0", SET_ACTIVE_POWER_GREATER_OR_EQUALS, 5000 - LIMIT) //
-						.output(ACTIVE_POWER_UPPER_LIMIT, 5000 + LIMIT) //
-						.output(ACTIVE_POWER_LOWER_LIMIT, 5000 - LIMIT) //
+						.output(ACTIVE_DISCHARGE_POWER_LIMIT, 5000 + LIMIT) //
+						.output(ACTIVE_CHARGE_POWER_LIMIT, 5000 - LIMIT) //
 						.output(STATIC_LIMIT_FALLBACK, false) //
 						.output(GRID_IMPORT_LIMIT_EXCEEDED, false) //
 						.output(GRID_EXPORT_LIMIT_EXCEEDED, false)) //
@@ -203,8 +229,8 @@ public class ControllerEssLimitGridConnectionPowerImplTest {
 						.input("ess0", ACTIVE_POWER, 0) //
 						.output("ess0", SET_ACTIVE_POWER_LESS_OR_EQUALS, null) //
 						.output("ess0", SET_ACTIVE_POWER_GREATER_OR_EQUALS, null) //
-						.output(ACTIVE_POWER_UPPER_LIMIT, null) //
-						.output(ACTIVE_POWER_LOWER_LIMIT, null) //
+						.output(ACTIVE_DISCHARGE_POWER_LIMIT, null) //
+						.output(ACTIVE_CHARGE_POWER_LIMIT, null) //
 						.output(STATIC_LIMIT_FALLBACK, false)) //
 				.deactivate();
 	}
@@ -228,6 +254,108 @@ public class ControllerEssLimitGridConnectionPowerImplTest {
 					}
 				}
 			}
+		}
+	}
+
+	@Test
+	public void testFilter() throws Exception {
+		final var clock = new TimeLeapClock();
+		prepareTest(new ControllerEssLimitGridConnectionPowerImpl(), dummyEss(clock, FILTER_TIME_CONSTANT),
+				dummyMeta(true, true)) //
+				// The first limits are applied unfiltered
+				.next(new TestCase() //
+						.input(GRID_ACTIVE_POWER, 5000) //
+						.input("ess0", ACTIVE_POWER, 0) //
+						.output("ess0", SET_ACTIVE_POWER_LESS_OR_EQUALS, 5000 + LIMIT) //
+						.output("ess0", SET_ACTIVE_POWER_GREATER_OR_EQUALS, 5000 - LIMIT) //
+						.output(ACTIVE_DISCHARGE_POWER_LIMIT, 5000 + LIMIT) //
+						.output(ACTIVE_CHARGE_POWER_LIMIT, 5000 - LIMIT)) //
+				// A load step is followed with the time constant, while the channels show
+				// the unfiltered limits
+				.next(new TestCase() //
+						.timeleap(clock, 1, SECONDS) //
+						.input(GRID_ACTIVE_POWER, 25000) //
+						.input("ess0", ACTIVE_POWER, 0) //
+						.output("ess0", SET_ACTIVE_POWER_LESS_OR_EQUALS, 16111 + LIMIT) //
+						.output("ess0", SET_ACTIVE_POWER_GREATER_OR_EQUALS, 16111 - LIMIT) //
+						.output(ACTIVE_DISCHARGE_POWER_LIMIT, 25000 + LIMIT) //
+						.output(ACTIVE_CHARGE_POWER_LIMIT, 25000 - LIMIT) //
+						.output(GRID_IMPORT_LIMIT_EXCEEDED, true)) //
+				.next(new TestCase() //
+						.timeleap(clock, 1, SECONDS) //
+						.input(GRID_ACTIVE_POWER, 25000) //
+						.input("ess0", ACTIVE_POWER, 0) //
+						.output("ess0", SET_ACTIVE_POWER_LESS_OR_EQUALS, 21049 + LIMIT) //
+						.output("ess0", SET_ACTIVE_POWER_GREATER_OR_EQUALS, 21049 - LIMIT)) //
+				.next(new TestCase() //
+						.timeleap(clock, 1, SECONDS) //
+						.input(GRID_ACTIVE_POWER, 25000) //
+						.input("ess0", ACTIVE_POWER, 0) //
+						.output("ess0", SET_ACTIVE_POWER_LESS_OR_EQUALS, 23244 + LIMIT) //
+						.output("ess0", SET_ACTIVE_POWER_GREATER_OR_EQUALS, 23244 - LIMIT)) //
+				// Static limits are applied unfiltered and reset the filters
+				.next(new TestCase() //
+						.timeleap(clock, 1, SECONDS) //
+						.input(GRID_ACTIVE_POWER, null) //
+						.input("ess0", ACTIVE_POWER, 0) //
+						.output("ess0", SET_ACTIVE_POWER_LESS_OR_EQUALS, LIMIT) //
+						.output("ess0", SET_ACTIVE_POWER_GREATER_OR_EQUALS, -LIMIT) //
+						.output(STATIC_LIMIT_FALLBACK, true)) //
+				.next(new TestCase() //
+						.timeleap(clock, 1, SECONDS) //
+						.input(GRID_ACTIVE_POWER, 25000) //
+						.input("ess0", ACTIVE_POWER, 0) //
+						.output("ess0", SET_ACTIVE_POWER_LESS_OR_EQUALS, 25000 + LIMIT) //
+						.output("ess0", SET_ACTIVE_POWER_GREATER_OR_EQUALS, 25000 - LIMIT) //
+						.output(STATIC_LIMIT_FALLBACK, false)) //
+				.deactivate();
+	}
+
+	/**
+	 * Simulates the closed loop with a grid measurement that reflects a change of
+	 * the ESS power one cycle later than the ESS measurement. The ESS follows the
+	 * applied lower limit, as the Power solver applies the feasible value closest
+	 * to zero.
+	 *
+	 * @param filterTimeConstant the time constant of the PT1 filter in [ms]
+	 * @return the applied lower limits of all simulated cycles
+	 * @throws Exception on error
+	 */
+	private static List<Integer> simulateLaggingGridMeasurement(int filterTimeConstant) throws Exception {
+		final var load = 30000;
+		final var clock = new TimeLeapClock();
+		final var ess = dummyEss(clock, filterTimeConstant);
+		final var test = prepareTest(new ControllerEssLimitGridConnectionPowerImpl(), ess, dummyMeta(true, true));
+		final var lowerLimits = new ArrayList<Integer>();
+		var essPower = 0;
+		var previousEssPower = 0;
+		for (var cycle = 0; cycle < 40; cycle++) {
+			test.next(new TestCase() //
+					.timeleap(clock, 1, SECONDS) //
+					.input(GRID_ACTIVE_POWER, load - previousEssPower) //
+					.input("ess0", ACTIVE_POWER, essPower));
+			var lowerLimit = ess.getSetActivePowerGreaterOrEqualsChannel().getNextWriteValue().get();
+			lowerLimits.add(lowerLimit);
+			previousEssPower = essPower;
+			essPower = Math.max(0, lowerLimit);
+		}
+		test.deactivate();
+		return lowerLimits;
+	}
+
+	@Test
+	public void testLaggingGridMeasurementOscillatesWithoutFilter() throws Exception {
+		var tail = simulateLaggingGridMeasurement(0).subList(30, 40);
+		var max = tail.stream().mapToInt(Integer::intValue).max().getAsInt();
+		var min = tail.stream().mapToInt(Integer::intValue).min().getAsInt();
+		assertTrue(max - min >= 30000 - LIMIT, "Expected a sustained oscillation, but got " + tail);
+	}
+
+	@Test
+	public void testLaggingGridMeasurementConvergesWithFilter() throws Exception {
+		var tail = simulateLaggingGridMeasurement(FILTER_TIME_CONSTANT).subList(30, 40);
+		for (var lowerLimit : tail) {
+			assertTrue(Math.abs(lowerLimit - (30000 - LIMIT)) <= 50, "Expected convergence, but got " + tail);
 		}
 	}
 }
