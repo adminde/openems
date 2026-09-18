@@ -96,8 +96,14 @@ public class ControllerAsymmetricPeakShavingImpl extends AbstractOpenemsComponen
 
 		} else {
 
-			// Do nothing
-			calculatedPower = 0;
+			/*
+			 * There is no active peak to shave and no recharge required. Assert the peak
+			 * ceiling as a lower bound on power, so that a Controller scheduled after the
+			 * Peak-Shaving cannot import power above peakShavingPower.
+			 */
+			var minimumPower = effectiveGridPower - wholePeakShavingPower;
+			ess.setActivePowerGreaterOrEqualsWithFilter(this.id(), minimumPower);
+			return;
 		}
 
 		/*

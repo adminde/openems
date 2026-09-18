@@ -156,7 +156,22 @@ public interface Power {
 	 * @return an instance of {@link Filter}; {@link DisabledFilter} if Filter is
 	 *         disabled
 	 */
-	public Filter getFilter(String essId);
+	public default Filter getFilter(String essId) {
+		return this.getFilter(essId, null, Relationship.EQUALS);
+	}
+
+	/**
+	 * Gets the {@link Filter} instance of a Controller for a Constraint of the
+	 * given ESS and {@link Relationship}.
+	 *
+	 * @param essId        the Component-ID of the {@link ManagedSymmetricEss}
+	 * @param controllerId the Component-ID of the calling Controller.
+	 *                     Fallbacks to EQUALS setpoint filter.
+	 * @param relationship the {@link Relationship} of the Constraint
+	 * @return an instance of {@link Filter}; {@link DisabledFilter} if Filter is
+	 *         disabled
+	 */
+	public Filter getFilter(String essId, String controllerId, Relationship relationship);
 
 	/**
 	 * Check if a {@link Filter} is enabled.

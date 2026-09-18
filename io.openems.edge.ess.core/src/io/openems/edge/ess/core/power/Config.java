@@ -36,8 +36,8 @@ import io.openems.edge.ess.power.api.SolverStrategy;
 	@AttributeDefinition(name = "PID Filter: Derivative gain", description = "The weight of derivative gain in the PID filter. Value between [0;1].")
 	double d() default PidFilter.DEFAULT_D;
 
-	@AttributeDefinition(name = "Enable PT1 Filter", description = "Enables the PT1 Filter with the time constant parameter below; only if PID filter is disabled")
-	boolean enablePT1Filter() default false;
+	@AttributeDefinition(name = "Enable PT1 Filter", description = "Enables the PT1 Filter with the time constant parameter below. It is applied to the setpoint only if the PID filter is disabled, and always to Constraints")
+	boolean enablePT1Filter() default true;
 
 	@AttributeDefinition(name = "PT1 Filter: time constant", description = "The filter time constant in milliseconds [ms]")
 	int pt1TimeConstant() default PT1Filter.DEFAULT_TIME_CONSTANT;

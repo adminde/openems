@@ -377,30 +377,45 @@ public interface ManagedSymmetricEss extends SymmetricEss {
 
 	private static void setActivePower(ManagedSymmetricEss ess, Integer value, boolean applyFilter)
 			throws OpenemsNamedException {
-		if (value == null) {
-			return;
-		}
+		setActivePower(ess, null, EQUALS, value, applyFilter);
+	}
+
+	private static void setActivePower(ManagedSymmetricEss ess, String controllerId, Relationship relationship,
+		Integer value, boolean applyFilter) throws OpenemsNamedException {
 		final var power = ess.getPower();
+		final var filter = power.getFilter(ess.id(), controllerId, relationship);
 
-		// Is set-point already fixed?
-		var minPower = power.getMinPower(ess, ALL, ACTIVE);
-		var maxPower = power.getMaxPower(ess, ALL, ACTIVE);
-		if (maxPower < minPower) {
-			maxPower = minPower; // avoid rounding error
-		}
-		if (Math.abs((long) maxPower - (long) minPower) < 10) { // Overflow-Proof Near-Equality
-			// Min- and Max-Power are close to equal; stop early to avoid calling the
-			// Filter multiple times in a Cycle.
+		if (value == null) {
+			if (relationship == EQUALS) {
+				// No Set-Point at all; leave the Filter untouched
+				return;
+			}
+			// Remove the Constraint
+			filter.reset();
+			setActivePowerChannelValue(ess, relationship, null);
 			return;
 		}
 
-		// Apply Filter for this ESS-ID
-		final var filter = power.getFilter(ess.id());
+		if (relationship == EQUALS) {
+			// Is set-point already fixed?
+			var minPower = power.getMinPower(ess, ALL, ACTIVE);
+			var maxPower = power.getMaxPower(ess, ALL, ACTIVE);
+			if (maxPower < minPower) {
+				maxPower = minPower; // avoid rounding error
+			}
+			if (Math.abs((long) maxPower - (long) minPower) < 10) { // Overflow-Proof Near-Equality
+				// Min- and Max-Power are close to equal; stop early to avoid calling the
+				// Filter multiple times in a Cycle.
+				return;
+			}
+			if (applyFilter) {
+				// Configure the output value limits of the filter
+				filter.setLimits(minPower, maxPower);
+			}
+		}
+
 		final int setpoint;
 		if (applyFilter) {
-			// Configure filter, set limits and apply target set-point
-			filter.setLimits(minPower, maxPower);
-
 			// Call method of activated Filter
 			setpoint = switch (filter) {
 			case PidFilter pidFilter -> {
@@ -424,7 +439,17 @@ public interface ManagedSymmetricEss extends SymmetricEss {
 			setpoint = value;
 		}
 
-		ess.getSetActivePowerEqualsChannel().setNextWriteValue(setpoint);
+		setActivePowerChannelValue(ess, relationship, setpoint);
+	}
+
+	private static void setActivePowerChannelValue(ManagedSymmetricEss ess, Relationship relationship, Integer value)
+			throws OpenemsNamedException {
+		final var channel = switch (relationship) {
+		case EQUALS -> ess.getSetActivePowerEqualsChannel();
+		case LESS_OR_EQUALS -> ess.getSetActivePowerLessOrEqualsChannel();
+		case GREATER_OR_EQUALS -> ess.getSetActivePowerGreaterOrEqualsChannel();
+		};
+		channel.setNextWriteValue(value);
 	}
 
 	/**
@@ -530,6 +555,102 @@ public interface ManagedSymmetricEss extends SymmetricEss {
 	 */
 	public default void setActivePowerGreaterOrEquals(Integer value) throws OpenemsNamedException {
 		this.getSetActivePowerGreaterOrEqualsChannel().setNextWriteValue(value);
+	}
+
+	/**
+	 * Sets an Active Power Less Or Equals setpoint in [W] after applying the
+	 * Constraint filter of the calling Controller.
+	 *
+	 * <p>
+	 * Use this method whenever the limit is derived from a closed control loop,
+	 * e.g. from a grid meter measurement. The grid and the ESS measurements reflect
+	 * a change of the ESS power with different latencies, so an unfiltered limit
+	 * lets the ESS power oscillate. See
+	 * {@link Power#getFilter(String, String, Relationship)}.
+	 *
+	 * <p>
+	 * Negative values for Charge; positive for Discharge. See
+	 * {@link ChannelId#SET_ACTIVE_POWER_LESS_OR_EQUALS}.
+	 *
+	 * @param controllerId the Component-ID of the calling Controller
+	 * @param value        the next write value, null removes the Constraint and
+	 *                     resets the filter
+	 * @throws OpenemsNamedException on error
+	 */
+	public default void setActivePowerLessOrEqualsWithFilter(String controllerId, Integer value)
+			throws OpenemsNamedException {
+		setActivePower(this, controllerId, LESS_OR_EQUALS, value, true);
+	}
+
+	/**
+	 * Sets an Active Power Less Or Equals setpoint in [W] without applying the
+	 * Constraint filter of the calling Controller. The filter is reset, so that the
+	 * next filtered value is applied unfiltered.
+	 *
+	 * <p>
+	 * Use this method whenever the limit is not derived from a closed control
+	 * loop, e.g. a static fallback, while the Controller applies filtered limits
+	 * otherwise.
+	 *
+	 * <p>
+	 * Negative values for Charge; positive for Discharge. See
+	 * {@link ChannelId#SET_ACTIVE_POWER_LESS_OR_EQUALS}.
+	 *
+	 * @param controllerId the Component-ID of the calling Controller
+	 * @param value        the next write value, null removes the Constraint
+	 * @throws OpenemsNamedException on error
+	 */
+	public default void setActivePowerLessOrEqualsWithoutFilter(String controllerId, Integer value)
+			throws OpenemsNamedException {
+		setActivePower(this, controllerId, LESS_OR_EQUALS, value, false);
+	}
+
+	/**
+	 * Sets an Active Power Greater Or Equals setpoint in [W] after applying the
+	 * Constraint filter of the calling Controller.
+	 *
+	 * <p>
+	 * Use this method whenever the limit is derived from a closed control loop,
+	 * e.g. from a grid meter measurement. The grid and the ESS measurements reflect
+	 * a change of the ESS power with different latencies, so an unfiltered limit
+	 * lets the ESS power oscillate. See
+	 * {@link Power#getFilter(String, String, Relationship)}.
+	 *
+	 * <p>
+	 * Negative values for Charge; positive for Discharge. See
+	 * {@link ChannelId#SET_ACTIVE_POWER_GREATER_OR_EQUALS}.
+	 *
+	 * @param controllerId the Component-ID of the calling Controller
+	 * @param value        the next write value, null removes the Constraint and
+	 *                     resets the filter
+	 * @throws OpenemsNamedException on error
+	 */
+	public default void setActivePowerGreaterOrEqualsWithFilter(String controllerId, Integer value)
+			throws OpenemsNamedException {
+		setActivePower(this, controllerId, GREATER_OR_EQUALS, value, true);
+	}
+
+	/**
+	 * Sets an Active Power Greater Or Equals setpoint in [W] without applying the
+	 * Constraint filter of the calling Controller. The filter is reset, so that the
+	 * next filtered value is applied unfiltered.
+	 *
+	 * <p>
+	 * Use this method whenever the limit is not derived from a closed control
+	 * loop, e.g. a static fallback, while the Controller applies filtered limits
+	 * otherwise.
+	 *
+	 * <p>
+	 * Negative values for Charge; positive for Discharge. See
+	 * {@link ChannelId#SET_ACTIVE_POWER_GREATER_OR_EQUALS}.
+	 *
+	 * @param controllerId the Component-ID of the calling Controller
+	 * @param value        the next write value, null removes the Constraint
+	 * @throws OpenemsNamedException on error
+	 */
+	public default void setActivePowerGreaterOrEqualsWithoutFilter(String controllerId, Integer value)
+			throws OpenemsNamedException {
+		setActivePower(this, controllerId, GREATER_OR_EQUALS, value, false);
 	}
 
 	/**

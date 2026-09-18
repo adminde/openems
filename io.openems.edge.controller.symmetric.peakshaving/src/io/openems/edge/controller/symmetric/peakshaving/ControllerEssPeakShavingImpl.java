@@ -85,12 +85,12 @@ public class ControllerEssPeakShavingImpl extends AbstractOpenemsComponent
 
 		} else {
 			/*
-			 * There is o active peak to shave and no recharge required. Assert the peak ceiling
-			 * as a lower bound on power, so that a Controller scheduled after the Peak-Shaving
-			 * cannot import power above peakShavingPower.
+			 * There is no active peak to shave and no recharge required. Assert the peak
+			 * ceiling as a lower bound on power, so that a Controller scheduled after the
+			 * Peak-Shaving cannot import power above peakShavingPower.
 			 */
 			calculatedPower = gridPower - this.config.peakShavingPower();
-			ess.setActivePowerGreaterOrEquals(calculatedPower);
+			ess.setActivePowerGreaterOrEqualsWithFilter(this.id(), calculatedPower);
 			return;
 		}
 

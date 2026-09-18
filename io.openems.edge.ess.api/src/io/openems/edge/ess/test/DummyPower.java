@@ -2,11 +2,15 @@ package io.openems.edge.ess.test;
 
 import static io.openems.common.utils.IntUtils.minInt;
 
+import java.time.Clock;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import io.openems.edge.common.filter.DisabledFilter;
 import io.openems.edge.common.filter.Filter;
+import io.openems.edge.common.filter.PT1Filter;
 import io.openems.edge.common.filter.PidFilter;
 import io.openems.edge.common.type.Phase.SingleOrAllPhase;
 import io.openems.edge.common.type.TypeUtils;
@@ -24,6 +28,9 @@ public class DummyPower implements Power {
 	private final List<ManagedSymmetricEss> esss = new ArrayList<>();
 
 	private int maxApparentPower;
+	private final Map<FilterKey, Filter> filters = new HashMap<>();
+	private Clock pt1FilterClock = Clock.systemDefaultZone();
+	private int pt1TimeConstant = 0;
 
 	/**
 	 * Creates a {@link DummyPower} with unlimited MaxApparentPower and
@@ -132,12 +139,37 @@ public class DummyPower implements Power {
 	}
 
 	@Override
-	public Filter getFilter(String essId) {
-		return this.filter;
+	public boolean isFilterEnabled() {
+		return this.filter != null;
+	}
+
+	/**
+	 * Configures the PT1 {@link Filter} that this {@link DummyPower} creates for
+	 * every {@link Relationship} but EQUALS. By default it is disabled.
+	 *
+	 * @param clock        the {@link Clock}
+	 * @param timeConstant the time constant in [ms], zero disables the filter
+	 * @return myself
+	 */
+	public DummyPower withPt1Filter(Clock clock, int timeConstant) {
+		this.pt1FilterClock = clock;
+		this.pt1TimeConstant = timeConstant;
+		return this;
 	}
 
 	@Override
-	public boolean isFilterEnabled() {
-		return this.filter != null;
+	public Filter getFilter(String essId, String controllerId, Relationship relationship) {
+		if (relationship == Relationship.EQUALS) {
+			return this.filter;
+		}
+		return this.filters.computeIfAbsent(new FilterKey(essId, controllerId, relationship), key -> {
+			if (this.pt1TimeConstant > 0) {
+				return new PT1Filter(this.pt1FilterClock, this.pt1TimeConstant);
+			}
+			return new DisabledFilter();
+		});
+	}
+
+	private static record FilterKey(String essId, String controllerId, Relationship relationship) {
 	}
 }

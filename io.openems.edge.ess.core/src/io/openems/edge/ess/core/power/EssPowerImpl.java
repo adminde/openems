@@ -64,7 +64,7 @@ public class EssPowerImpl extends AbstractOpenemsComponent implements EssPower, 
 
 	private final Logger log = LoggerFactory.getLogger(EssPowerImpl.class);
 	private final List<ManagedSymmetricEss> esss = new CopyOnWriteArrayList<>();
-	private final Map<String, Filter> filters = new HashMap<>();
+	private final Map<FilterKey, Filter> filters = new HashMap<>();
 
 	@Reference
 	private ConfigurationAdmin cm;
@@ -213,10 +213,10 @@ public class EssPowerImpl extends AbstractOpenemsComponent implements EssPower, 
 	}
 
 	@Override
-	public Filter getFilter(String essId) {
+	public Filter getFilter(String essId, String controllerId, Relationship relationship) {
 		synchronized (this.filters) {
-			return this.filters.computeIfAbsent(essId, e -> {
-				if (this.config.enablePid()) {
+			return this.filters.computeIfAbsent(new FilterKey(essId, controllerId, relationship), key -> {
+				if (this.config.enablePid() && relationship.equals(Relationship.EQUALS)) {
 					// build a PidFilter instance with the configured P, I and D variables
 					return new PidFilter(this.config.p(), this.config.i(), this.config.d());
 
@@ -235,5 +235,8 @@ public class EssPowerImpl extends AbstractOpenemsComponent implements EssPower, 
 	@Override
 	public boolean isFilterEnabled() {
 		return this.config.enablePid() || this.config.enablePT1Filter();
+	}
+
+	private static record FilterKey(String essId, String controllerId, Relationship relationship) {
 	}
 }
