@@ -2,9 +2,11 @@ package io.openems.edge.controller.symmetric.peakshaving;
 
 import static io.openems.edge.ess.api.ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_EQUALS;
 import static io.openems.edge.ess.api.ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_GREATER_OR_EQUALS;
+import static java.time.temporal.ChronoUnit.SECONDS;
 
 import org.junit.Test;
 
+import io.openems.common.test.TimeLeapClock;
 import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.DummyComponentManager;
 import io.openems.edge.controller.test.ControllerTest;
@@ -91,6 +93,35 @@ public class ControllerEssPeakShavingImplTest {
 						.input("meter0", ElectricityMeter.ChannelId.ACTIVE_POWER, 70000) //
 						.output("ess0", SET_ACTIVE_POWER_GREATER_OR_EQUALS, 70000 - 100000) //
 						.output("ess0", SET_ACTIVE_POWER_EQUALS, null)) //
+				.deactivate();
+	}
+
+	@Test
+	public void testLowerLimitIsFiltered() throws Exception {
+		final var clock = new TimeLeapClock();
+		new ControllerTest(new ControllerEssPeakShavingImpl()) //
+				.addReference("componentManager", new DummyComponentManager(clock)) //
+				.addComponent(new DummyManagedSymmetricEss("ess0") //
+						.setPower(new DummyPower().withPt1Filter(clock, 1000))) //
+				.addComponent(new DummyElectricityMeter("meter0")) //
+				.activate(MyConfig.create() //
+						.setId("ctrl0") //
+						.setEssId("ess0") //
+						.setMeterId("meter0") //
+						.setPeakShavingPower(100_000) //
+						.setRechargePower(50_000) //
+						.build())
+				// The first lower limit is applied unfiltered
+				.next(new TestCase() //
+						.input("ess0", SymmetricEss.ChannelId.ACTIVE_POWER, 0) //
+						.input("meter0", ElectricityMeter.ChannelId.ACTIVE_POWER, 70000) //
+						.output("ess0", SET_ACTIVE_POWER_GREATER_OR_EQUALS, -30000)) //
+				// A step of the grid power is followed with the time constant
+				.next(new TestCase() //
+						.timeleap(clock, 1, SECONDS) //
+						.input("ess0", SymmetricEss.ChannelId.ACTIVE_POWER, 0) //
+						.input("meter0", ElectricityMeter.ChannelId.ACTIVE_POWER, 90000) //
+						.output("ess0", SET_ACTIVE_POWER_GREATER_OR_EQUALS, -20000)) //
 				.deactivate();
 	}
 

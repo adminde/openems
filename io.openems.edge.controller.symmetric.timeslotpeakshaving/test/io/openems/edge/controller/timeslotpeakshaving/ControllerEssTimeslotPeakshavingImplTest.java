@@ -1,6 +1,7 @@
 package io.openems.edge.controller.timeslotpeakshaving;
 
 import static io.openems.edge.ess.api.ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_EQUALS;
+import static io.openems.edge.ess.api.ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_LESS_OR_EQUALS;
 import static io.openems.edge.ess.api.SymmetricEss.ChannelId.SOC;
 import static java.time.temporal.ChronoUnit.MINUTES;
 
@@ -62,7 +63,8 @@ public class ControllerEssTimeslotPeakshavingImplTest {
 						.input("ess0", SOC, 96) //
 						.input("ess0", SymmetricEss.ChannelId.ACTIVE_POWER, 5000) //
 						.input("meter0", ElectricityMeter.ChannelId.ACTIVE_POWER, 120000) //
-						.output("ess0", SET_ACTIVE_POWER_EQUALS, 13500)) //
+						.output("ess0", SET_ACTIVE_POWER_LESS_OR_EQUALS, 50000) //
+						.output("ess0", SET_ACTIVE_POWER_EQUALS, null)) //
 				.next(new TestCase() //
 						.timeleap(clock, 31, MINUTES)/* current time is 09:31, run in hysterisis state */
 						.input("ess0", SOC, 100) //
@@ -73,12 +75,13 @@ public class ControllerEssTimeslotPeakshavingImplTest {
 						.input("ess0", SOC, 94) //
 						.input("ess0", SymmetricEss.ChannelId.ACTIVE_POWER, 5000) //
 						.input("meter0", ElectricityMeter.ChannelId.ACTIVE_POWER, 120000) //
-						.output("ess0", SET_ACTIVE_POWER_EQUALS, 27000)) //
+						.output("ess0", SET_ACTIVE_POWER_LESS_OR_EQUALS, 50000) //
+						.output("ess0", SET_ACTIVE_POWER_EQUALS, null)) //
 				.next(new TestCase() //
 						.timeleap(clock, 75, MINUTES)/* current time is 10:47, run in high threshold state */
 						.input("ess0", SymmetricEss.ChannelId.ACTIVE_POWER, 5000) //
 						.input("meter0", ElectricityMeter.ChannelId.ACTIVE_POWER, 120000) //
-						.output("ess0", SET_ACTIVE_POWER_EQUALS, 33000)) //
+						.output("ess0", SET_ACTIVE_POWER_EQUALS, 6000)) //
 				.next(new TestCase() //
 						.timeleap(clock, 75, MINUTES)/* current time is 12:02 run in normal state */
 						.input("ess0", SymmetricEss.ChannelId.ACTIVE_POWER, 5000) //

@@ -222,13 +222,13 @@ public class ControllerEssTimeslotPeakshavingImpl extends AbstractOpenemsCompone
 
 			} else {
 				/*
-				 * There is o active peak to shave and no recharge required. Assert the peak ceiling
-				 * as a lower bound on power, so that a Controller scheduled after the Peak-Shaving
-				 * cannot import power above peakShavingPower.
+				 * There is no active peak to shave and no recharge required. Assert the peak
+				 * ceiling as a lower bound on power, so that a Controller scheduled after the
+				 * Peak-Shaving cannot import power above peakShavingPower.
 				 */
 				calculatedPower = 0;
 				var minimumPower = gridPower - this.config.peakShavingPower();
-				ess.setActivePowerGreaterOrEquals(minimumPower);
+				ess.setActivePowerGreaterOrEqualsWithFilter(this.id(), minimumPower);
 			}
 		}
 		this.channel(ControllerEssTimeslotPeakshaving.ChannelId.PEAK_SHAVED_POWER).setNextValue(calculatedPower);
