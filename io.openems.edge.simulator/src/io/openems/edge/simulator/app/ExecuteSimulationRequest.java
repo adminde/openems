@@ -133,6 +133,18 @@ public class ExecuteSimulationRequest extends JsonrpcRequest {
 			}
 		}
 
+		/**
+		 * Gets the values from the currently active one onwards, at most
+		 * {@code count} of them.
+		 *
+		 * @param count the maximum number of values
+		 * @return the values from the current one
+		 */
+		public synchronized List<Integer> getNextValues(int count) {
+			var end = (int) Math.min((long) this.currentIndex + count, this.values.size());
+			return this.values.subList(this.currentIndex, end);
+		}
+
 	}
 
 	/**
@@ -185,6 +197,21 @@ public class ExecuteSimulationRequest extends JsonrpcRequest {
 		this.clock = clock;
 		this.profiles = profiles;
 		this.collects = collects;
+	}
+
+	/**
+	 * Gets the {@link Profile} for a Channel-Address: first by the full address,
+	 * then by the Channel-ID alone (e.g. "ActivePower" for every meter).
+	 *
+	 * @param channelAddress the {@link ChannelAddress}
+	 * @return the {@link Profile}; or null if none matches
+	 */
+	public Profile getProfile(ChannelAddress channelAddress) {
+		var profile = this.profiles.get(channelAddress.toString());
+		if (profile == null) {
+			profile = this.profiles.get(channelAddress.getChannelId());
+		}
+		return profile;
 	}
 
 	@Override

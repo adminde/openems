@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -46,6 +47,7 @@ import io.openems.common.session.Role;
 import io.openems.common.test.TimeLeapClock;
 import io.openems.common.timedata.Resolution;
 import io.openems.common.types.ChannelAddress;
+import io.openems.common.types.MeterType;
 import io.openems.common.types.OpenemsType;
 import io.openems.common.utils.JsonUtils;
 import io.openems.common.worker.AbstractWorker;
@@ -60,8 +62,10 @@ import io.openems.edge.common.jsonapi.ComponentJsonApi;
 import io.openems.edge.common.jsonapi.EdgeGuards;
 import io.openems.edge.common.jsonapi.EdgeKeys;
 import io.openems.edge.common.jsonapi.JsonApiBuilder;
+import io.openems.edge.common.sum.Sum;
 import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.common.user.User;
+import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.simulator.app.ExecuteSimulationRequest.Profile;
 import io.openems.edge.simulator.datasource.api.SimulatorDatasource;
 import io.openems.edge.timedata.api.Timedata;
@@ -471,27 +475,149 @@ public class SimulatorAppImpl extends AbstractOpenemsComponent implements Simula
 
 	@Override
 	public int getTimeDelta() {
-		return -1;
+		var simulation = this.currentSimulation;
+		if (simulation == null) {
+			return -1;
+		}
+		return simulation.request.clock.timeleapPerCycle / 1000;
 	}
 
 	@Override
 	public <T> List<T> getValues(OpenemsType type, ChannelAddress channelAddress) {
-		// TODO Auto-generated method stub
-		return List.of();
+		return this.collect(type, channelAddress, profile -> profile.values);
+	}
+
+	@Override
+	public <T> List<T> getNextValues(OpenemsType type, ChannelAddress channelAddress, int count) {
+		return this.collect(type, channelAddress, profile -> profile.getNextValues(count));
+	}
+
+	/**
+	 * Gets the values of a Channel, taking from each {@link Profile} whatever
+	 * {@code fromProfile} selects. A Channel with a Profile of its own plays that
+	 * Profile. The Sum-Channels for production and consumption, which Predictors
+	 * are asked for, have no Profile; they are added up from the Profiles of the
+	 * meters of the matching {@link MeterType}, so a simulation only has to
+	 * provide the meter Profiles.
+	 *
+	 * @param <T>            the type
+	 * @param type           the expected type
+	 * @param channelAddress the {@link ChannelAddress}
+	 * @param fromProfile    selects the values to take from one Profile
+	 * @return the values; empty if nothing matches
+	 */
+	@SuppressWarnings("unchecked")
+	private <T> List<T> collect(OpenemsType type, ChannelAddress channelAddress,
+			Function<Profile, List<Integer>> fromProfile) {
+		var simulation = this.currentSimulation;
+		if (simulation == null) {
+			return List.of();
+		}
+		var meters = this.componentManager.getEnabledComponentsOfType(ElectricityMeter.class);
+		return sumProfiles(simulation.request, channelAddress, meters, fromProfile).stream() //
+				.map(v -> (T) TypeUtils.getAsType(type, v)) //
+				.toList();
 	}
 
 	@Override
 	public <T> T getValue(OpenemsType type, ChannelAddress channelAddress) {
-		if (this.currentSimulation == null) {
+		var simulation = this.currentSimulation;
+		if (simulation == null) {
 			return null;
 		}
-		// First: try full ChannelAddress
-		var profile = this.currentSimulation.request.profiles.get(channelAddress.toString());
+		var profile = simulation.request.getProfile(channelAddress);
 		if (profile == null) {
-			// Not found: try Channel-ID only (without Component-ID)
-			profile = this.currentSimulation.request.profiles.get(channelAddress.getChannelId());
+			return null;
 		}
 		return TypeUtils.getAsType(type, profile.getCurrentValue());
+	}
+
+	/**
+	 * Takes {@code fromProfile} of the Channel's own {@link Profile}, or, for a
+	 * Sum-Channel, of every meter Profile that feeds it, added up slot by slot.
+	 *
+	 * @param request        the {@link ExecuteSimulationRequest}
+	 * @param channelAddress the {@link ChannelAddress}
+	 * @param meters         the enabled {@link ElectricityMeter}s
+	 * @param fromProfile    selects the values to take from one Profile
+	 * @return the values; empty if nothing matches
+	 */
+	protected static List<Integer> sumProfiles(ExecuteSimulationRequest request, ChannelAddress channelAddress,
+			List<ElectricityMeter> meters, Function<Profile, List<Integer>> fromProfile) {
+		var profile = request.getProfile(channelAddress);
+		if (profile != null) {
+			return fromProfile.apply(profile);
+		}
+		if (!Sum.SINGLETON_COMPONENT_ID.equals(channelAddress.getComponentId())) {
+			return List.of();
+		}
+		List<Integer> sum = null;
+		for (var meter : meters) {
+			if (!feedsSumChannel(channelAddress.getChannelId(), meter.getMeterType())) {
+				continue;
+			}
+			var meterProfile = request
+					.getProfile(new ChannelAddress(meter.id(), ElectricityMeter.ChannelId.ACTIVE_POWER.id()));
+			if (meterProfile != null) {
+				sum = add(sum, fromProfile.apply(meterProfile));
+			}
+		}
+		return sum == null ? List.of() : sum;
+	}
+
+	/**
+	 * Whether a meter of the given {@link MeterType} contributes to a Sum-Channel.
+	 *
+	 * @param sumChannelId the Channel-ID of the Sum-Channel
+	 * @param meterType    the {@link MeterType}
+	 * @return true if the meter is one of the Channel's sources
+	 */
+	private static boolean feedsSumChannel(String sumChannelId, MeterType meterType) {
+		return switch (sumChannelId) {
+		case "ProductionActivePower" -> switch (meterType) {
+		case PRODUCTION, PRODUCTION_AND_CONSUMPTION -> true;
+		default -> false;
+		};
+		case "ConsumptionActivePower" -> switch (meterType) {
+		case CONSUMPTION_METERED, CONSUMPTION_NOT_METERED, MANAGED_CONSUMPTION_METERED -> true;
+		default -> false;
+		};
+		case "UnmanagedConsumptionActivePower" -> switch (meterType) {
+		case CONSUMPTION_METERED, CONSUMPTION_NOT_METERED -> true;
+		default -> false;
+		};
+		default -> false;
+		};
+	}
+
+	/**
+	 * Adds two value lists slot by slot, up to the shorter one. A null on one
+	 * side counts as 0, a slot that is null on both stays null.
+	 *
+	 * @param sum    the sum so far; null before the first list
+	 * @param values the list to add
+	 * @return the sum per slot
+	 */
+	private static List<Integer> add(List<Integer> sum, List<Integer> values) {
+		if (sum == null) {
+			return values;
+		}
+		var size = Math.min(sum.size(), values.size());
+		var result = new ArrayList<Integer>(size);
+		for (var i = 0; i < size; i++) {
+			var a = sum.get(i);
+			var b = values.get(i);
+			// spelled out: a conditional operator would unbox and throw on a
+			// slot that is null on both sides
+			if (a == null) {
+				result.add(b);
+			} else if (b == null) {
+				result.add(a);
+			} else {
+				result.add(a + b);
+			}
+		}
+		return result;
 	}
 
 	@Override
