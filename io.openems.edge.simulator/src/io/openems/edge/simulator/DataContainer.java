@@ -8,9 +8,9 @@ import java.util.Set;
 
 public class DataContainer {
 
-	private final HashMap<String, Integer> keys = new HashMap<>();
-	private final List<Float[]> records = new ArrayList<>();
-	private int currentIndex = -1;
+	protected final HashMap<String, Integer> keys = new HashMap<>();
+	protected final List<Float[]> records = new ArrayList<>();
+	protected int currentIndex = -1;
 
 	/**
 	 * Gets the available keys.
@@ -60,7 +60,7 @@ public class DataContainer {
 	 * @return the record values
 	 */
 	public List<Float> getValues(String key) {
-		var index = this.getIndex(key);
+		var index = this.getKeyIndex(key);
 		if (index == null) {
 			return List.of();
 		}
@@ -97,7 +97,7 @@ public class DataContainer {
 	 * @return the record value
 	 */
 	public Optional<Float> getValue(String key) {
-		var index = this.getIndex(key);
+		var index = this.getKeyIndex(key);
 		if (index == null) {
 			return Optional.empty();
 		}
@@ -114,7 +114,7 @@ public class DataContainer {
 	 * @param key the Channel-Id
 	 * @return the index; possibly null
 	 */
-	private Integer getIndex(String key) {
+	private Integer getKeyIndex(String key) {
 		if (this.keys.isEmpty()) {
 			// no keys -> first value
 			return 0;
@@ -130,7 +130,7 @@ public class DataContainer {
 	public void nextRecord() {
 		this.currentIndex++;
 		if (this.currentIndex >= this.records.size()) {
-			this.currentIndex = 0;
+			this.rewind();
 		}
 	}
 
@@ -138,6 +138,6 @@ public class DataContainer {
 	 * Rewinds the data to start again at the first record.
 	 */
 	public void rewind() {
-		this.currentIndex = -1;
+		this.currentIndex = 0;
 	}
 }
