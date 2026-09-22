@@ -78,7 +78,7 @@ public class DataContainer {
 	 * @return the record values from the current one
 	 */
 	public List<Float> getNextValues(String key, int count) {
-		var index = this.getIndex(key);
+		var index = this.getKeyIndex(key);
 		if (index == null) {
 			return List.of();
 		}
