@@ -416,10 +416,11 @@ public class SimulatorAppImpl extends AbstractOpenemsComponent implements Simula
 			var config = this.cm.getConfiguration("Ess.Power", null);
 			Dictionary<String, Object> properties = new Hashtable<>();
 			properties.put("enablePid", false);
+			properties.put("enablePT1Filter", false);
 			config.update(properties);
 		} catch (IOException e) {
 			this.logError(this.log,
-					"Unable to configure Ess.Power enabledPid. " + e.getClass() + ": " + e.getMessage());
+					"Unable to configure the Ess.Power filters. " + e.getClass() + ": " + e.getMessage());
 		}
 	}
 
