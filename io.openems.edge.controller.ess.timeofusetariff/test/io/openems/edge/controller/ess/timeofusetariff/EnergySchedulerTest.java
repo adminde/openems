@@ -17,8 +17,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import io.openems.common.exceptions.OpenemsException;
 import io.openems.edge.controller.test.DummyController;
+import io.openems.edge.energy.api.handler.Fitness;
 import io.openems.edge.energy.api.simulation.EnergyFlow;
+import io.openems.edge.energy.api.simulation.GlobalScheduleContext;
 import io.openems.edge.energy.api.test.EnergyScheduleTester;
 
 class EnergySchedulerTest {
@@ -87,6 +90,39 @@ class EnergySchedulerTest {
 		// Initial Population: DELAY_DISCHARGE, CHARGE_GRID and DISCHARGE_GRID
 		var ip = t.perEsh.get(0).initialPopulation();
 		assertEquals(5, ip.size());
+	}
+
+	@Test
+	void testDischargeToGrid_aboveTheFloor() {
+		var esh = buildEnergyScheduleHandler(new DummyController("ctrl0"),
+				() -> new EnergyScheduler.Config(ControlMode.DISCHARGE_TO_GRID.modes, null, null));
+		var t = EnergyScheduleTester.from(esh);
+
+		// 5 kWh of 22 kWh. Half the capacity per hour is 11 kW, 2750 Wh per quarter,
+		// on top of the 106 Wh the consumption takes.
+		var t0 = t.simulatePeriod(3 /* DISCHARGE_GRID */);
+		assertEquals(0, t0.fitness().build().hardConstraintViolations());
+		assertEquals(2856, t0.ef().solve().getEss());
+	}
+
+	@Test
+	void testDischargeToGrid_atTheFloor() throws OpenemsException {
+		var esh = buildEnergyScheduleHandler(new DummyController("ctrl0"),
+				() -> new EnergyScheduler.Config(ControlMode.DISCHARGE_TO_GRID.modes, null, null));
+		var t = EnergyScheduleTester.from(esh);
+
+		// Leave 220 Wh, the one percent floor of the 22 kWh storage.
+		var gsc = GlobalScheduleContext.from(t.goc);
+		gsc.ess.calculateInitialEnergy(4780);
+		var period = t.goc.periods().get(0);
+		var ef = EnergyFlow.Model.from(gsc, period);
+		var fitness = Fitness.builder();
+
+		esh.simulate(period, gsc, null, ef, 3 /* DISCHARGE_GRID */, fitness, false);
+
+		// The period is rejected and only the consumption is served.
+		assertEquals(1, fitness.build().hardConstraintViolations());
+		assertEquals(106, ef.solve().getEss());
 	}
 
 	@Nested

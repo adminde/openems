@@ -55,16 +55,16 @@ public final class Utils {
 	public static final float ESS_CHARGE_C_RATE = 0.5F;
 
 	/**
-	 * Fallback discharge power in {@link StateMachine#DISCHARGE_GRID} while the
-	 * ESS capacity or rating is still undefined.
-	 */
-	public static final int ESS_DISCHARGE_TO_GRID_POWER = 5000; // [W]
-
-	/**
 	 * C-Rate during {@link StateMachine#DISCHARGE_GRID}, clamped to the inverter
 	 * rating. It mirrors {@link #ESS_CHARGE_C_RATE}.
 	 */
 	public static final float ESS_DISCHARGE_C_RATE = 0.5F;
+
+	/**
+	 * Fallback discharge power in {@link StateMachine#DISCHARGE_GRID} while the
+	 * ESS capacity or rating is still undefined.
+	 */
+	public static final int ESS_DISCHARGE_TO_GRID_POWER = 5000; // [W]
 
 	public static final ChannelAddress SUM_PRODUCTION = new ChannelAddress("_sum", "ProductionActivePower");
 	public static final ChannelAddress SUM_CONSUMPTION = new ChannelAddress("_sum", "ConsumptionActivePower");
@@ -95,7 +95,8 @@ public final class Utils {
 		case DELAY_DISCHARGE -> calculateDelayDischarge(ess, essActivePower, balancingSetpoint);
 		case CHARGE_GRID, PEAK_SHAVING -> calculateChargeGrid(ess, essActivePower, gridActivePower, balancingSetpoint,
 				gridBuySoftLimit, optimizationContext);
-		case DISCHARGE_GRID -> calculateDischargeGrid(ess, essActivePower, gridActivePower);
+		case DISCHARGE_GRID -> calculateDischargeGrid(ess, essActivePower, gridActivePower, balancingSetpoint,
+				gridSellHardLimit, optimizationContext);
 		case DELAY_CHARGE -> calculateLimitCharge(ess, essActivePower, 0, balancingSetpoint);
 		case LIMIT_CHARGE -> {
 			final var limitChargePower = calculateLimitChargePower(ess, optimizationContext, clock);
@@ -142,24 +143,28 @@ public final class Utils {
 		}
 	}
 
-	static ApplyMode calculateDischargeGrid(ManagedSymmetricEss ess, int essActivePower, int gridActivePower) {
+	static ApplyMode calculateDischargeGrid(ManagedSymmetricEss ess, int essActivePower, int gridActivePower,
+			int pwrBalancing, int gridSellHardLimit, OptimizationContext coc) {
 		var realGridPower = gridActivePower + essActivePower; // 'real', without current ESS charge/discharge
 
 		var soc = ess.getSoc();
-		if (soc.isDefined() && soc.get() <= 0) {
-			// The storage is empty. A discharge request the ESS cannot deliver would only
-			// trip the grid sell limit and report AVOID_GRID_SELL_LIMIT.
-			return new ApplyMode(BALANCING, realGridPower);
+		if (soc.isDefined() && soc.get() <= coc.minSocInDischargeGrid()) {
+			// The storage is at or below its floor. A discharge request beyond the floor
+			// would only trip the grid sell limit and report AVOID_GRID_SELL_LIMIT.
+			return new ApplyMode(BALANCING, pwrBalancing);
 		}
 
 		var essDischargeInDischargeGrid = calculateDischargePowerInDischargeGrid(ess); // [W]
 		var targetDischargePower = essDischargeInDischargeGrid + max(0, realGridPower);
-		// TODO limit grid-sell power
-		// var effectiveGridSellPower = min(0, realGridPower) + targetDischargePower;
-		// var chargePower = max(0, targetChargePower - max(0, effectiveGridBuyPower -
-		// maxChargePowerFromGrid));
 
-		return new ApplyMode(DISCHARGE_GRID, targetDischargePower);
+		// Discharge to grid, limited by the grid sell limit. The limit bounds how much
+		// the mode sells and does not end the mode.
+		var power = min(targetDischargePower, pwrBalancing + gridSellHardLimit);
+		if (power == pwrBalancing) {
+			// ...but actually same as BALANCING
+			return new ApplyMode(BALANCING, pwrBalancing);
+		}
+		return new ApplyMode(DISCHARGE_GRID, power);
 	}
 
 	static ApplyMode calculateDelayDischarge(//

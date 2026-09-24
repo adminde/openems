@@ -125,8 +125,12 @@ class UtilsTest {
 		final var ess = new DummyManagedSymmetricEss("ess0");
 		final int essActivePower = 2500;
 		final int gridActivePower = 800;
+		final int pwrBalancing = essActivePower + gridActivePower;
+		final int gridSellHardLimit = 100_000;
+		final var coc = mock(EnergyScheduler.OptimizationContext.class);
 
-		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower);
+		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower, pwrBalancing,
+				gridSellHardLimit, coc);
 
 		// The 5000 W fallback plus the 3300 W real grid power.
 		assertEquals(new Utils.ApplyMode(DISCHARGE_GRID, 8300), result);
@@ -139,8 +143,12 @@ class UtilsTest {
 				.withMaxApparentPower(80_000);
 		final int essActivePower = 2500;
 		final int gridActivePower = 800;
+		final int pwrBalancing = essActivePower + gridActivePower;
+		final int gridSellHardLimit = 100_000;
+		final var coc = mock(EnergyScheduler.OptimizationContext.class);
 
-		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower);
+		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower, pwrBalancing,
+				gridSellHardLimit, coc);
 
 		// Half the capacity per hour is 50 kW, plus the 3300 W real grid power.
 		assertEquals(new Utils.ApplyMode(DISCHARGE_GRID, 53_300), result);
@@ -153,8 +161,12 @@ class UtilsTest {
 				.withMaxApparentPower(60_000);
 		final int essActivePower = 2500;
 		final int gridActivePower = 800;
+		final int pwrBalancing = essActivePower + gridActivePower;
+		final int gridSellHardLimit = 100_000;
+		final var coc = mock(EnergyScheduler.OptimizationContext.class);
 
-		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower);
+		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower, pwrBalancing,
+				gridSellHardLimit, coc);
 
 		// Half the capacity per hour would be 100 kW. The 60 kW inverter caps it, plus
 		// the 3300 W real grid power.
@@ -169,10 +181,92 @@ class UtilsTest {
 				.withSoc(0);
 		final int essActivePower = 2500;
 		final int gridActivePower = 800;
+		final int pwrBalancing = essActivePower + gridActivePower;
+		final int gridSellHardLimit = 100_000;
+		final var coc = mock(EnergyScheduler.OptimizationContext.class);
+		when(coc.minSocInDischargeGrid()).thenReturn(1);
 
-		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower);
+		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower, pwrBalancing,
+				gridSellHardLimit, coc);
 
 		// Nothing to sell, so the real grid power is held instead of reporting a clamp.
+		assertEquals(new Utils.ApplyMode(BALANCING, 3300), result);
+	}
+
+	@Test
+	void testCalculateDischargeGrid_balancingAtTheFloor() {
+		final var ess = new DummyManagedSymmetricEss("ess0") //
+				.withCapacity(100_000) //
+				.withMaxApparentPower(80_000) //
+				.withSoc(1);
+		final int essActivePower = 2500;
+		final int gridActivePower = 800;
+		final int pwrBalancing = essActivePower + gridActivePower;
+		final int gridSellHardLimit = 100_000;
+		final var coc = mock(EnergyScheduler.OptimizationContext.class);
+		when(coc.minSocInDischargeGrid()).thenReturn(1);
+
+		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower, pwrBalancing,
+				gridSellHardLimit, coc);
+
+		// The floor counts as reached, so the real grid power is held.
+		assertEquals(new Utils.ApplyMode(BALANCING, 3300), result);
+	}
+
+	@Test
+	void testCalculateDischargeGrid_dischargesAboveTheFloor() {
+		final var ess = new DummyManagedSymmetricEss("ess0") //
+				.withCapacity(100_000) //
+				.withMaxApparentPower(80_000) //
+				.withSoc(2);
+		final int essActivePower = 2500;
+		final int gridActivePower = 800;
+		final int pwrBalancing = essActivePower + gridActivePower;
+		final int gridSellHardLimit = 100_000;
+		final var coc = mock(EnergyScheduler.OptimizationContext.class);
+		when(coc.minSocInDischargeGrid()).thenReturn(1);
+
+		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower, pwrBalancing,
+				gridSellHardLimit, coc);
+
+		// One percent above the floor sells at half the capacity per hour.
+		assertEquals(new Utils.ApplyMode(DISCHARGE_GRID, 53_300), result);
+	}
+
+	@Test
+	void testCalculateDischargeGrid_clampedToGridSellLimit() {
+		final var ess = new DummyManagedSymmetricEss("ess0") //
+				.withCapacity(200_000) //
+				.withMaxApparentPower(60_000);
+		final int essActivePower = 2500;
+		final int gridActivePower = 800;
+		final int pwrBalancing = essActivePower + gridActivePower;
+		final int gridSellHardLimit = 30_000;
+		final var coc = mock(EnergyScheduler.OptimizationContext.class);
+
+		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower, pwrBalancing,
+				gridSellHardLimit, coc);
+
+		// The inverter would allow 63.3 kW. The 30 kW connection caps the sale at the
+		// 3300 W real grid power plus the limit, and the mode is kept.
+		assertEquals(new Utils.ApplyMode(DISCHARGE_GRID, 33_300), result);
+	}
+
+	@Test
+	void testCalculateDischargeGrid_balancingWithoutGridSellAllowance() {
+		final var ess = new DummyManagedSymmetricEss("ess0") //
+				.withCapacity(100_000) //
+				.withMaxApparentPower(80_000);
+		final int essActivePower = 2500;
+		final int gridActivePower = 800;
+		final int pwrBalancing = essActivePower + gridActivePower;
+		final int gridSellHardLimit = 0;
+		final var coc = mock(EnergyScheduler.OptimizationContext.class);
+
+		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower, pwrBalancing,
+				gridSellHardLimit, coc);
+
+		// Nothing may be sold, so the mode collapses into BALANCING.
 		assertEquals(new Utils.ApplyMode(BALANCING, 3300), result);
 	}
 
