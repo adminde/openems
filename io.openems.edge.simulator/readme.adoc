@@ -228,4 +228,71 @@ curl http://admin:admin@localhost:8084/rest/channel/_sum/ConsumptionActivePower
 
 The datasource exposes a `Data` channel with read/write access. When a value is written to this channel, it immediately becomes available as the datasource's output value. If no value has been set, the default value is `0`.
 
+== Time-of-Use Tariff
+
+The Time-of-Use Tariff Simulator serves a quarter-hourly day-ahead price series from a Datasource, so that
+price-driven Controllers and the Energy Scheduler can be exercised in a simulation without calling a market API.
+It implements `TimeOfUseTariff` and `TariffGridSell`, so a consumer cannot tell it apart from a real provider.
+
+=== Component
+
+*Name*: Simulator Time-Of-Use Tariff
+
+*Factory-PID*: `Simulator.TimeOfUseTariff`
+
+=== Behavior
+
+* Reads a column named `Price` in [Currency/MWh] from the configured Datasource, one value per quarter-hour
+* Serves a rolling 36 hour window, indexed by the quarters elapsed since `startTime`, cached per quarter and
+  re-cut whenever the simulated clock advances
+* Applies `calculateExpression` to every quarter, where `x` is the market price and `y` the ancillary cost of
+  that quarter
+* Serves grid-sell prices only when `sellCalculateExpression` is set. Ancillary costs apply to import only, so a
+  sell price never carries a grid fee
+* Raises `UNABLE_TO_UPDATE_PRICES` when the simulated time falls outside the series
+
+`startTime` is mandatory and has no fallback. At activation the ComponentManager still holds the real system
+clock, because a simulated clock is installed only once every Component has activated. Defaulting to the current
+time would anchor row 0 to today and serve prices for the wrong quarters with nothing looking wrong, so a blank
+value fails activation instead.
+
+=== Configuration
+
+* `id` (String): Component ID (default: `timeOfUseTariff0`)
+* `alias` (String): Human-readable name (default: empty)
+* `enabled` (Boolean): Enables/disables the component (default: `true`)
+* `datasource.id` (String): ID of the Simulator Datasource holding the `Price` column (default: `datasource0`)
+* `startTime` (String): *Mandatory.* Simulated time of the first row, ISO-8601, e.g. `2025-01-01T00:00:00+01:00`
+* `ancillaryCosts` (String): Ancillary costs as JSON, in [ct/kWh] (default: empty, no fees)
+* `calculateExpression` (String): Gross price from `x` (market price) and `y` (ancillary cost)
+  (default: empty, which is `x + y`)
+* `sellCalculateExpression` (String): Grid-sell price from `x` (market price)
+  (default: empty, which serves no grid-sell prices)
+
+.Configuration example
+[source,json]
+----
+{
+  "factoryPid": "Simulator.Datasource.CSV.Direct",
+  "properties": [
+    { "name": "id", "value": "datasourcePrices0" },
+    { "name": "format", "value": "ENGLISH" },
+    { "name": "factor", "value": 1 },
+    { "name": "source", "value": "Price\n85.4\n79.1\n72.8\n68.3" }
+  ]
+},
+{
+  "factoryPid": "Simulator.TimeOfUseTariff",
+  "properties": [
+    { "name": "id", "value": "timeOfUseTariff0" },
+    { "name": "datasource.id", "value": "datasourcePrices0" },
+    { "name": "startTime", "value": "2025-01-01T00:00:00+01:00" },
+    { "name": "sellCalculateExpression", "value": "x - 5" }
+  ]
+}
+----
+
+`startTime` and the `clock.start` of the Simulator-App request are matched by row order, so slot _i_ of the price
+series and slot _i_ of the profiles are the same instant only when both start at the same instant.
+
 https://github.com/OpenEMS/openems/tree/develop/io.openems.edge.simulator[Source Code icon:github[]]
