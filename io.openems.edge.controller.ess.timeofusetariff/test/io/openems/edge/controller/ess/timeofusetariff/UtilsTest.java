@@ -161,6 +161,20 @@ class UtilsTest {
 		assertEquals(new Utils.ApplyMode(DISCHARGE_GRID, 63_300), result);
 	}
 
+	@Test
+	void testCalculateDischargeGrid_balancingWhenBatteryIsEmpty() {
+		final var ess = new DummyManagedSymmetricEss("ess0") //
+				.withCapacity(100_000) //
+				.withMaxApparentPower(80_000) //
+				.withSoc(0);
+		final int essActivePower = 2500;
+		final int gridActivePower = 800;
+
+		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower);
+
+		// Nothing to sell, so the real grid power is held instead of reporting a clamp.
+		assertEquals(new Utils.ApplyMode(BALANCING, 3300), result);
+	}
 
 	@Nested
 	@DisplayName("calculateDelayDischarge()")

@@ -144,6 +144,14 @@ public final class Utils {
 
 	static ApplyMode calculateDischargeGrid(ManagedSymmetricEss ess, int essActivePower, int gridActivePower) {
 		var realGridPower = gridActivePower + essActivePower; // 'real', without current ESS charge/discharge
+
+		var soc = ess.getSoc();
+		if (soc.isDefined() && soc.get() <= 0) {
+			// The storage is empty. A discharge request the ESS cannot deliver would only
+			// trip the grid sell limit and report AVOID_GRID_SELL_LIMIT.
+			return new ApplyMode(BALANCING, realGridPower);
+		}
+
 		var essDischargeInDischargeGrid = calculateDischargePowerInDischargeGrid(ess); // [W]
 		var targetDischargePower = essDischargeInDischargeGrid + max(0, realGridPower);
 		// TODO limit grid-sell power
