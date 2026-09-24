@@ -15,8 +15,8 @@ import static io.openems.edge.controller.ess.timeofusetariff.StateMachine.DISCHA
 import static io.openems.edge.controller.ess.timeofusetariff.StateMachine.DISCHARGE_GRID;
 import static io.openems.edge.controller.ess.timeofusetariff.StateMachine.LIMIT_CHARGE;
 import static io.openems.edge.controller.ess.timeofusetariff.StateMachine.PEAK_SHAVING;
-import static io.openems.edge.controller.ess.timeofusetariff.Utils.ESS_DISCHARGE_TO_GRID_POWER;
 import static io.openems.edge.controller.ess.timeofusetariff.Utils.calculateChargePowerInChargeGrid;
+import static io.openems.edge.controller.ess.timeofusetariff.Utils.calculateDischargePowerInDischargeGrid;
 import static io.openems.edge.controller.ess.timeofusetariff.Utils.calculateMaxSocForEnvironment;
 import static io.openems.edge.energy.api.EnergyUtils.energyToSoc;
 import static io.openems.edge.energy.api.EnergyUtils.findFirstPeakIndex;
@@ -78,6 +78,7 @@ public class EnergyScheduler {
 
 	public record OptimizationContext(//
 			int maxSocInChargeGrid, int maxEnergyInChargeGrid, int essChargePowerInChargeGrid,
+			int essDischargePowerInDischargeGrid, //
 			Map<LocalDateTime, Integer> futureQuarterlyPeriodsWithSurplusByQuarter,
 			Map<LocalDate, LocalTime> targetTimeByDay) {
 
@@ -87,6 +88,7 @@ public class EnergyScheduler {
 			final var maxSocInChargeGrid = calculateMaxSocForEnvironment(goc.environment());
 			final var maxEnergyInChargeGrid = round(goc.ess().totalEnergy() * (maxSocInChargeGrid / 100F));
 			final var essChargePowerInChargeGrid = calculateChargePowerInChargeGrid(goc, maxEnergyInChargeGrid);
+			final var essDischargePowerInDischargeGrid = calculateDischargePowerInDischargeGrid(goc);
 
 			// Precompute grid optimized charge
 			final Map<LocalDateTime, Integer> futureQuarterlyPeriodsWithSurplusByQuarter;
@@ -105,7 +107,7 @@ public class EnergyScheduler {
 			// TODO calculateDoNotDischargeToGridAfterPeriod(goc, prices) is prepared for
 			// DISCHARGE_GRID
 			return new OptimizationContext(maxSocInChargeGrid, maxEnergyInChargeGrid, essChargePowerInChargeGrid,
-					futureQuarterlyPeriodsWithSurplusByQuarter, targetTimeByDay);
+					essDischargePowerInDischargeGrid, futureQuarterlyPeriodsWithSurplusByQuarter, targetTimeByDay);
 		}
 	}
 
@@ -255,7 +257,7 @@ public class EnergyScheduler {
 			applyChargeGrid(ef, chargeEnergy);
 		}
 		case DISCHARGE_GRID -> {
-			var dischargeEnergy = period.duration().convertPowerToEnergy(ESS_DISCHARGE_TO_GRID_POWER);
+			var dischargeEnergy = period.duration().convertPowerToEnergy(coc.essDischargePowerInDischargeGrid);
 			applyDischargeGrid(ef, dischargeEnergy);
 		}
 		case DELAY_CHARGE -> applyDelayCharge(ef);

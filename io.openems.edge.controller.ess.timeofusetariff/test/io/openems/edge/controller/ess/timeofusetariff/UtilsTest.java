@@ -121,14 +121,46 @@ class UtilsTest {
 	}
 
 	@Test
-	void testCalculateDischargeGrid() {
+	void testCalculateDischargeGrid_fallbackWhileCapacityUndefined() {
+		final var ess = new DummyManagedSymmetricEss("ess0");
 		final int essActivePower = 2500;
 		final int gridActivePower = 800;
 
-		final var result = calculateDischargeGrid(essActivePower, gridActivePower);
+		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower);
 
+		// The 5000 W fallback plus the 3300 W real grid power.
 		assertEquals(new Utils.ApplyMode(DISCHARGE_GRID, 8300), result);
 	}
+
+	@Test
+	void testCalculateDischargeGrid_halfCRateOfCapacity() {
+		final var ess = new DummyManagedSymmetricEss("ess0") //
+				.withCapacity(100_000) //
+				.withMaxApparentPower(80_000);
+		final int essActivePower = 2500;
+		final int gridActivePower = 800;
+
+		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower);
+
+		// Half the capacity per hour is 50 kW, plus the 3300 W real grid power.
+		assertEquals(new Utils.ApplyMode(DISCHARGE_GRID, 53_300), result);
+	}
+
+	@Test
+	void testCalculateDischargeGrid_clampedToInverterRating() {
+		final var ess = new DummyManagedSymmetricEss("ess0") //
+				.withCapacity(200_000) //
+				.withMaxApparentPower(60_000);
+		final int essActivePower = 2500;
+		final int gridActivePower = 800;
+
+		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower);
+
+		// Half the capacity per hour would be 100 kW. The 60 kW inverter caps it, plus
+		// the 3300 W real grid power.
+		assertEquals(new Utils.ApplyMode(DISCHARGE_GRID, 63_300), result);
+	}
+
 
 	@Nested
 	@DisplayName("calculateDelayDischarge()")
