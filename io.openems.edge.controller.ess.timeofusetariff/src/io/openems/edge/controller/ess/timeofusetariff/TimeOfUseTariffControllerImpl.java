@@ -370,6 +370,12 @@ public class TimeOfUseTariffControllerImpl extends AbstractOpenemsComponent impl
 
 	private List<StateMachine> getActiveModes() {
 		final var activeModes = new ArrayList<>(this.config.controlMode().modes);
+		// CHARGE_GRID buys energy from the grid, which Meta may withhold. Read through
+		// the same accessor the other ESS Controllers use, so that an installation
+		// which withholds the permission gets the same answer from all of them.
+		if (!this.meta.getIsEssChargeFromGridAllowed()) {
+			activeModes.remove(StateMachine.CHARGE_GRID);
+		}
 		final boolean hasGridOptimizedCharge = this.ctrlGridOptimizedCharges.stream()//
 				.anyMatch(ctrl -> ctrl.getMode() != io.openems.edge.controller.ess.gridoptimizedcharge.Mode.OFF);
 		if (hasGridOptimizedCharge) {
