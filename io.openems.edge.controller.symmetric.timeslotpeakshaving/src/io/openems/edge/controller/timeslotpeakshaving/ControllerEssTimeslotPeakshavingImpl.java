@@ -102,31 +102,38 @@ public class ControllerEssTimeslotPeakshavingImpl extends AbstractOpenemsCompone
 		ManagedSymmetricEss ess = this.componentManager.getComponent(this.config.ess());
 		ElectricityMeter meter = this.componentManager.getComponent(this.config.meter_id());
 
-		this.applyPower(ess, meter);
+		var power = this.getPower(ess, meter);
+		this.applyPower(ess, power);
 	}
 
 	/**
 	 * Applies the power on the ESS.
 	 *
-	 * @param ess   the {@link ManagedSymmetricEss}
-	 * @param meter the {@link ElectricityMeter} of the grid
+	 * @param ess         {@link ManagedSymmetricEss} where the power needs to be
+	 *                    set
+	 * @param activePower the active power
 	 * @throws OpenemsNamedException on error
 	 */
-	private void applyPower(ManagedSymmetricEss ess, ElectricityMeter meter) throws OpenemsNamedException {
-		this.adaptChargeState(ess);
+	private void applyPower(ManagedSymmetricEss ess, Integer activePower) throws OpenemsNamedException {
+		ess.setActivePowerEqualsWithFilter(activePower);
+		this.channel(ControllerEssTimeslotPeakshaving.ChannelId.CALCULATED_POWER).setNextValue(activePower);
+	}
 
-		Integer calculatedPower = null;
-		switch (this.chargeState) {
-		case NORMAL, HYSTERESIS:
-			break;
-		case SLOWCHARGE:
-			calculatedPower = this.applySlowChargePower(ess);
-			break;
-		case HIGHTHRESHOLD_TIMESLOT:
-			calculatedPower = this.applyPeakShavePower(ess, meter);
-			break;
-		}
-		this.channel(ControllerEssTimeslotPeakshaving.ChannelId.CALCULATED_POWER).setNextValue(calculatedPower);
+	/**
+	 * Gets the current ActivePower.
+	 *
+	 * @param ess   the {@link ManagedSymmetricEss}
+	 * @param meter the {@link ElectricityMeter}
+	 * @return the currently valid active power, or null to set no power
+	 * @throws IllegalArgumentException on error
+	 * @throws OpenemsException         on error
+	 */
+	private Integer getPower(ManagedSymmetricEss ess, ElectricityMeter meter)
+			throws OpenemsException, IllegalArgumentException {
+
+		this.adaptChargeState(ess);
+		return this.calculatePower(ess, meter);
+
 	}
 
 	private void adaptChargeState(ManagedSymmetricEss ess) throws OpenemsException {
@@ -169,67 +176,51 @@ public class ControllerEssTimeslotPeakshavingImpl extends AbstractOpenemsCompone
 		this.channel(ControllerEssTimeslotPeakshaving.ChannelId.STATE_MACHINE).setNextValue(this.chargeState);
 	}
 
-	/**
-	 * This method applies the power to slowly charge the battery
-	 * before the timeslot.
-	 *
-	 * @param ess the {@link ManagedSymmetricEss}
-	 * @return active power applied on the ESS
-	 * @throws OpenemsNamedException on error
-	 */
-	private int applySlowChargePower(ManagedSymmetricEss ess) throws OpenemsNamedException {
-		int calculatedPower = this.config.slowChargePower();
-
-		ess.setActivePowerLessOrEquals(calculatedPower);
-		return calculatedPower;
+	private Integer calculatePower(ManagedSymmetricEss ess, ElectricityMeter meter) throws InvalidValueException {
+		return switch (this.chargeState) {
+		case NORMAL, HYSTERESIS -> null;
+		case SLOWCHARGE -> this.config.slowChargePower();
+		case HIGHTHRESHOLD_TIMESLOT -> this.calculatePeakShavePower(ess, meter);
+		};
 	}
 
 	/**
-	 * This method calculates and applies the power that is required
-	 * to cut the peak during time slot.
+	 * This method calculates the power that is required to cut the peak during time
+	 * slot.
 	 *
 	 * @param ess   the {@link ManagedSymmetricEss}
 	 * @param meter the {@link ElectricityMeter} of the grid
-	 * @return active power applied on the ESS
-	 * @throws OpenemsNamedException on error
+	 * @return active power to be set on the ESS
+	 * @throws InvalidValueException on error
 	 */
-	private int applyPeakShavePower(ManagedSymmetricEss ess, ElectricityMeter meter) throws OpenemsNamedException {
-		int calculatedPower;
-
+	private int calculatePeakShavePower(ManagedSymmetricEss ess, ElectricityMeter meter) throws InvalidValueException {
 		// Check that we are On-Grid (and warn on undefined Grid-Mode)
 		if (!ess.isOnGridOrUndefined(m -> this.logWarn(this.log, m))) {
-			calculatedPower = 0;
-			ess.setActivePowerEqualsWithFilter(calculatedPower);
+			return 0;
+		}
+
+		// Calculate 'real' grid-power (without current ESS charge/discharge)
+		var gridPower = meter.getActivePower().getOrError() /* current buy-from/sell-to grid */
+				+ ess.getActivePower().getOrError() /* current charge/discharge ESS */;
+
+		int calculatedPower;
+		if (gridPower >= this.config.peakShavingPower()) {
+			/*
+			 * Peak-Shaving
+			 */
+			calculatedPower = gridPower -= this.config.peakShavingPower();
+
+		} else if (gridPower <= this.config.rechargePower()) {
+			/*
+			 * Re-charge
+			 */
+			calculatedPower = gridPower -= this.config.rechargePower();
 
 		} else {
-			// Calculate 'real' grid-power (without current ESS charge/discharge)
-			var gridPower = meter.getActivePower().getOrError() /* current buy-from/sell-to grid */
-					+ ess.getActivePower().getOrError() /* current charge/discharge ESS */;
-
-			if (gridPower >= this.config.peakShavingPower()) {
-				/*
-				 * Peak-Shaving
-				 */
-				calculatedPower = gridPower -= this.config.peakShavingPower();
-				ess.setActivePowerEqualsWithFilter(calculatedPower);
-
-			} else if (gridPower <= this.config.rechargePower()) {
-				/*
-				 * Re-charge
-				 */
-				calculatedPower = gridPower -= this.config.rechargePower();
-				ess.setActivePowerEqualsWithFilter(calculatedPower);
-
-			} else {
-				/*
-				 * There is no active peak to shave and no recharge required. Assert the peak
-				 * ceiling as a lower bound on power, so that a Controller scheduled after the
-				 * Peak-Shaving cannot import power above peakShavingPower.
-				 */
-				calculatedPower = 0;
-				var minimumPower = gridPower - this.config.peakShavingPower();
-				ess.setActivePowerGreaterOrEqualsWithFilter(this.id(), minimumPower);
-			}
+			/*
+			 * Set no charge/discharge
+			 */
+			calculatedPower = 0;
 		}
 		this.channel(ControllerEssTimeslotPeakshaving.ChannelId.PEAK_SHAVED_POWER).setNextValue(calculatedPower);
 		return calculatedPower;

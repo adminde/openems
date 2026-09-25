@@ -2,6 +2,8 @@ package io.openems.edge.controller.highloadtimeslot;
 
 import static io.openems.edge.common.type.Phase.SingleOrAllPhase.ALL;
 import static io.openems.edge.ess.power.api.Pwr.ACTIVE;
+import static io.openems.edge.ess.power.api.Pwr.REACTIVE;
+import static io.openems.edge.ess.power.api.Relationship.EQUALS;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -91,53 +93,36 @@ public class ControllerHighLoadTimeslotImpl extends AbstractOpenemsComponent
 	public void run() throws OpenemsNamedException {
 		ManagedSymmetricEss ess = this.componentManager.getComponent(this.essId);
 
-		this.applyActivePowerLimit(ess);
-		ess.setReactivePowerEqualsWithoutFilter(0);
+		var power = this.getPower(ess);
+		this.applyPower(ess, power);
 	}
 
 	/**
-	 * Limits the Active Power of the Ess depending on the current timeslot.
+	 * Gets the current ActivePower.
 	 *
 	 * @param ess the {@link ManagedSymmetricEss}
-	 * @throws OpenemsNamedException on error
+	 * @return the active power value
 	 */
-	private void applyActivePowerLimit(ManagedSymmetricEss ess) throws OpenemsNamedException {
+	private int getPower(ManagedSymmetricEss ess) {
 		var now = LocalDateTime.now(this.componentManager.getClock());
 		if (this.isHighLoadTimeslot(now)) {
 			/*
-			 * We are in a High-Load period -> discharge with at least the configured
-			 * discharge-power. A Controller scheduled afterwards may discharge more.
+			 * We are in a High-Load period -> discharge
 			 */
 			// reset charge state
 			this.chargeState = ChargeState.NORMAL;
-			this.logInfo(this.log, "Within High-Load timeslot. Discharge with at least [" + this.dischargePower + "]");
-			ess.setActivePowerGreaterOrEquals(this.dischargePower);
-			return;
+			this.logInfo(this.log, "Within High-Load timeslot. Discharge with [" + this.dischargePower + "]");
+			return this.dischargePower;
 		}
-
 		if (this.isHighLoadTimeslot(now.plusMinutes(FORCE_CHARGE_MINUTES))) {
 			/*
 			 * We are soon going to be in High-Load period -> activate FORCE_CHARGE mode
 			 */
 			this.chargeState = ChargeState.FORCE_CHARGE;
 		}
-
 		/*
-		 * We are in a Charge period -> charge with at least the configured
-		 * charge-power and never discharge. A Controller scheduled afterwards may
-		 * charge more.
+		 * We are in a Charge period
 		 */
-		ess.setActivePowerLessOrEquals(this.getChargePower(ess));
-	}
-
-	/**
-	 * Gets the maximum Active Power outside the High-Load timeslot, i.e. the
-	 * negative charge power or zero while charging is blocked.
-	 *
-	 * @param ess the {@link ManagedSymmetricEss}
-	 * @return the maximum active power in [W]
-	 */
-	private int getChargePower(ManagedSymmetricEss ess) {
 		return switch (this.chargeState) {
 		case NORMAL -> {
 			/*
@@ -236,6 +221,25 @@ public class ControllerHighLoadTimeslotImpl extends AbstractOpenemsComponent
 	protected static boolean isWeekend(LocalDateTime dateTime) {
 		var dayOfWeek = dateTime.getDayOfWeek();
 		return dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
+	}
+
+	/**
+	 * Applies the power constraint on the Ess.
+	 *
+	 * @param ess         the {@link ManagedSymmetricEss}
+	 * @param activePower the active power set-point
+	 * @throws OpenemsException on error
+	 */
+	private void applyPower(ManagedSymmetricEss ess, int activePower) throws OpenemsException {
+		// adjust value so that it fits into Min/MaxActivePower
+		var calculatedPower = ess.getPower().fitValueIntoMinMaxPower(this.id(), ess, ALL, ACTIVE, activePower);
+		if (calculatedPower != activePower) {
+			this.logInfo(this.log, "- Applying [" + calculatedPower + " W] instead of [" + activePower + "] W");
+		}
+
+		// set result
+		ess.addPowerConstraintAndValidate("HighLoadTimeslot P", ALL, ACTIVE, EQUALS, calculatedPower); //
+		ess.addPowerConstraintAndValidate("HighLoadTimeslot Q", ALL, REACTIVE, EQUALS, 0);
 	}
 
 }
