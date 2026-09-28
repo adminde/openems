@@ -1045,6 +1045,37 @@ public class JSCalendarTest {
 		assertEquals(0, times.size());
 	}
 
+	@Test
+	public void testTasks_getActiveOneTask_mergedLongerThanOneDay() {
+		// Adjacent Tasks of one payload merge into a OneTask from Sunday 15:00 to
+		// Friday 15:00, longer than the one-day query horizon
+		final var calendar = """
+				[{"@type":"Task","start":"2020-01-05T15:00:00","duration":"PT9H",\
+				"recurrenceRules":[{"frequency":"weekly","byDay":["su"]}]},\
+				{"@type":"Task","start":"2020-01-06T00:00:00","duration":"PT24H",\
+				"recurrenceRules":[{"frequency":"weekly","byDay":["mo","tu","we","th"]}]},\
+				{"@type":"Task","start":"2020-01-06T00:00:00","duration":"PT15H",\
+				"recurrenceRules":[{"frequency":"weekly","byDay":["fr"]}]}]""";
+		// start at every hour of a week, step two weeks in quarter hours
+		for (var hour = 0; hour < 7 * 24; hour++) {
+			final var clock = new TimeLeapClock(ZonedDateTime.of(2020, 1, 6, 0, 0, 0, 0, ZoneId.of("Europe/Berlin")) //
+					.plusHours(hour));
+			final var tasks = Tasks.fromStringOrEmpty(clock, calendar);
+			for (var quarter = 0; quarter < 14 * 96; quarter++) {
+				final var now = ZonedDateTime.now(clock);
+				final var expected = switch (now.getDayOfWeek()) {
+				case MONDAY, TUESDAY, WEDNESDAY, THURSDAY -> true;
+				case FRIDAY -> now.getHour() < 15;
+				case SATURDAY -> false;
+				case SUNDAY -> now.getHour() >= 15;
+				};
+				assertEquals("at " + now + " after a start at hour " + hour, expected,
+						tasks.getActiveOneTask() != null);
+				clock.leap(15, MINUTES);
+			}
+		}
+	}
+
 	private static record StringPayload(String value) {
 
 		@Override
