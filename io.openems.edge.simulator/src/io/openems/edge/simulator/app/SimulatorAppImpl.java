@@ -3,6 +3,7 @@ package io.openems.edge.simulator.app;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
@@ -38,6 +39,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonPrimitive;
 
+import io.openems.common.channel.AccessMode;
 import io.openems.common.exceptions.NotImplementedException;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
@@ -206,6 +208,15 @@ public class SimulatorAppImpl extends AbstractOpenemsComponent implements Simula
 		var timeLeapClock = new TimeLeapClock(//
 				request.clock.start.toInstant(), ZoneId.systemDefault());
 
+		// Past values are reduced to the current one per cycle (see
+		// alignPastValuesWithClock), which is exact only while a cycle leaps further
+		// than a Channel keeps its past values.
+		if (Duration.ofMillis(request.clock.timeleapPerCycle)
+				.compareTo(Duration.from(Channel.MAX_AGE_OF_PAST_VALUES)) < 0) {
+			this.logWarn(this.log, "Time-Leap of [" + request.clock.timeleapPerCycle
+					+ " ms] is shorter than the age of past values. Controllers only see the current value.");
+		}
+
 		// keep simulation data for later use
 		this.lastSimulation = null;
 		this.currentSimulation = new CurrentSimulation(user, request, timeLeapClock, response);
@@ -223,6 +234,7 @@ public class SimulatorAppImpl extends AbstractOpenemsComponent implements Simula
 		}
 		switch (event.getTopic()) {
 		case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
+			this.alignPastValuesWithClock();
 			this.collectData();
 			break;
 		case EdgeEventConstants.TOPIC_CYCLE_AFTER_WRITE:
@@ -283,6 +295,53 @@ public class SimulatorAppImpl extends AbstractOpenemsComponent implements Simula
 			}
 		}
 		currentSimulation.addData(now, channels);
+	}
+
+	/**
+	 * Keys the past values of every Channel by the simulated time.
+	 *
+	 * <p>
+	 * Channels stamp their past values with the wall clock, while Controllers
+	 * query them with the simulated clock, e.g. the average of the last 100
+	 * seconds in Controller.Ess.GridOptimizedCharge. As the simulated time lies
+	 * before the wall clock, such a query returns every value of the last minutes
+	 * of wall clock, including those of the previous simulation. Within
+	 * {@link Channel#MAX_AGE_OF_PAST_VALUES} of simulated time there is only the
+	 * current value at a Time-Leap of 15 minutes, so that is what is kept.
+	 */
+	private void alignPastValuesWithClock() {
+		var currentSimulation = this.currentSimulation;
+		if (currentSimulation == null) {
+			return;
+		}
+		var now = LocalDateTime.now(currentSimulation.clock);
+		for (var component : this.componentManager.getEnabledComponents()) {
+			for (var channel : component.channels()) {
+				keepOnlyCurrentValue(channel, now);
+			}
+		}
+	}
+
+	private static <T> void keepOnlyCurrentValue(Channel<T> channel, LocalDateTime now) {
+		var pastValues = channel.getPastValues();
+		pastValues.clear();
+		// the value of a write-only Channel cannot be read, neither now nor as a
+		// past value, so it only needs clearing
+		if (channel.channelDoc().getAccessMode() != AccessMode.WRITE_ONLY) {
+			pastValues.put(now, channel.value());
+		}
+	}
+
+	/**
+	 * Clears the past values of every Channel, so that no value keyed by the
+	 * simulated time outlasts the simulation.
+	 */
+	private void clearPastValues() {
+		for (var component : this.componentManager.getEnabledComponents()) {
+			for (var channel : component.channels()) {
+				channel.getPastValues().clear();
+			}
+		}
 	}
 
 	/**
@@ -368,6 +427,9 @@ public class SimulatorAppImpl extends AbstractOpenemsComponent implements Simula
 
 		this.lastSimulation = this.currentSimulation;
 		this.currentSimulation = null;
+		if (currentSimulation != null) {
+			this.clearPastValues();
+		}
 		this.setCycleTime(Cycle.DEFAULT_CYCLE_TIME);
 
 		try {
