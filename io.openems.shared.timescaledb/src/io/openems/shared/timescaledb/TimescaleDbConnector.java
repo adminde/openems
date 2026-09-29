@@ -436,10 +436,10 @@ public class TimescaleDbConnector {
 	 * {@link #getResendTimestamps(String, ChannelAddress, long)}.
 	 *
 	 * @param edgeName the Edge identifier; ignored in single-tenant mode
-	 * @param from     start of the query window
-	 * @param to       end of the query window, exclusive
+	 * @param from     start of the query window, inclusive
+	 * @param to       end of the query window, inclusive
 	 * @param channels the Channels
-	 * @return sorted map keyed by epoch-second timestamp
+	 * @return sorted map keyed by epoch-millisecond timestamp
 	 * @throws OpenemsNamedException on database error
 	 */
 	public SortedMap<Long, SortedMap<ChannelAddress, JsonElement>> queryResendData(

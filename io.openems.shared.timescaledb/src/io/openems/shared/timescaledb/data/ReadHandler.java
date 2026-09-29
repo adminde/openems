@@ -502,14 +502,20 @@ public class ReadHandler {
 	}
 
 	/**
-	 * Returns raw samples for the given channels in {@code [from, to)}, keyed by
-	 * epoch-second timestamp. Used to assemble resend payloads after an outage.
+	 * Returns raw samples for the given channels in {@code [from, to]}, keyed by
+	 * epoch-millisecond timestamp as
+	 * {@link io.openems.common.jsonrpc.notification.ResendDataNotification}
+	 * expects. Used to assemble resend payloads after an outage.
+	 *
+	 * <p>
+	 * Both bounds are inclusive. The resend worker ends each time range on a
+	 * marker timestamp, so an exclusive end would drop that second from the range.
 	 *
 	 * @param edgeName The Edge identifier
 	 * @param from     Start time (inclusive)
-	 * @param to       End time (exclusive)
+	 * @param to       End time (inclusive)
 	 * @param channels Channels to fetch
-	 * @return Map of epoch-second timestamp → map of channel → value
+	 * @return Map of epoch-millisecond timestamp → map of channel → value
 	 * @throws SQLException on database error
 	 */
 	public SortedMap<Long, SortedMap<ChannelAddress, JsonElement>> queryResendData(
@@ -536,8 +542,8 @@ public class ReadHandler {
 				Map<UUID, ChannelAddress> addrById = entry.getValue();
 				UUID[] ids = addrById.keySet().toArray(UUID[]::new);
 				String sql = new StringBuilder()
-						.append("SELECT EXTRACT(EPOCH FROM time)::bigint, channel_id, value FROM ").append(table)
-						.append(" WHERE channel_id = ANY(?) AND time >= ? AND time < ? ORDER BY time")
+						.append("SELECT time, channel_id, value FROM ").append(table)
+						.append(" WHERE channel_id = ANY(?) AND time >= ? AND time <= ? ORDER BY time")
 						.toString();
 				try (var pst = con.prepareStatement(sql)) {
 					pst.setArray(1, con.createArrayOf("uuid", ids));
@@ -545,7 +551,7 @@ public class ReadHandler {
 					pst.setObject(3, to.toOffsetDateTime());
 					try (ResultSet rs = pst.executeQuery()) {
 						while (rs.next()) {
-							long ts = rs.getLong(1);
+							long ts = rs.getObject(1, OffsetDateTime.class).toInstant().toEpochMilli();
 							UUID cid = rs.getObject(2, UUID.class);
 							Object value = rs.getObject(3);
 							ChannelAddress addr = addrById.get(cid);
