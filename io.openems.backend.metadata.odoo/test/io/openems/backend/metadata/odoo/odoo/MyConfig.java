@@ -20,6 +20,7 @@ public record MyConfig(//
 		String database, //
 		int eventPoolSize, //
 		int requestPoolSize, //
+		int userCacheTtl, //
 		int pgConnectionPoolSize, //
 		DebugMode debugMode, //
 		boolean enablePasswordAuthentication, //
