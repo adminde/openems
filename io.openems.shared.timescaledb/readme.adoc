@@ -103,6 +103,11 @@ indefinitely with backoff, so a batch survives a database restart, while
 *data* errors get a small bounded number of retries so a poison batch cannot
 stall the pipeline forever.
 
+Before a point enters a batch, the router converts its value to the stored
+value type of its channel, which wins when the two disagree. A value that
+cannot be converted, like an empty string for an `INTEGER` channel, is dropped
+and logged once per channel, because it would fail the whole batch.
+
 === Change filter (Edge)
 
 `ChangeFilter` decides which values the Edge writes. A value is written when it

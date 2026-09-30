@@ -2,8 +2,10 @@ package io.openems.shared.timescaledb.data;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -29,7 +31,8 @@ import io.openems.shared.timescaledb.schema.ChannelManager;
  * a database round-trip only occurs for genuinely new channels. Connection
  * errors during a resolve are retried with backoff (the point is preserved);
  * a point whose channel cannot be resolved for data reasons is dropped with a
- * log message.
+ * log message. So is a value that cannot be converted to the stored value
+ * type of its channel.
  */
 public class DataPointRouter extends AbstractImmediateWorker {
 
@@ -43,6 +46,9 @@ public class DataPointRouter extends AbstractImmediateWorker {
 	private final BlockingQueue<DataPoint> sourceQueue;
 	private final Map<Type, MergePointsWorker> mergeWorkers;
 	private final BooleanSupplier isRunning;
+
+	/** Channels already reported with a value that does not fit their type, to log each one once. */
+	private final Set<String> invalidValueWarned = new HashSet<>();
 
 	public DataPointRouter(HikariDataSource dataSource, ChannelManager channelManager,
 	                       BlockingQueue<DataPoint> sourceQueue, Map<Type, MergePointsWorker> mergeWorkers,
@@ -79,8 +85,38 @@ public class DataPointRouter extends AbstractImmediateWorker {
 					continue; // dropped, already logged
 				}
 			}
+			var value = this.toStoredType(point, info);
+			if (value == null) {
+				continue; // dropped, already logged
+			}
 			this.mergeWorkers.get(info.type())
-					.put(new DataRow(point.timestamp(), info.channelId(), info.aggregate(), point.value()));
+					.put(new DataRow(point.timestamp(), info.channelId(), info.aggregate(), value));
+		}
+	}
+
+	/**
+	 * Converts the value of a point to the stored value type of its channel,
+	 * which wins when the two disagree. A value that cannot be converted, like an
+	 * empty string for an INTEGER channel, is dropped here, because it would fail
+	 * the whole batch it is written with.
+	 *
+	 * @param point the {@link DataPoint}
+	 * @param info  the resolved channel
+	 * @return the converted value, or {@code null} if the point has to be dropped
+	 */
+	private Object toStoredType(DataPoint point, ChannelInfo info) {
+		if (point.type() == info.type()) {
+			return point.value();
+		}
+		try {
+			return info.type().coerce(point.value());
+		} catch (NumberFormatException e) {
+			var channel = this.channelManager.encodeChannelKey(point);
+			if (this.invalidValueWarned.add(channel)) {
+				this.log.warn("Dropping values of [{}]: the channel is stored as {}, but got the {} value \"{}\". "
+						+ "Check channel_def.type of this channel.", channel, info.type(), point.type(), point.value());
+			}
+			return null;
 		}
 	}
 

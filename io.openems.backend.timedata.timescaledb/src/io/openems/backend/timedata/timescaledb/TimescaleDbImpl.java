@@ -80,6 +80,9 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 	/** Edges already reported as having no EdgeConfig, to log each one once. */
 	private final Set<String> missingConfigWarned = ConcurrentHashMap.newKeySet();
 
+	/** Channels already reported with a value that does not fit their type, to log each one once. */
+	private final Set<String> invalidValueWarned = ConcurrentHashMap.newKeySet();
+
 	@Reference
 	private volatile Metadata metadata;
 
@@ -272,7 +275,19 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 						channelType = channel != null ? Type.fromOpenemsType(channel.getType()) : Type.detect(primitive);
 						channelUnit = channel != null && channel.getUnit() != null ? channel.getUnit().symbol : null;
 					}
-					Object value = channelType.coerce(primitive);
+					Object value;
+					try {
+						value = channelType.coerce(primitive);
+					} catch (NumberFormatException e) {
+						// Skip only this value. An exception would abort the whole notification,
+						// including the following Timedata services and the live UI update.
+						if (this.invalidValueWarned.add(edgeId + "/" + channelString)) {
+							this.logWarn(this.log, "Dropping values of [" + edgeId + "/" + channelString
+									+ "]: the channel has type " + channelType + ", but the Edge sent "
+									+ primitive + ". Check channel_def.type of this channel.");
+						}
+						continue;
+					}
 					points.add(new DataPoint(
 							timestamp, edgeId, componentId, componentType, channelId, channelType, aggregate, channelUnit, value));
 

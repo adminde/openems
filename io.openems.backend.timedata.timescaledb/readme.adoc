@@ -38,7 +38,9 @@ Before reaching the shared pipeline, every point passes three steps:
    channel that has never been resolved falls back to the Edge's `EdgeConfig`
    (and, failing that, to type detection from the JSON value). A component that
    is not registered yet and whose factory-ID cannot be determined has its points
-   dropped, logged once. The `aggregate` flag comes from the shared `AggregateChannels`
+   dropped, logged once. A value that does not fit the type of its channel, for
+   example an empty string for an `INTEGER` channel, is dropped and logged once
+   per channel, and the rest of the message is still written. The `aggregate` flag comes from the shared `AggregateChannels`
    include-list, independent of the `EdgeConfig`, so it is correct from the very first
    point.
 
