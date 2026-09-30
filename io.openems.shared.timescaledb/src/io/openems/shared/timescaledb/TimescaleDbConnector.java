@@ -413,8 +413,8 @@ public class TimescaleDbConnector {
 	}
 
 	/**
-	 * Returns the timestamps of cycles whose data never reached the Backend, so
-	 * they can be resent.
+	 * Returns every second whose data never reached the Backend, so it can be
+	 * resent.
 	 *
 	 * @param edgeName            the Edge identifier; ignored in single-tenant mode
 	 * @param notSendChannel      the Channel recording send success/failure

@@ -21,7 +21,11 @@ the channels of all enabled components:
    local `PersistencePriority` at or above the configured minimum (default
    `HIGH`) are persisted at all.
 2. *Aggregate flag*: set from the shared `AggregateChannels` include-list.
-3. *Buffering*: points collect in an in-memory buffer, flushed to the shared
+3. *Change filter*: a channel is written when its value changed, and in the
+   first Cycle of every minute. Aggregate-flagged channels are written in
+   every Cycle, because the aggregate tiers average over rows and not over
+   time. See `ChangeFilter` in the shared bundle.
+4. *Buffering*: points collect in an in-memory buffer, flushed to the shared
    write pipeline every *No of Cycles* cycles (default 1) or at 5 000 points,
    whichever comes first. The buffer is also flushed on deactivate.
 
@@ -29,6 +33,8 @@ the channels of all enabled components:
  Cycle (~1 s)
    |
    |  AccessMode / PersistencePriority >= config?  --no-->  (not stored)
+   |
+   |  aggregated, changed or first Cycle of the minute?  --no-->  (not written)
    v
  buffer (flush: No of Cycles / 5000 pts)
    |
@@ -46,7 +52,10 @@ shared bundle. The Edge runs it single-tenant, so queries carry no Edge-ID and
 
 `getResendTimeranges()` / `queryResendData()` reconstruct the cycles that never
 reached the Backend (not-sent marker convention), so `Controller.Api.Backend`
-can resend them after an outage.
+can resend them after an outage. The change filter stores the marker channel
+like every other channel, so `ResendMarkers` in the shared bundle rebuilds
+every second of an outage from its rows. The resent data has the shape of the
+stored data: every change, plus one row per channel and minute.
 
 == Storage profile
 
@@ -56,7 +65,7 @@ aggregate tiers accelerate visualization of the aggregate-flagged channels:
 |===
 | Tier | Resolution | Retention
 
-| `data_*` | every cycle (~1 s) | 7 d (compressed after 1 d)
+| `data_*` | every change and once per minute, aggregate-flagged channels every cycle (~1 s) | 7 d (compressed after 1 d)
 | `data_1m_*` (aggregate-flagged channels) | 1 minute | 90 d
 | `data_15m_*` (aggregate-flagged channels) | 15 minutes | 3 y
 |===

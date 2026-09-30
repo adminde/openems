@@ -103,6 +103,31 @@ indefinitely with backoff, so a batch survives a database restart, while
 *data* errors get a small bounded number of retries so a poison batch cannot
 stall the pipeline forever.
 
+=== Change filter (Edge)
+
+`ChangeFilter` decides which values the Edge writes. A value is written when it
+differs from the last value written for its channel. In addition, every channel
+is written in the first Cycle of every minute, so every one minute bucket holds
+at least one row per channel. Aggregate-flagged channels are written in every
+Cycle.
+
+The raw hypertables therefore hold a row per change, not per second, and a row
+stays valid until the next row of its channel:
+
+* `queryLatestValue()` and the energy queries are not affected, because the
+  newest row and the last row of every bucket still hold the current value.
+* Averages over rows weight every row equally, not every second. The
+  aggregate tiers only read aggregate-flagged channels, which stay dense, so
+  they are exact. A raw `AVG(value)` over a channel outside `AggregateChannels`
+  gives a fluctuating period more weight than a constant period of the same
+  length.
+* The not-sent marker of the resend is stored sparse as well. `ResendMarkers`
+  rebuilds every second of an outage from its rows.
+
+The Backend stores the live data of the Edge in the same shape (each change,
+plus all values every five minutes), so there the note about averages applies
+to the aggregate tiers as well.
+
 == Read path
 
 The raw hypertables are the source of truth; the continuous aggregates are a

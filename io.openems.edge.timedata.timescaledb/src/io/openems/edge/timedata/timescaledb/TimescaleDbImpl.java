@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 
+import io.openems.shared.timescaledb.data.ChangeFilter;
 import io.openems.shared.timescaledb.data.DataPoint;
 import io.openems.shared.timescaledb.schema.Aggregate;
 import io.openems.shared.timescaledb.schema.Tenancy;
@@ -58,6 +59,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 
 	private final Logger log = LoggerFactory.getLogger(TimescaleDbImpl.class);
 	private final List<DataPoint> buffer = new ArrayList<>();
+	private final ChangeFilter changeFilter = new ChangeFilter();
 
 	@Reference
 	private Cycle cycle;
@@ -129,6 +131,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 
 	private void collectChannelValues(long timestamp) {
 		var minPriority = this.config.persistencePriority();
+		this.changeFilter.startCycle(timestamp);
 		this.componentManager.getEnabledComponents().stream()
 				.forEach(component -> {
 					var componentAlias = component.id();
@@ -140,6 +143,7 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 							.forEach(channel -> {
 								var valueOpt = channel.value().asOptional();
 								if (valueOpt.isEmpty()) {
+									this.changeFilter.forget(channel);
 									return;
 								}
 
@@ -147,6 +151,9 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 								boolean aggregate = AggregateChannels.isAggregate(componentAlias, channel.channelId().id());
 								var type = Type.fromOpenemsType(channel.getType());
 								var value = type.coerce(raw);
+								if (!this.changeFilter.shouldWrite(channel, value, aggregate)) {
+									return;
+								}
 
 								var unit = channel.channelDoc().getUnit().symbol;
 								synchronized (this.buffer) {

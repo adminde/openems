@@ -17,3 +17,6 @@ Export-Package: \
 
 -conditionalpackage: \
 	de.bytefish.pgbulkinsert.*
+
+-testpath: \
+	${testpath}

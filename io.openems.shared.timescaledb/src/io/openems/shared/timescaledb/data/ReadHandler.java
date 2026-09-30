@@ -7,7 +7,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -463,12 +462,14 @@ public class ReadHandler {
 	}
 
 	/**
-	 * Returns the epoch-second timestamps of "data not sent" markers for the
-	 * given {@code notSendChannel}, newer than {@code lastResendTimestamp}.
+	 * Returns every second whose data was not sent, according to the given
+	 * {@code notSendChannel}, newer than {@code lastResendTimestamp}.
 	 *
 	 * <p>
 	 * Convention (matches RRD4j): {@code value == 0} means the cycle's data was
-	 * sent successfully; any non-zero value marks a failed send.
+	 * sent successfully; any non-zero value marks a failed send. The marker is
+	 * stored only when it changes and once per minute, so the seconds in between
+	 * are rebuilt by {@link ResendMarkers}.
 	 *
 	 * @param edgeName            The Edge identifier
 	 * @param notSendChannel      The channel that records send success/failure
@@ -478,27 +479,28 @@ public class ReadHandler {
 	 */
 	public java.util.List<Long> getResendTimestamps(String edgeName,
 			ChannelAddress notSendChannel, long lastResendTimestamp) throws SQLException {
-		var result = new ArrayList<Long>();
+		var markers = new ResendMarkers();
 		try (Connection connection = this.dataSource.getConnection()) {
 			ChannelInfo info = this.channelManager.lookupChannel(connection, edgeName, notSendChannel);
 			if (info == null) {
-				return result;
+				return markers.getTimestamps();
 			}
+			// Rows of successful sends are selected too, because they end an outage.
 			String sql = new StringBuilder()
-					.append("SELECT EXTRACT(EPOCH FROM time)::bigint FROM ").append(info.type().rawTableName)
-					.append(" WHERE channel_id = ? AND time > to_timestamp(?) AND value <> 0 ORDER BY time")
+					.append("SELECT time, value <> 0 FROM ").append(info.type().rawTableName)
+					.append(" WHERE channel_id = ? AND time > to_timestamp(?) ORDER BY time")
 					.toString();
 			try (var pst = connection.prepareStatement(sql)) {
 				pst.setObject(1, info.channelId());
 				pst.setLong(2, Math.max(lastResendTimestamp, 0L));
 				try (ResultSet rs = pst.executeQuery()) {
 					while (rs.next()) {
-						result.add(rs.getLong(1));
+						markers.add(rs.getObject(1, OffsetDateTime.class).toEpochSecond(), rs.getBoolean(2));
 					}
 				}
 			}
 		}
-		return result;
+		return markers.getTimestamps();
 	}
 
 	/**
