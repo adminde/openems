@@ -10,6 +10,7 @@ import { Edges, User } from "../shared";
  *   "id": UUID,
  *   "result": {
  *     "token": string,
+ *     "refreshToken"?: string,
  *     "user": shared.User,
  *     "edges": shared.Edges
  *   }
@@ -22,6 +23,7 @@ export class AuthenticateResponse extends JsonrpcResponseSuccess {
         public override readonly id: string,
         public override readonly result: {
             token: string,
+            refreshToken?: string,
             user: User,
             edges: Edges
         },

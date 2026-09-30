@@ -22,6 +22,7 @@ import io.openems.common.utils.JsonUtils;
  *   "id": "UUID",
  *   "result": {
  *     "token": String,
+ *     "refreshToken"?: String,
  *     "user": {@link AbstractUser#toJsonObject()}
  *   }
  * }
@@ -30,12 +31,18 @@ import io.openems.common.utils.JsonUtils;
 public class AuthenticateResponse extends JsonrpcResponseSuccess {
 
 	private final String token;
+	private final String refreshToken;
 	private final AbstractUser user;
 	private final Language language;
 
 	public AuthenticateResponse(UUID id, String token, AbstractUser user, Language language) {
+		this(id, token, null, user, language);
+	}
+
+	public AuthenticateResponse(UUID id, String token, String refreshToken, AbstractUser user, Language language) {
 		super(id);
 		this.token = token;
+		this.refreshToken = refreshToken;
 		this.user = user;
 		this.language = language;
 	}
@@ -50,6 +57,7 @@ public class AuthenticateResponse extends JsonrpcResponseSuccess {
 
 		return JsonUtils.buildJsonObject() //
 				.addProperty("token", this.token) //
+				.addPropertyIfNotNull("refreshToken", this.refreshToken) //
 				.add("user", JsonUtils.buildJsonObject() //
 						.addProperty("id", this.user.getId()) //
 						.addProperty("name", this.user.getName()) //

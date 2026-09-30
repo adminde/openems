@@ -195,7 +195,7 @@ public class OnRequest implements io.openems.common.websocket.OnRequest {
 				return user.withToken(result.token());
 			});
 		}).thenCompose(user -> {
-			return this.handleAuthentication(wsData, request.getId(), user);
+			return this.handleAuthentication(wsData, request.getId(), user, null);
 		});
 	}
 
@@ -244,11 +244,10 @@ public class OnRequest implements io.openems.common.websocket.OnRequest {
 			AuthenticateWithPasswordRequest request) {
 		return this.parent.userAuthPasswordService.authenticateWithPassword(request.usernameOpt.get(), request.password)
 				.thenCompose(result -> {
-					return this.parent.metadata.getUserByExternalId(result.userId()).thenApply(user -> {
-						return user.withToken(result.token());
+					return this.parent.metadata.getUserByExternalId(result.userId()).thenCompose(user -> {
+						return this.handleAuthentication(wsData, request.getId(), user.withToken(result.token()),
+								result.refreshToken());
 					});
-				}).thenCompose(user -> {
-					return this.handleAuthentication(wsData, request.getId(), user);
 				}).exceptionallyCompose(throwable -> {
 					return CompletableFuture.failedFuture(OpenemsError.COMMON_AUTHENTICATION_FAILED.exception());
 				});
@@ -258,17 +257,20 @@ public class OnRequest implements io.openems.common.websocket.OnRequest {
 	 * Common handler for {@link AuthenticateWithTokenRequest} and
 	 * {@link AuthenticateWithPasswordRequest}.
 	 *
-	 * @param wsData    the WebSocket attachment
-	 * @param requestId the ID of the original {@link JsonrpcRequest}
-	 * @param user      the authenticated {@link User}
+	 * @param wsData       the WebSocket attachment
+	 * @param requestId    the ID of the original {@link JsonrpcRequest}
+	 * @param user         the authenticated {@link User}
+	 * @param refreshToken the refresh token, or null if the provider does not
+	 *                     issue one
 	 * @return the JSON-RPC Success Response Future
 	 * @throws OpenemsNamedException on error
 	 */
-	private CompletableFuture<JsonrpcResponseSuccess> handleAuthentication(WsData wsData, UUID requestId, User user) {
+	private CompletableFuture<JsonrpcResponseSuccess> handleAuthentication(WsData wsData, UUID requestId, User user,
+			String refreshToken) {
 		wsData.setToken(user.getToken());
 		wsData.setUser(user);
-		return CompletableFuture
-				.completedFuture(new AuthenticateResponse(requestId, user.getToken(), user, user.getLanguage()));
+		return CompletableFuture.completedFuture(
+				new AuthenticateResponse(requestId, user.getToken(), refreshToken, user, user.getLanguage()));
 	}
 
 	/**

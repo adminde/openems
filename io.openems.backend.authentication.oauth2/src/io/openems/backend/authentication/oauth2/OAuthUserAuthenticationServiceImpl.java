@@ -199,13 +199,11 @@ public class OAuthUserAuthenticationServiceImpl implements AuthUserRegistrationS
 	@Override
 	public CompletableFuture<PasswordAuthenticationResult> authenticateWithPassword(String username, String password) {
 		final var config = this.getServiceAccountOemConfig();
-		return KeycloakApi.getToken(this.bridgeHttp, this.issuerUrl.toString(), config.clientId(),
-				config.clientSecret(), username, password).thenApply(token -> {
-					final var jwtToken = JWT.decode(token);
-					final var email = jwtToken.getClaim("email").asString();
-
+		return this.fetchTokensHttpBridge(config, config.redirectUri(), new Grant.PasswordGrant(username, password))
+				.thenApply(token -> {
 					// email is currently treated as login (originally from odoo)
-					return new PasswordAuthenticationResult(jwtToken.getSubject(), email, token);
+					return new PasswordAuthenticationResult(token.sub(), token.login(), token.accessToken(),
+							token.refreshToken());
 				});
 	}
 
@@ -392,6 +390,11 @@ public class OAuthUserAuthenticationServiceImpl implements AuthUserRegistrationS
 			queryParams.put("grant_type", "refresh_token");
 			queryParams.put("refresh_token", rtg.refreshToken());
 		}
+		case Grant.PasswordGrant pg -> {
+			queryParams.put("grant_type", "password");
+			queryParams.put("username", pg.username());
+			queryParams.put("password", pg.password());
+		}
 		}
 		return queryParams;
 	}
@@ -401,6 +404,9 @@ public class OAuthUserAuthenticationServiceImpl implements AuthUserRegistrationS
 		}
 
 		public record RefreshTokenGrant(String refreshToken) implements Grant {
+		}
+
+		public record PasswordGrant(String username, String password) implements Grant {
 		}
 	}
 
