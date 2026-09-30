@@ -50,6 +50,7 @@ public final class OAuthAuthenticationHandler {
 			final var r = GetTokenByCodeRequest.from(request);
 			yield authService.tokenByCode(r.getOem(), r.getIdentifier(), r.getCode()).thenCompose(token -> {
 				wsData.setToken(token.accessToken());
+				wsData.setRefreshToken(token.refreshToken());
 
 				return metadata.getUserByExternalId(token.sub()).thenApply(user -> {
 					wsData.setUser(user);
@@ -61,6 +62,7 @@ public final class OAuthAuthenticationHandler {
 			final var r = GetTokenByRefreshTokenRequest.from(request);
 			yield authService.tokenByRefreshToken(r.getOem(), r.getRefreshToken()).thenCompose(token -> {
 				wsData.setToken(token.accessToken());
+				wsData.setRefreshToken(token.refreshToken());
 
 				return metadata.getUserByExternalId(token.sub()).thenApply(user -> {
 					wsData.setUser(user);

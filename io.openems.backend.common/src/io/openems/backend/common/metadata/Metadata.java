@@ -66,6 +66,15 @@ public interface Metadata {
 	CompletableFuture<User> getUserByExternalId(String userId);
 
 	/**
+	 * Removes a User from the cache of this Metadata service, for example after a
+	 * logout. Implementations without a User cache do nothing.
+	 *
+	 * @param user the {@link User}
+	 */
+	public default void invalidateUser(User user) {
+	}
+
+	/**
 	 * Handles operations with Edge.
 	 *
 	 * <p>

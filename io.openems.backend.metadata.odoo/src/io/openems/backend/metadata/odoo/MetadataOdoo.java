@@ -236,9 +236,14 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 	@Override
 	public CompletableFuture<Void> logout(String token) {
 		return this.authenticate(token).thenAccept(user -> {
-			this.userCache.remove(user.getUserId());
+			this.invalidateUser(user);
 			this.odooHandler.logout(user.getToken());
 		});
+	}
+
+	@Override
+	public void invalidateUser(User user) {
+		this.userCache.remove(user.getUserId());
 	}
 
 	/**

@@ -268,6 +268,7 @@ public class OnRequest implements io.openems.common.websocket.OnRequest {
 	private CompletableFuture<JsonrpcResponseSuccess> handleAuthentication(WsData wsData, UUID requestId, User user,
 			String refreshToken) {
 		wsData.setToken(user.getToken());
+		wsData.setRefreshToken(refreshToken);
 		wsData.setUser(user);
 		return CompletableFuture.completedFuture(
 				new AuthenticateResponse(requestId, user.getToken(), refreshToken, user, user.getLanguage()));
@@ -302,13 +303,27 @@ public class OnRequest implements io.openems.common.websocket.OnRequest {
 	 * @throws OpenemsNamedException on error
 	 */
 	private CompletableFuture<JsonrpcResponseSuccess> handleLogoutRequest(WsData wsData, LogoutRequest request) {
-		wsData.logout();
 		final var token = wsData.getToken().orElse(null);
-		if (token == null) {
-			return CompletableFuture.completedFuture(new GenericJsonrpcResponseSuccess(request.getId()));
+		final var refreshToken = wsData.getRefreshToken().orElse(null);
+		final var user = wsData.getUser();
+		wsData.logout();
+		if (user != null) {
+			this.parent.metadata.invalidateUser(user);
 		}
-		return this.parent.userAuthPasswordService.logout(token).thenApply(unused -> {
-			return new GenericJsonrpcResponseSuccess(request.getId());
+
+		final JsonrpcResponseSuccess response = new GenericJsonrpcResponseSuccess(request.getId());
+		final var authService = this.parent.userAuthPasswordService;
+		if (authService == null || (token == null && refreshToken == null)) {
+			return CompletableFuture.completedFuture(response);
+		}
+		// The local session is already gone, so a failure at the authentication
+		// provider must not fail the logout of the UI.
+		return authService.logout(token, refreshToken).handle((unused, throwable) -> {
+			if (throwable != null) {
+				this.log.warn("Logout at the authentication provider failed for user [{}]: {}",
+						user != null ? user.getId() : "UNKNOWN", throwable.getMessage());
+			}
+			return response;
 		});
 	}
 

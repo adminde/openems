@@ -32,4 +32,21 @@ public interface AuthUserPasswordAuthenticationService {
 	 */
 	CompletableFuture<Void> logout(String token);
 
+	/**
+	 * Logs out a user with the given token and refresh token.
+	 *
+	 * <p>
+	 * Providers that end the session with the refresh token override this method.
+	 * The default ignores the refresh token and delegates to
+	 * {@link #logout(String)}.
+	 *
+	 * @param token        the token of the user
+	 * @param refreshToken the refresh token issued at authentication, or null if
+	 *                     the provider did not issue one
+	 * @return a {@link CompletableFuture} that completes when the logout is done
+	 */
+	default CompletableFuture<Void> logout(String token, String refreshToken) {
+		return this.logout(token);
+	}
+
 }
