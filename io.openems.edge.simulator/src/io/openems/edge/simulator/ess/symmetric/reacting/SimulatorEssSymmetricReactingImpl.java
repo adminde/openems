@@ -197,7 +197,7 @@ public class SimulatorEssSymmetricReactingImpl extends AbstractOpenemsComponent
 			activePower = 0;
 		}
 		/*
-		 * Clamp to the energy actually present (D6). The SoC checks above are a
+		 * Clamp to the energy actually present. The SoC checks above are a
 		 * period behind, so without this a battery driven into empty delivers one
 		 * more full period of energy it does not have.
 		 */
