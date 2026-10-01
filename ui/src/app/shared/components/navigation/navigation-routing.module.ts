@@ -9,6 +9,7 @@ import { CommonProductionDetailsComponent } from "src/app/edge/live/common/produ
 import { CommonProductionHistoryComponent } from "src/app/edge/live/common/production/history/new-navigation/new-navigation";
 import { CommonProductionSingleHistoryOverviewComponent } from "src/app/edge/live/common/production/history/phase-accurate/new-navigation/phase-accurate";
 import { CommonProductionHomeComponent } from "src/app/edge/live/common/production/new-navigation/new-navigation";
+import { CommonHeatStorageHistoryComponent } from "src/app/edge/live/common/heat/storage/history/new-navigation/new-navigation";
 import { CommonStorageOwnerGuestInstallerDetailsComponent } from "src/app/edge/live/common/storage/details/details";
 import { CommonStorageDetailsComponent } from "src/app/edge/live/common/storage/history/details/new-navigation/new-navigation";
 import { CommonStorageHistoryComponent } from "src/app/edge/live/common/storage/history/new-navigation/new-navigation";
@@ -106,6 +107,8 @@ export const newNavigationRoutes: Routes = [
     { path: "common/production/history/:componentId/phase-accurate/current-voltage", component: CurrentVoltageOverviewComponent },
     { path: "common/selfconsumption", component: CommonSelfConsumptionHomeComponent },
     { path: "common/selfconsumption/history", component: CommonSelfConsumptionHistoryComponent },
+    { path: "common/heat/storage", component: CommonHeatStorageHistoryComponent },
+    { path: "common/heat/storage/history", component: CommonHeatStorageHistoryComponent },
     { path: "common/storage", component: CommonStorageHomeComponent },
     { path: "common/storage/details", component: CommonStorageOwnerGuestInstallerDetailsComponent },
     { path: "common/storage/settings", component: CommonStorageSettingsComponent },

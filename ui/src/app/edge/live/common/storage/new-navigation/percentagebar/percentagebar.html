@@ -1,5 +1,6 @@
 @if(essComponentId() !== null){
-  <oe-flat-widget-percentagebar [channelAddress]="essComponentId() + '/Soc'">
+  <oe-flat-widget-percentagebar [channelAddress]="essComponentId() + '/Soc'"
+    [style.--ion-color-active-percentagebar]="fillColor()">
     <!-- Shown if emergencyReserve is enabled for this ess -->
     @if (isEmergencyReserveEnabled) {
       @if (reserveSoc) {

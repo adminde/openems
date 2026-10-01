@@ -7,4 +7,6 @@ The average State-of-Charge of the cluster is configurable:
 - *ARITHMETIC*: capacity-weighted arithmetic mean
 - *GEOMETRIC*: capacity-weighted geometric mean — a single empty storage forces the cluster SoC to zero
 
-Temperature is aggregated as capacity-weighted mean; the temperature limits (`MaxTemperature`, `MaxTargetTemperature`, `MinTargetTemperature`) report the tightest common operating band of all members.
+Temperature is aggregated as capacity-weighted mean; the temperature limits (`MaxTemperature`, `TargetTemperature`, `MinTemperature`) report the tightest common operating band of all members.
+
+The cluster also implements `ManagedThermalEss`: thermal power targets written to the cluster are distributed to its managed members in the configured order of `tess_ids` — the first member is served up to its intake limit, the remainder passes to the next. Members that already carry a pending target write in the same cycle are skipped ("first write wins").

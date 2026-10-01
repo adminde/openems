@@ -816,6 +816,10 @@ export namespace HistoryUtils {
         customTitle?: string
         /** Default: true _> {@link https://www.chartjs.org/docs/latest/axes/styling.html#grid-line-configuration Chartjs Grid Display} */
         displayGrid?: boolean,
+        /** Lower bound the axis includes at minimum; the axis still expands if data falls below it. */
+        suggestedMin?: number,
+        /** Upper bound the axis includes at minimum; the axis still expands if data exceeds it. */
+        suggestedMax?: number,
         scale?: {
             /** Default: false, if true scale starts at minimum value of all datasets assigned to this yaxis */
             dynamicScale?: boolean,

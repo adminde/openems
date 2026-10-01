@@ -60,8 +60,10 @@ public interface ThermalEss extends OpenemsComponent {
 				.accessMode(AccessMode.READ_ONLY)), //
 
 		/**
-		 * Maximum Temperature the storage tank is physically allowed to reach. Hardware
-		 * safety limit; used as an absolute clamp.
+		 * Maximum Temperature the storage tank is physically allowed to reach. Hard
+		 * hardware safety limit and absolute clamp: explicit charge targets (e.g. from
+		 * a Time-of-Use or PV-surplus controller) may heat up to this value.
+		 * Corresponds to 100&nbsp;% {@link ChannelId#SOC}.
 		 *
 		 * <ul>
 		 * <li>Interface: ThermalEss
@@ -74,8 +76,9 @@ public interface ThermalEss extends OpenemsComponent {
 				.persistencePriority(PersistencePriority.HIGH)), //
 
 		/**
-		 * Maximum target Temperature of the operating band. Heating switches off at or
-		 * above this value.
+		 * Target Temperature of autonomous operation. Soft value: heating switches off
+		 * at or above this value when no explicit charge target is set. Explicit
+		 * targets may exceed it up to {@link ChannelId#MAX_TEMPERATURE}.
 		 *
 		 * <ul>
 		 * <li>Interface: ThermalEss
@@ -84,13 +87,14 @@ public interface ThermalEss extends OpenemsComponent {
 		 * <li>Range: zero or positive value
 		 * </ul>
 		 */
-		MAX_TARGET_TEMPERATURE(Doc.of(OpenemsType.INTEGER) //
+		TARGET_TEMPERATURE(Doc.of(OpenemsType.INTEGER) //
 				.unit(Unit.DEZIDEGREE_CELSIUS) //
 				.persistencePriority(PersistencePriority.HIGH)),
 
 		/**
-		 * Minimum target Temperature of the operating band. Heating switches on at or
-		 * below this value.
+		 * Minimum Temperature of the storage. Hard lower limit (comfort/frost
+		 * protection): heating switches on at or below this value. Corresponds to
+		 * 0&nbsp;% {@link ChannelId#SOC}.
 		 *
 		 * <ul>
 		 * <li>Interface: ThermalEss
@@ -99,7 +103,7 @@ public interface ThermalEss extends OpenemsComponent {
 		 * <li>Range: zero or positive value
 		 * </ul>
 		 */
-		MIN_TARGET_TEMPERATURE(Doc.of(OpenemsType.INTEGER) //
+		MIN_TEMPERATURE(Doc.of(OpenemsType.INTEGER) //
 				.unit(Unit.DEZIDEGREE_CELSIUS) //
 				.persistencePriority(PersistencePriority.HIGH)),
 
@@ -117,6 +121,37 @@ public interface ThermalEss extends OpenemsComponent {
 				.unit(Unit.WATT) //
 				.persistencePriority(PersistencePriority.HIGH) //
 				.text("Net thermal power. Positive for charging; negative for discharging.")),
+
+		/**
+		 * Thermal Charge Power. The heat input component of
+		 * {@link ChannelId#THERMAL_POWER}.
+		 *
+		 * <ul>
+		 * <li>Interface: ThermalEss
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: zero or positive value
+		 * </ul>
+		 */
+		THERMAL_CHARGE_POWER(Doc.of(OpenemsType.INTEGER) //
+				.unit(Unit.WATT) //
+				.persistencePriority(PersistencePriority.HIGH)),
+
+		/**
+		 * Thermal Discharge Power. The uncontrollable heat extraction component of
+		 * {@link ChannelId#THERMAL_POWER}, including standing losses. Serves as the
+		 * basis for heat-demand predictions.
+		 *
+		 * <ul>
+		 * <li>Interface: ThermalEss
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: zero or positive value
+		 * </ul>
+		 */
+		THERMAL_DISCHARGE_POWER(Doc.of(OpenemsType.INTEGER) //
+				.unit(Unit.WATT) //
+				.persistencePriority(PersistencePriority.HIGH)),
 
 		/**
 		 * Cumulated Thermal Charge Energy.
@@ -308,81 +343,81 @@ public interface ThermalEss extends OpenemsComponent {
 	}
 
 	/**
-	 * Gets the Channel for {@link ChannelId#MAX_TARGET_TEMPERATURE}.
+	 * Gets the Channel for {@link ChannelId#TARGET_TEMPERATURE}.
 	 *
 	 * @return the Channel
 	 */
-	public default IntegerReadChannel getMaxTargetTemperatureChannel() {
-		return this.channel(ChannelId.MAX_TARGET_TEMPERATURE);
+	public default IntegerReadChannel getTargetTemperatureChannel() {
+		return this.channel(ChannelId.TARGET_TEMPERATURE);
 	}
 
 	/**
-	 * Gets the maximum allowed Temperature in [deci-°C]. See
-	 * {@link ChannelId#MAX_TARGET_TEMPERATURE}.
+	 * Gets the target Temperature of autonomous operation in [deci-°C]. See
+	 * {@link ChannelId#TARGET_TEMPERATURE}.
 	 *
 	 * @return the Channel {@link Value}
 	 */
-	public default Value<Integer> getMaxTargetTemperature() {
-		return this.getMaxTargetTemperatureChannel().value();
+	public default Value<Integer> getTargetTemperature() {
+		return this.getTargetTemperatureChannel().value();
 	}
 
 	/**
 	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#MAX_TARGET_TEMPERATURE} Channel.
+	 * {@link ChannelId#TARGET_TEMPERATURE} Channel.
 	 *
 	 * @param value the next value
 	 */
-	public default void _setMaxTargetTemperature(Integer value) {
-		this.getMaxTargetTemperatureChannel().setNextValue(value);
+	public default void _setTargetTemperature(Integer value) {
+		this.getTargetTemperatureChannel().setNextValue(value);
 	}
 
 	/**
 	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#MAX_TARGET_TEMPERATURE} Channel.
+	 * {@link ChannelId#TARGET_TEMPERATURE} Channel.
 	 *
 	 * @param value the next value
 	 */
-	public default void _setMaxTargetTemperature(int value) {
-		this.getMaxTargetTemperatureChannel().setNextValue(value);
+	public default void _setTargetTemperature(int value) {
+		this.getTargetTemperatureChannel().setNextValue(value);
 	}
 
 	/**
-	 * Gets the Channel for {@link ChannelId#MIN_TARGET_TEMPERATURE}.
+	 * Gets the Channel for {@link ChannelId#MIN_TEMPERATURE}.
 	 *
 	 * @return the Channel
 	 */
-	public default IntegerReadChannel getMinTargetTemperatureChannel() {
-		return this.channel(ChannelId.MIN_TARGET_TEMPERATURE);
+	public default IntegerReadChannel getMinTemperatureChannel() {
+		return this.channel(ChannelId.MIN_TEMPERATURE);
 	}
 
 	/**
-	 * Gets the minimum allowed Temperature in [deci-°C]. See
-	 * {@link ChannelId#MIN_TARGET_TEMPERATURE}.
+	 * Gets the minimum Temperature in [deci-°C]. See
+	 * {@link ChannelId#MIN_TEMPERATURE}.
 	 *
 	 * @return the Channel {@link Value}
 	 */
-	public default Value<Integer> getMinTargetTemperature() {
-		return this.getMinTargetTemperatureChannel().value();
+	public default Value<Integer> getMinTemperature() {
+		return this.getMinTemperatureChannel().value();
 	}
 
 	/**
-	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#MIN_TARGET_TEMPERATURE} Channel.
+	 * Internal method to set the 'nextValue' on {@link ChannelId#MIN_TEMPERATURE}
+	 * Channel.
 	 *
 	 * @param value the next value
 	 */
-	public default void _setMinTargetTemperature(Integer value) {
-		this.getMinTargetTemperatureChannel().setNextValue(value);
+	public default void _setMinTemperature(Integer value) {
+		this.getMinTemperatureChannel().setNextValue(value);
 	}
 
 	/**
-	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#MIN_TARGET_TEMPERATURE} Channel.
+	 * Internal method to set the 'nextValue' on {@link ChannelId#MIN_TEMPERATURE}
+	 * Channel.
 	 *
 	 * @param value the next value
 	 */
-	public default void _setMinTargetTemperature(int value) {
-		this.getMinTargetTemperatureChannel().setNextValue(value);
+	public default void _setMinTemperature(int value) {
+		this.getMinTemperatureChannel().setNextValue(value);
 	}
 
 	/**
@@ -421,6 +456,84 @@ public interface ThermalEss extends OpenemsComponent {
 	 */
 	public default void _setThermalPower(int value) {
 		this.getThermalPowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#THERMAL_CHARGE_POWER}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getThermalChargePowerChannel() {
+		return this.channel(ChannelId.THERMAL_CHARGE_POWER);
+	}
+
+	/**
+	 * Gets the Thermal Charge Power in [W]. See
+	 * {@link ChannelId#THERMAL_CHARGE_POWER}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getThermalChargePower() {
+		return this.getThermalChargePowerChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#THERMAL_CHARGE_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setThermalChargePower(Integer value) {
+		this.getThermalChargePowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#THERMAL_CHARGE_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setThermalChargePower(int value) {
+		this.getThermalChargePowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#THERMAL_DISCHARGE_POWER}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getThermalDischargePowerChannel() {
+		return this.channel(ChannelId.THERMAL_DISCHARGE_POWER);
+	}
+
+	/**
+	 * Gets the Thermal Discharge Power in [W]. See
+	 * {@link ChannelId#THERMAL_DISCHARGE_POWER}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getThermalDischargePower() {
+		return this.getThermalDischargePowerChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#THERMAL_DISCHARGE_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setThermalDischargePower(Integer value) {
+		this.getThermalDischargePowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#THERMAL_DISCHARGE_POWER} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setThermalDischargePower(int value) {
+		this.getThermalDischargePowerChannel().setNextValue(value);
 	}
 
 	/**

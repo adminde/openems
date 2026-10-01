@@ -15,6 +15,8 @@ import { ChannelAddress, CurrentData, EdgeConfig } from "src/app/shared/shared";
 export class CommonStoragePercentagebarComponent extends AbstractModal {
     public emergencyReserveController = input<EdgeConfig.Component | null>(null);
     public essComponentId = input<EdgeConfig.Component["id"] | null>(null);
+    /** Overrides the bar fill, e.g. to distinguish thermal from battery storages. */
+    public fillColor = input<string | null>(null);
     protected reserveSoc: number | null = null;
     protected isEmergencyReserveEnabled: boolean = false;
 

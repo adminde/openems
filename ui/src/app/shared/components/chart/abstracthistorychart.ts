@@ -685,6 +685,11 @@ export abstract class AbstractHistoryChart implements OnInit, OnDestroy, AfterVi
                     ...baseConfig,
                     stacked: false,
                     type: "linear",
+                    // Suggested bounds anchor the axis to the operating band while
+                    // still expanding for outliers; they replace the hard auto-bounds
+                    // (which otherwise pin the floor to zero).
+                    ...(element.suggestedMin != null && { min: undefined, suggestedMin: element.suggestedMin }),
+                    ...(element.suggestedMax != null && { max: undefined, suggestedMax: element.suggestedMax }),
                     ticks: {
                         ...baseConfig.ticks,
                         stepSize: 4,

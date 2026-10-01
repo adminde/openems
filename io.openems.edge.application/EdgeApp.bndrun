@@ -116,6 +116,9 @@
 	bnd.identity;id='io.openems.edge.controller.symmetric.peakshaving',\
 	bnd.identity;id='io.openems.edge.controller.symmetric.randompower',\
 	bnd.identity;id='io.openems.edge.controller.symmetric.timeslotpeakshaving',\
+	bnd.identity;id='io.openems.edge.controller.tess.delaycharge',\
+	bnd.identity;id='io.openems.edge.controller.tess.surpluscharge',\
+	bnd.identity;id='io.openems.edge.controller.tess.timeofusetariff',\
 	bnd.identity;id='io.openems.edge.core',\
 	bnd.identity;id='io.openems.edge.edge2edge',\
 	bnd.identity;id='io.openems.edge.energy',\
@@ -321,6 +324,9 @@
 	io.openems.edge.controller.symmetric.peakshaving;version=snapshot,\
 	io.openems.edge.controller.symmetric.randompower;version=snapshot,\
 	io.openems.edge.controller.symmetric.timeslotpeakshaving;version=snapshot,\
+	io.openems.edge.controller.tess.delaycharge;version=snapshot,\
+	io.openems.edge.controller.tess.surpluscharge;version=snapshot,\
+	io.openems.edge.controller.tess.timeofusetariff;version=snapshot,\
 	io.openems.edge.core;version=snapshot,\
 	io.openems.edge.edge2edge;version=snapshot,\
 	io.openems.edge.energy;version=snapshot,\
@@ -363,6 +369,7 @@
 	io.openems.edge.heat.api;version=snapshot,\
 	io.openems.edge.heat.askoma;version=snapshot,\
 	io.openems.edge.heat.mypv;version=snapshot,\
+	io.openems.edge.heat.pump.core;version=snapshot,\
 	io.openems.edge.heat.tess.cluster;version=snapshot,\
 	io.openems.edge.huawei;version=snapshot,\
 	io.openems.edge.io.api;version=snapshot,\

@@ -3,6 +3,7 @@ import { SharedAutarchy } from "src/app/edge/live/common/autarchy/shared/shared"
 import { SharedConsumption } from "src/app/edge/live/common/consumption/shared/shared";
 import { SharedGrid } from "src/app/edge/live/common/grid/shared/shared";
 import { SharedProduction } from "src/app/edge/live/common/production/shared/shared";
+import { SharedThermalStorage } from "src/app/edge/live/common/heat/storage/shared/shared";
 import { SharedSelfConsumption } from "src/app/edge/live/common/selfconsumption/shared/shared";
 import { SharedStorage } from "src/app/edge/live/common/storage/shared/shared";
 import { SharedControllerChannelThreshold } from "src/app/edge/live/Controller/Channelthreshold/shared/shared";
@@ -60,6 +61,10 @@ export class Widgets {
                 return SharedProduction.getNavigationTree(edge, config, translate);
             case "Storage":
                 return SharedStorage.getNavigationTree(edge, translate, config);
+            case "ThermalStorage":
+                // With a battery storage present, thermal storages are shown
+                // inside the common storage menu instead of an own menu entry.
+                return config.hasStorage() ? null : SharedThermalStorage.getNavigationTree(translate);
             default:
                 return null;
         }

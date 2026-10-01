@@ -70,6 +70,7 @@ export const history: (/** Determines if titles in headers can be set */ customH
         { path: "productionchart/:componentId/currentVoltage", component: CurrentAndVoltageOverviewComponent },
         { path: "selfconsumptionchart", component: SelfconsumptionChartOverviewComponent },
         { path: "storagechart", loadComponent: () => import("./edge/live/common/storage/history/overview/overview").then(m => m.CommonStorageOverviewComponent) },
+        { path: "thermalstoragechart", loadComponent: () => import("./edge/live/common/heat/storage/history/overview/overview").then(m => m.CommonHeatStorageOverviewComponent) },
 
         // Controllers
         { path: "channelthresholdchart", component: ChannelthresholdChartOverviewComponent },

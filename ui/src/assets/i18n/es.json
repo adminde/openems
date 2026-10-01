@@ -450,8 +450,8 @@
     "STORAGE_SYSTEM": "Almacenamiento",
     "THERMAL_STORAGE_SYSTEM": "Almacenamiento térmico",
     "TEMPERATURE": "Temperatura",
-    "MIN_TARGET_TEMPERATURE": "Temperatura objetivo mínima",
-    "MAX_TARGET_TEMPERATURE": "Temperatura objetivo máxima",
+    "MIN_TEMPERATURE": "Temperatura mínima",
+    "TARGET_TEMPERATURE": "Temperatura objetivo",
     "SUFFIX": {
       "HOUR": "h"
     },

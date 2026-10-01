@@ -6,6 +6,7 @@ import io.openems.common.channel.PersistencePriority;
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.common.channel.Doc;
+import io.openems.edge.common.channel.FloatDoc;
 import io.openems.edge.common.channel.FloatReadChannel;
 import io.openems.edge.common.channel.IntegerReadChannel;
 import io.openems.edge.common.channel.value.Value;
@@ -24,12 +25,16 @@ public interface HeatPump extends SymmetricHeating, StartStoppable {
 		 * <li>Interface: HeatPump
 		 * <li>Type: Float
 		 * <li>Unit: None (dimensionless)
+		 * <li>Implementation Note: mirrors its value to
+		 * {@link SymmetricHeating.ChannelId#THERMAL_EFFICIENCY} in percent (× 100).
 		 * </ul>
 		 */
-		COP(Doc.of(OpenemsType.FLOAT) //
+		COP(new FloatDoc() //
 				.unit(Unit.NONE) //
 				.persistencePriority(PersistencePriority.HIGH) //
-				.text("Coefficient of Performance (e.g. 3.5)")), //
+				.text("Coefficient of Performance (e.g. 3.5)") //
+				.<HeatPump>onChannelSetNextValue((self, value) -> self._setThermalEfficiency(//
+						value.isDefined() ? Math.round(value.get() * 100) : null))), //
 
 		/**
 		 * Supply (outlet) Temperature.
@@ -40,7 +45,7 @@ public interface HeatPump extends SymmetricHeating, StartStoppable {
 		 * <li>Unit: deci-°C
 		 * </ul>
 		 */
-		TEMPERATURE_SUPPLY(Doc.of(OpenemsType.INTEGER) //
+		SUPPLY_TEMPERATURE(Doc.of(OpenemsType.INTEGER) //
 				.unit(Unit.DEZIDEGREE_CELSIUS) //
 				.persistencePriority(PersistencePriority.HIGH)), //
 
@@ -53,7 +58,7 @@ public interface HeatPump extends SymmetricHeating, StartStoppable {
 		 * <li>Unit: deci-°C
 		 * </ul>
 		 */
-		TEMPERATURE_RETURN(Doc.of(OpenemsType.INTEGER) //
+		RETURN_TEMPERATURE(Doc.of(OpenemsType.INTEGER) //
 				.unit(Unit.DEZIDEGREE_CELSIUS) //
 				.persistencePriority(PersistencePriority.HIGH)), //
 
@@ -69,6 +74,36 @@ public interface HeatPump extends SymmetricHeating, StartStoppable {
 		 */
 		MAX_TEMPERATURE(Doc.of(OpenemsType.INTEGER) //
 				.unit(Unit.DEZIDEGREE_CELSIUS) //
+				.persistencePriority(PersistencePriority.HIGH)), //
+
+		/**
+		 * Maximum Thermal Power the Heat Pump can deliver.
+		 *
+		 * <ul>
+		 * <li>Interface: HeatPump
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: zero or positive value
+		 * </ul>
+		 */
+		MAX_THERMAL_POWER(Doc.of(OpenemsType.INTEGER) //
+				.unit(Unit.WATT) //
+				.persistencePriority(PersistencePriority.HIGH)), //
+
+		/**
+		 * Minimum dispatchable Thermal Power of the Heat Pump. Equals
+		 * {@link #MAX_THERMAL_POWER} for an on/off device, or the lowest modulation
+		 * step for a modulating device.
+		 *
+		 * <ul>
+		 * <li>Interface: HeatPump
+		 * <li>Type: Integer
+		 * <li>Unit: W
+		 * <li>Range: zero or positive value
+		 * </ul>
+		 */
+		MIN_THERMAL_POWER(Doc.of(OpenemsType.INTEGER) //
+				.unit(Unit.WATT) //
 				.persistencePriority(PersistencePriority.HIGH)), //
 		;
 
@@ -122,81 +157,81 @@ public interface HeatPump extends SymmetricHeating, StartStoppable {
 	}
 
 	/**
-	 * Gets the Channel for {@link ChannelId#TEMPERATURE_SUPPLY}.
+	 * Gets the Channel for {@link ChannelId#SUPPLY_TEMPERATURE}.
 	 *
 	 * @return the Channel
 	 */
-	public default IntegerReadChannel getTemperatureSupplyChannel() {
-		return this.channel(ChannelId.TEMPERATURE_SUPPLY);
+	public default IntegerReadChannel getSupplyTemperatureChannel() {
+		return this.channel(ChannelId.SUPPLY_TEMPERATURE);
 	}
 
 	/**
 	 * Gets the Supply Temperature in [deci-°C]. See
-	 * {@link ChannelId#TEMPERATURE_SUPPLY}.
+	 * {@link ChannelId#SUPPLY_TEMPERATURE}.
 	 *
 	 * @return the Channel {@link Value}
 	 */
-	public default Value<Integer> getTemperatureSupply() {
-		return this.getTemperatureSupplyChannel().value();
+	public default Value<Integer> getSupplyTemperature() {
+		return this.getSupplyTemperatureChannel().value();
 	}
 
 	/**
 	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#TEMPERATURE_SUPPLY} Channel.
+	 * {@link ChannelId#SUPPLY_TEMPERATURE} Channel.
 	 *
 	 * @param value the next value
 	 */
-	public default void _setTemperatureSupply(Integer value) {
-		this.getTemperatureSupplyChannel().setNextValue(value);
+	public default void _setSupplyTemperature(Integer value) {
+		this.getSupplyTemperatureChannel().setNextValue(value);
 	}
 
 	/**
 	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#TEMPERATURE_SUPPLY} Channel.
+	 * {@link ChannelId#SUPPLY_TEMPERATURE} Channel.
 	 *
 	 * @param value the next value
 	 */
-	public default void _setTemperatureSupply(int value) {
-		this.getTemperatureSupplyChannel().setNextValue(value);
+	public default void _setSupplyTemperature(int value) {
+		this.getSupplyTemperatureChannel().setNextValue(value);
 	}
 
 	/**
-	 * Gets the Channel for {@link ChannelId#TEMPERATURE_RETURN}.
+	 * Gets the Channel for {@link ChannelId#RETURN_TEMPERATURE}.
 	 *
 	 * @return the Channel
 	 */
-	public default IntegerReadChannel getTemperatureReturnChannel() {
-		return this.channel(ChannelId.TEMPERATURE_RETURN);
+	public default IntegerReadChannel getReturnTemperatureChannel() {
+		return this.channel(ChannelId.RETURN_TEMPERATURE);
 	}
 
 	/**
 	 * Gets the Return Temperature in [deci-°C]. See
-	 * {@link ChannelId#TEMPERATURE_RETURN}.
+	 * {@link ChannelId#RETURN_TEMPERATURE}.
 	 *
 	 * @return the Channel {@link Value}
 	 */
-	public default Value<Integer> getTemperatureReturn() {
-		return this.getTemperatureReturnChannel().value();
+	public default Value<Integer> getReturnTemperature() {
+		return this.getReturnTemperatureChannel().value();
 	}
 
 	/**
 	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#TEMPERATURE_RETURN} Channel.
+	 * {@link ChannelId#RETURN_TEMPERATURE} Channel.
 	 *
 	 * @param value the next value
 	 */
-	public default void _setTemperatureReturn(Integer value) {
-		this.getTemperatureReturnChannel().setNextValue(value);
+	public default void _setReturnTemperature(Integer value) {
+		this.getReturnTemperatureChannel().setNextValue(value);
 	}
 
 	/**
 	 * Internal method to set the 'nextValue' on
-	 * {@link ChannelId#TEMPERATURE_RETURN} Channel.
+	 * {@link ChannelId#RETURN_TEMPERATURE} Channel.
 	 *
 	 * @param value the next value
 	 */
-	public default void _setTemperatureReturn(int value) {
-		this.getTemperatureReturnChannel().setNextValue(value);
+	public default void _setReturnTemperature(int value) {
+		this.getReturnTemperatureChannel().setNextValue(value);
 	}
 
 	/**
@@ -236,6 +271,84 @@ public interface HeatPump extends SymmetricHeating, StartStoppable {
 	 */
 	public default void _setMaxTemperature(int value) {
 		this.getMaxTemperatureChannel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#MAX_THERMAL_POWER}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getMaxThermalPowerChannel() {
+		return this.channel(ChannelId.MAX_THERMAL_POWER);
+	}
+
+	/**
+	 * Gets the maximum deliverable Thermal Power in [W]. See
+	 * {@link ChannelId#MAX_THERMAL_POWER}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getMaxThermalPower() {
+		return this.getMaxThermalPowerChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#MAX_THERMAL_POWER}
+	 * Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setMaxThermalPower(Integer value) {
+		this.getMaxThermalPowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#MAX_THERMAL_POWER}
+	 * Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setMaxThermalPower(int value) {
+		this.getMaxThermalPowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#MIN_THERMAL_POWER}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getMinThermalPowerChannel() {
+		return this.channel(ChannelId.MIN_THERMAL_POWER);
+	}
+
+	/**
+	 * Gets the minimum dispatchable Thermal Power in [W]. See
+	 * {@link ChannelId#MIN_THERMAL_POWER}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getMinThermalPower() {
+		return this.getMinThermalPowerChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#MIN_THERMAL_POWER}
+	 * Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setMinThermalPower(Integer value) {
+		this.getMinThermalPowerChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on {@link ChannelId#MIN_THERMAL_POWER}
+	 * Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setMinThermalPower(int value) {
+		this.getMinThermalPowerChannel().setNextValue(value);
 	}
 
 }

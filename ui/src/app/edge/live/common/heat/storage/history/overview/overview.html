@@ -1,0 +1,8 @@
+@if (isInitialized) {
+  <oe-chart [title]="'GENERAL.THERMAL_STORAGE_SYSTEM' | translate" [showTotal]="showTotal"
+    (setShowTotal)="setShowTotal($event)" (setShowPhases)="setShowPhases($event)"
+    [period]="service.historyPeriod.value">
+    <oe-common-heat-storage-total-chart [isOnlyChart]="true">
+    </oe-common-heat-storage-total-chart>
+  </oe-chart>
+}

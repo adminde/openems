@@ -456,8 +456,8 @@
     "STORAGE_SYSTEM": "Systém bateriového úložiště",
     "THERMAL_STORAGE_SYSTEM": "Tepelné úložiště",
     "TEMPERATURE": "Teplota",
-    "MIN_TARGET_TEMPERATURE": "Minimální cílová teplota",
-    "MAX_TARGET_TEMPERATURE": "Maximální cílová teplota",
+    "MIN_TEMPERATURE": "Minimální teplota",
+    "TARGET_TEMPERATURE": "Cílová teplota",
     "SUBSCRIBED_SUCCESSFULLY": "Úspěšně uloženy odebírané kanály",
     "SUFFIX": {
       "HOUR": "hodin"

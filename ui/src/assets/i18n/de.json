@@ -726,8 +726,8 @@
         "STORAGE_SYSTEM": "Speichersystem",
         "THERMAL_STORAGE_SYSTEM": "Wärmespeicher",
         "TEMPERATURE": "Temperatur",
-        "MIN_TARGET_TEMPERATURE": "Minimale Zieltemperatur",
-        "MAX_TARGET_TEMPERATURE": "Maximale Zieltemperatur",
+        "MIN_TEMPERATURE": "Minimale Temperatur",
+        "TARGET_TEMPERATURE": "Zieltemperatur",
         "SUFFIX": {
             "HOUR": "Uhr"
         },

@@ -449,8 +449,8 @@
     "STORAGE_SYSTEM": "Système de stockage",
     "THERMAL_STORAGE_SYSTEM": "Stockage thermique",
     "TEMPERATURE": "Température",
-    "MIN_TARGET_TEMPERATURE": "Température cible minimale",
-    "MAX_TARGET_TEMPERATURE": "Température cible maximale",
+    "MIN_TEMPERATURE": "Température minimale",
+    "TARGET_TEMPERATURE": "Température cible",
     "SUFFIX": {
       "HOUR": "h"
     },

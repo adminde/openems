@@ -414,6 +414,7 @@ export namespace NavigationConstants {
         "Grid",
         "Common_Production",
         "Storage",
+        "ThermalStorage",
     ];
 
     /**

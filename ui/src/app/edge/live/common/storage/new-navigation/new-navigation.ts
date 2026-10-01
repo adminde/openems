@@ -10,6 +10,7 @@ import { AbstractFormlyComponent, OeFormlyField, OeFormlyView } from "src/app/sh
 import { ChannelAddress, CurrentData, EdgeConfig } from "src/app/shared/shared";
 import { AssertionUtils } from "src/app/shared/utils/assertions/assertions.utils";
 import { LiveDataService } from "../../../livedataservice";
+import { SharedThermalStorage } from "../../heat/storage/shared/shared";
 import { SharedStorage } from "../shared/shared";
 import { CommonStoragePercentagebarComponent } from "./percentagebar/percentagebar";
 
@@ -63,7 +64,9 @@ export class CommonStorageHomeComponent extends AbstractFormlyComponent {
                 };
             }, {});
 
-        return essComponents.reduce((arr: OeFormlyField[] = [], ess, i) => {
+        const tessComponents: EdgeConfig.Component[] = SharedThermalStorage.getTessComponents(config);
+
+        const lines = essComponents.reduce((arr: OeFormlyField[] = [], ess, i) => {
             if (essComponents.length > 1) {
                 arr.push({
                     type: "name-line",
@@ -114,6 +117,33 @@ export class CommonStorageHomeComponent extends AbstractFormlyComponent {
 
             return arr;
         }, []);
+
+        // Thermal storages are listed alongside the battery storages, with the
+        // percentage bar in the heat color.
+        for (let i = 0; i < tessComponents.length; i++) {
+            const tess = tessComponents[i];
+            if (lines.length > 0) {
+                lines.push({ type: "horizontal-line" });
+            }
+            if (essComponents.length + tessComponents.length > 1) {
+                lines.push({
+                    type: "name-line",
+                    name: Name.METER_ALIAS_OR_ID(tess),
+                });
+            }
+            lines.push(
+                {
+                    type: "component-line",
+                    component: CommonStoragePercentagebarComponent,
+                    inputs: {
+                        essComponentId: tess.id,
+                        fillColor: SharedThermalStorage.PERCENTAGEBAR_FILL_COLOR,
+                    },
+                },
+                ...SharedThermalStorage.getLinesPerTess(translate, tess),
+            );
+        }
+        return lines;
     }
 
     public override getFormGroup(): FormGroup {

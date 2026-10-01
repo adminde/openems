@@ -1,0 +1,18 @@
+= Delay-Charge Controller for Thermal Energy Storage
+
+Spreads the charging of a `ManagedThermalEss` over the remaining PV production time,
+following the Delay-Charge concept of `Controller.Ess.GridOptimizedCharge`: instead of
+filling the storage at full power immediately, the charge power is limited to
+`remaining intake / remaining time until the target time`, so the storage becomes full
+right when production ends. For heat pumps this has a double benefit: later charging
+uses more PV surplus, and slower charging means lower flow temperatures and a better COP.
+
+The target time is determined in AUTOMATIC mode from the Predictor framework (the last
+quarter-hour of the day where predicted production exceeds predicted consumption) or in
+MANUAL mode from a configured time of day.
+
+The limit is written as `TargetThermalPowerLessOrEquals` and caps explicit charge
+requests of other controllers (Time-of-Use Tariff, Surplus-Charge) through the storage's
+effective target resolution `min(LessOrEquals, max(Equals, GreaterOrEquals))`. A
+LessOrEquals alone is no charge request — and the autonomous reheating below the
+storage's minimum temperature stays untouched as a device-level hard limit.

@@ -1,0 +1,16 @@
+= Surplus-Charge Controller for Thermal Energy Storage
+
+Charges a `ManagedThermalEss` with the current PV surplus. The excess power follows the
+EVSE-Cluster convention: `excess = max(0, ownCharge - gridBuyPower - essDischargePower)` —
+grid-buy and battery discharge reduce the available surplus, while power that would
+otherwise charge the battery counts as available (heat before battery charging). The own
+current charge power is included so that an already-running Heating does not starve its
+own surplus.
+
+The electrical excess is converted to a thermal request via the configured thermal
+efficiency and written as `TargetThermalPowerGreaterOrEquals` — "charge at least the
+surplus". It merges with other controllers on the same storage (e.g. the Time-of-Use
+Tariff Controller writing `TargetThermalPowerEquals`) through the storage's effective
+target resolution `min(LessOrEquals, max(Equals, GreaterOrEquals))`; the schedule order of
+the Controllers does not matter. An explicit surplus target may heat the storage beyond
+its target temperature, up to the hardware maximum temperature.

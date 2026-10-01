@@ -2,6 +2,7 @@ import { NgModule } from "@angular/core";
 import { HistoryDataErrorModule } from "src/app/shared/components/history-data-error/history-data-error.module";
 import { DomChangeDirective } from "src/app/shared/directive/oe-dom-change";
 import { SharedModule } from "../../shared/shared.module";
+import { FlatComponent as HeatStorageFlatComponent } from "../live/common/heat/storage/history/flat/flat";
 import { FlatComponent as StorageFlatComponent } from "../live/common/storage/history/flat/flat";
 import { ControllerHeatingElementChartComponent } from "../live/Controller/Io/HeatingElement/history/flat/flat";
 import { ControllerIoHeatpumpFlatHistoryComponent } from "../live/Controller/Io/Heatpump/history/flat/flat";
@@ -26,6 +27,7 @@ import { HistoryParentComponent } from "./historyparent.component";
         SharedModule,
         DomChangeDirective,
         StorageFlatComponent,
+        HeatStorageFlatComponent,
     ],
     declarations: [
         ChpSocChartComponent,

@@ -17,12 +17,12 @@
       <oe-modal-line [name]="'GENERAL.TEMPERATURE' | translate" [channelAddress]="component.id + '/Temperature'"
         [converter]="Converter.DEZIDEGREE_CELSIUS_TO_DEGREE_CELSIUS">
       </oe-modal-line>
-      <oe-modal-line [name]="'GENERAL.MIN_TARGET_TEMPERATURE' | translate"
-        [channelAddress]="component.id + '/MinTargetTemperature'"
+      <oe-modal-line [name]="'GENERAL.MIN_TEMPERATURE' | translate"
+        [channelAddress]="component.id + '/MinTemperature'"
         [converter]="Converter.DEZIDEGREE_CELSIUS_TO_DEGREE_CELSIUS">
       </oe-modal-line>
-      <oe-modal-line [name]="'GENERAL.MAX_TARGET_TEMPERATURE' | translate"
-        [channelAddress]="component.id + '/MaxTargetTemperature'"
+      <oe-modal-line [name]="'GENERAL.TARGET_TEMPERATURE' | translate"
+        [channelAddress]="component.id + '/TargetTemperature'"
         [converter]="Converter.DEZIDEGREE_CELSIUS_TO_DEGREE_CELSIUS">
       </oe-modal-line>
       <oe-modal-horizontal-line [components]="tessComponents" [index]="i">
