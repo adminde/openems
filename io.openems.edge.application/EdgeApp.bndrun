@@ -157,6 +157,7 @@
 	bnd.identity;id='io.openems.edge.heat.askoma',\
 	bnd.identity;id='io.openems.edge.heat.mypv',\
 	bnd.identity;id='io.openems.edge.heat.tess.cluster',\
+	bnd.identity;id='io.openems.edge.heat.tess.layer',\
 	bnd.identity;id='io.openems.edge.huawei',\
 	bnd.identity;id='io.openems.edge.io.filipowski',\
 	bnd.identity;id='io.openems.edge.io.gpio',\
@@ -371,6 +372,8 @@
 	io.openems.edge.heat.mypv;version=snapshot,\
 	io.openems.edge.heat.pump.core;version=snapshot,\
 	io.openems.edge.heat.tess.cluster;version=snapshot,\
+	io.openems.edge.heat.tess.core;version=snapshot,\
+	io.openems.edge.heat.tess.layer;version=snapshot,\
 	io.openems.edge.huawei;version=snapshot,\
 	io.openems.edge.io.api;version=snapshot,\
 	io.openems.edge.io.filipowski;version=snapshot,\

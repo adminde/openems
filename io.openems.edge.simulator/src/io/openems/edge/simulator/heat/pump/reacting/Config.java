@@ -33,6 +33,9 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "COP", description = "Nominal Coefficient of Performance at the standard rating point W35, i.e. 35 °C flow temperature (e.g. 3.5).")
 	float cop() default 3.5f;
 
+	@AttributeDefinition(name = "Spread [K]", description = "Temperature difference between supply and return while charging in K. The return carries the water at the return connection of a simulated storage tank, or the storage temperature without a tank.")
+	float spread() default 5;
+
 	@AttributeDefinition(name = "Minimum Runtime", description = "Minimum runtime of the compressor once started [min]. When the heat demand ends earlier, the heat pump keeps serving the last storage at its lowest power, up to the hardware temperature limits.")
 	int minRuntime() default 15;
 

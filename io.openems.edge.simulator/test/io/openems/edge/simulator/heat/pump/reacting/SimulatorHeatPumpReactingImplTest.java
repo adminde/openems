@@ -9,8 +9,11 @@ import static org.junit.Assert.fail;
 import java.time.temporal.ChronoUnit;
 
 import org.junit.Test;
+import org.osgi.service.event.Event;
 
 import io.openems.common.exceptions.OpenemsException;
+import io.openems.edge.common.component.AbstractOpenemsComponent;
+import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.ComponentTest;
 import io.openems.edge.common.test.DummyComponentManager;
@@ -20,6 +23,7 @@ import io.openems.edge.heat.pump.api.HeatPump;
 import io.openems.edge.heat.pump.core.HeatPumpPerformanceEstimator;
 import io.openems.edge.heat.test.DummyThermalEss;
 import io.openems.edge.heat.tess.api.ThermalEss;
+import io.openems.edge.simulator.heat.tank.SimulatorStorageTank;
 
 public class SimulatorHeatPumpReactingImplTest {
 
@@ -32,6 +36,9 @@ public class SimulatorHeatPumpReactingImplTest {
 	/**
 	 * The flow runs 5 K above the storage temperature; the COP sink of a storage
 	 * at 30.0 °C is thus the standard rating point W35.
+	 *
+	 * @param temperatureDeciCelsius the storage temperature in [deci-°C]
+	 * @return the flow temperature in [°C]
 	 */
 	private static double sink(int temperatureDeciCelsius) {
 		return temperatureDeciCelsius / 10.0 + 5.0;
@@ -71,6 +78,8 @@ public class SimulatorHeatPumpReactingImplTest {
 	/**
 	 * A TestCase asserting that the heat pump produces no power, e.g. while
 	 * STARTING (diverter valve positioning) or STOPPED.
+	 *
+	 * @return the {@link TestCase}
 	 */
 	private static TestCase expectNoPower() {
 		return new TestCase() //
@@ -284,7 +293,7 @@ public class SimulatorHeatPumpReactingImplTest {
 		var test = activateModulating(sut);
 
 		var cop = (float) ESTIMATOR.estimateCop(sink(500), (double) 1500 / NOMINAL_ACTIVE);
-		var thermal = Math.round(1500 * cop);
+		final var thermal = Math.round(1500 * cop);
 
 		sut.getTargetActivePowerChannel().setNextWriteValue(1500);
 		test.next(expectNoPower()); // STARTING
@@ -302,7 +311,7 @@ public class SimulatorHeatPumpReactingImplTest {
 		var test = activateModulating(sut);
 
 		var cop = (float) ESTIMATOR.estimateCop(sink(500), 1.0);
-		var thermal = Math.round(NOMINAL_ACTIVE * cop);
+		final var thermal = Math.round(NOMINAL_ACTIVE * cop);
 
 		sut.getTargetActivePowerChannel().setNextWriteValue(50000);
 		test.next(expectNoPower()); // STARTING
@@ -513,6 +522,68 @@ public class SimulatorHeatPumpReactingImplTest {
 		// The hardware maximum temperature stops the compressor even within the
 		// minimum runtime
 		TestUtils.withValue(tess, ThermalEss.ChannelId.TEMPERATURE, 800);
+		test.next(expectNoPower());
+	}
+
+	/*
+	 * Operation on a simulated storage tank.
+	 */
+
+	/**
+	 * A storage tank with settable temperatures.
+	 */
+	private static class DummyStorageTank extends AbstractOpenemsComponent implements SimulatorStorageTank {
+
+		private final String thermalEssId;
+
+		DummyStorageTank(String id, String thermalEssId, int sensor, int top, int returnTemperature) {
+			super(//
+					OpenemsComponent.ChannelId.values(), //
+					SimulatorStorageTank.ChannelId.values() //
+			);
+			super.activate(null, id, "", true);
+			this.thermalEssId = thermalEssId;
+			TestUtils.withValue(this, SimulatorStorageTank.ChannelId.SENSOR_TEMPERATURE, sensor);
+			TestUtils.withValue(this, SimulatorStorageTank.ChannelId.TOP_TEMPERATURE, top);
+			TestUtils.withValue(this, SimulatorStorageTank.ChannelId.RETURN_TEMPERATURE, returnTemperature);
+		}
+
+		@Override
+		public String getThermalEssId() {
+			return this.thermalEssId;
+		}
+
+		@Override
+		public void handleEvent(Event event) {
+		}
+	}
+
+	@Test
+	public void testSwitchesOnTankSensorAndHeatsTankReturn() throws Exception {
+		// The estimated mean of the storage is fine, but the immersion sleeve the
+		// two-point control switches on is below the minimum
+		var tess = new DummyThermalEss("tess0") //
+				.withMinTemperature(400) //
+				.withTargetTemperature(700) //
+				.withMaxTemperature(800) //
+				.withTemperature(600);
+		var tank = new DummyStorageTank("tank0", "tess0", 350, 650, 300);
+
+		var sut = new SimulatorHeatPumpReactingImpl();
+		sut.bindThermalStorage(tess);
+		sut.addStorageTank(tank);
+
+		var test = activateOnOff(sut) //
+				.next(expectNoPower()) // STARTING
+				// The flow runs the spread above the water returning from the tank
+				.next(new TestCase() //
+						.output(HP_ID, SymmetricHeating.ChannelId.THERMAL_POWER, 4000) //
+						.output(HP_ID, HeatPump.ChannelId.SUPPLY_TEMPERATURE, 350) //
+						.output(HP_ID, HeatPump.ChannelId.RETURN_TEMPERATURE, 300));
+
+		// The top of the tank reaches the hardware maximum, although the immersion
+		// sleeve is still below the off point
+		TestUtils.withValue(tank, SimulatorStorageTank.ChannelId.TOP_TEMPERATURE, 800);
 		test.next(expectNoPower());
 	}
 

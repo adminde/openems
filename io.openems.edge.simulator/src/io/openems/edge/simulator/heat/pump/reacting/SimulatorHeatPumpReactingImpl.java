@@ -2,6 +2,7 @@ package io.openems.edge.simulator.heat.pump.reacting;
 
 import static io.openems.edge.common.event.EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE;
 import static org.osgi.service.component.annotations.ConfigurationPolicy.REQUIRE;
+import static org.osgi.service.component.annotations.ReferenceCardinality.MULTIPLE;
 import static org.osgi.service.component.annotations.ReferenceCardinality.OPTIONAL;
 import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
 import static org.osgi.service.component.annotations.ReferencePolicyOption.GREEDY;
@@ -43,6 +44,7 @@ import io.openems.edge.heat.tess.api.ThermalEss;
 import io.openems.edge.simulator.heat.pump.reacting.statemachine.Context;
 import io.openems.edge.simulator.heat.pump.reacting.statemachine.StateMachine;
 import io.openems.edge.simulator.heat.pump.reacting.statemachine.StateMachine.State;
+import io.openems.edge.simulator.heat.tank.SimulatorStorageTank;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
@@ -79,6 +81,14 @@ public class SimulatorHeatPumpReactingImpl extends AbstractOpenemsComponent impl
 	private final Map<ThermalEss, Boolean> thermalStorageDemands = new ConcurrentHashMap<>();
 	private volatile ThermalEss activeThermalStorage = null;
 
+	/*
+	 * The simulated water of the storages, if any. A tank provides the
+	 * temperatures a real heat pump measures: the immersion sleeve its two-point
+	 * control switches on, the top for the hardware limit and the water flowing
+	 * back at the return connection.
+	 */
+	private final List<SimulatorStorageTank> storageTanks = new CopyOnWriteArrayList<>();
+
 	private Config config;
 	private HeatPumpPerformanceEstimator copEstimator;
 	private int nominalActivePower;
@@ -94,6 +104,15 @@ public class SimulatorHeatPumpReactingImpl extends AbstractOpenemsComponent impl
 
 	@Reference(policy = DYNAMIC, policyOption = GREEDY, cardinality = OPTIONAL)
 	private volatile Timedata timedata = null;
+
+	@Reference(policy = DYNAMIC, policyOption = GREEDY, cardinality = MULTIPLE)
+	protected void addStorageTank(SimulatorStorageTank tank) {
+		this.storageTanks.add(tank);
+	}
+
+	protected void removeStorageTank(SimulatorStorageTank tank) {
+		this.storageTanks.remove(tank);
+	}
 
 	public SimulatorHeatPumpReactingImpl() {
 		super(//
@@ -236,7 +255,54 @@ public class SimulatorHeatPumpReactingImpl extends AbstractOpenemsComponent impl
 		return new Context(this, this.config.modulating(), this.config.thermalPower(), this.nominalActivePower,
 				this.minActivePower, this.minActivePowerHysteresis, this.minRuntime,
 				Instant.now(this.componentManager.getClock()), this.getMaxTemperature().get(), this.copEstimator,
-				storage, requestedPower, autonomousDemand);
+				this.config.spread(), storage, requestedPower, autonomousDemand);
+	}
+
+	/**
+	 * Gets the temperature the two-point control of a storage switches on: the
+	 * immersion sleeve of its simulated tank, or the storage temperature.
+	 *
+	 * @param storage the {@link ThermalEss}
+	 * @return the temperature in [deci-°C], or null if unknown
+	 */
+	public Integer switchingTemperatureOf(ThermalEss storage) {
+		var tank = this.storageTankOf(storage);
+		return tank != null ? tank.getSensorTemperature().get() : storage.getTemperature().get();
+	}
+
+	/**
+	 * Gets the temperature of the hottest point of a storage, which is limited by
+	 * the hardware maximum temperatures: the top of its simulated tank, or the
+	 * storage temperature.
+	 *
+	 * @param storage the {@link ThermalEss}
+	 * @return the temperature in [deci-°C], or null if unknown
+	 */
+	public Integer hottestTemperatureOf(ThermalEss storage) {
+		var tank = this.storageTankOf(storage);
+		return tank != null ? tank.getTopTemperature().get() : storage.getTemperature().get();
+	}
+
+	/**
+	 * Gets the temperature of the water flowing back from a storage while
+	 * charging it: the return connection of its simulated tank, or the storage
+	 * temperature.
+	 *
+	 * @param storage the {@link ThermalEss}
+	 * @return the temperature in [deci-°C], or null if unknown
+	 */
+	public Integer returnTemperatureOf(ThermalEss storage) {
+		var tank = this.storageTankOf(storage);
+		return tank != null ? tank.getReturnTemperature().get() : storage.getTemperature().get();
+	}
+
+	private SimulatorStorageTank storageTankOf(ThermalEss storage) {
+		for (var tank : this.storageTanks) {
+			if (storage.id().equals(tank.getThermalEssId())) {
+				return tank;
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -289,8 +355,7 @@ public class SimulatorHeatPumpReactingImpl extends AbstractOpenemsComponent impl
 		}
 		this._setMaxThermalPower(this.config.thermalPower());
 		this._setSupplyTemperature(running ? toDeciDegree(this.appliedSupplyTemperature) : 0);
-		this._setReturnTemperature(
-				running ? toDeciDegree(this.appliedSupplyTemperature - Context.SUPPLY_TEMPERATURE_SPREAD) : 0);
+		this._setReturnTemperature(running ? toDeciDegree(this.appliedSupplyTemperature - this.config.spread()) : 0);
 		if (context.getStorageTemperature() != null) {
 			this._setTemperature(context.getStorageTemperature());
 		}
@@ -343,13 +408,15 @@ public class SimulatorHeatPumpReactingImpl extends AbstractOpenemsComponent impl
 
 		// Two-point demand per storage: on at or below MinTemperature, off at the
 		// autonomous off point, hold in between. An autonomous heating cycle thus
-		// runs to completion and is not interrupted by explicit requests.
+		// runs to completion and is not interrupted by explicit requests. The
+		// hardware limits of the hottest point stop any heating cycle.
 		for (var storage : ordered) {
-			var temperature = storage.getTemperature().get();
+			var temperature = this.switchingTemperatureOf(storage);
 			var minTemperature = storage.getMinTemperature().get();
 			var offPoint = minIgnoreNull(storage.getTargetTemperature().get(), storage.getMaxTemperature().get(),
 					heatPumpMaxTemperature);
-			if (temperature == null || minTemperature == null || offPoint == null) {
+			if (temperature == null || minTemperature == null || offPoint == null
+					|| !this.canTakeHeat(storage, heatPumpMaxTemperature)) {
 				this.thermalStorageDemands.put(storage, false);
 			} else if (temperature <= minTemperature) {
 				this.thermalStorageDemands.put(storage, true);
@@ -372,12 +439,7 @@ public class SimulatorHeatPumpReactingImpl extends AbstractOpenemsComponent impl
 		// to the hardware limits of both the storage and the heat pump.
 		for (var storage : ordered) {
 			var power = requests.get(storage);
-			if (power == null || power <= 0) {
-				continue;
-			}
-			var temperature = storage.getTemperature().get();
-			var hardOffPoint = minIgnoreNull(storage.getMaxTemperature().get(), heatPumpMaxTemperature);
-			if (temperature != null && hardOffPoint != null && temperature >= hardOffPoint) {
+			if (power == null || power <= 0 || !this.canTakeHeat(storage, heatPumpMaxTemperature)) {
 				continue;
 			}
 			this.activeThermalStorage = storage;
@@ -386,6 +448,21 @@ public class SimulatorHeatPumpReactingImpl extends AbstractOpenemsComponent impl
 
 		this.activeThermalStorage = null;
 		return Decision.OFF;
+	}
+
+	/**
+	 * Whether a storage can still take heat, i.e. its hottest point is below the
+	 * hardware maximum temperatures of both the storage and the heat pump.
+	 *
+	 * @param storage                the {@link ThermalEss}
+	 * @param heatPumpMaxTemperature the hardware maximum temperature of the heat
+	 *                               pump in [deci-°C], or null if unknown
+	 * @return true if heat can be delivered
+	 */
+	public boolean canTakeHeat(ThermalEss storage, Integer heatPumpMaxTemperature) {
+		var temperature = this.hottestTemperatureOf(storage);
+		var hardOffPoint = minIgnoreNull(storage.getMaxTemperature().get(), heatPumpMaxTemperature);
+		return temperature == null || hardOffPoint == null || temperature < hardOffPoint;
 	}
 
 	/**

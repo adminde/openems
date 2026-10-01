@@ -47,10 +47,11 @@ public interface ManagedHeatPump extends HeatPump, ManagedSymmetricHeating {
 	 * A heat pump may have several storages bound via
 	 * {@link ManagedSymmetricHeating#bindThermalStorage(ThermalEss)}, but serves
 	 * at most one at a time — this returns that one. Implementations bound to at
-	 * most a single storage may leave this at its default.
+	 * most a single storage may leave this at its default; a heat pump that
+	 * reports no storage is considered to serve every storage it is bound to.
 	 *
 	 * @return the currently served {@link ThermalEss}, or null if the heat pump
-	 *         is not currently heating
+	 *         is not currently heating or does not distinguish its storages
 	 */
 	public default ThermalEss getThermalStorage() {
 		return null;

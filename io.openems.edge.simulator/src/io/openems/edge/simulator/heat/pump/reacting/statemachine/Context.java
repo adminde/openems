@@ -14,12 +14,6 @@ import io.openems.edge.simulator.heat.pump.reacting.SimulatorHeatPumpReactingImp
  */
 public class Context extends AbstractContext<SimulatorHeatPumpReactingImpl> {
 
-	/**
-	 * Assumed spread of the flow above the storage temperature while charging, in
-	 * [K]. The flow must be hotter than the storage to transfer heat into it.
-	 */
-	public static final double SUPPLY_TEMPERATURE_SPREAD = 5.0;
-
 	/** Whether the heat pump modulates; an on/off device otherwise. */
 	protected final boolean modulating;
 	/** Nominal thermal output in [W]. */
@@ -36,9 +30,11 @@ public class Context extends AbstractContext<SimulatorHeatPumpReactingImpl> {
 	protected final Instant now;
 	/** Hardware maximum temperature of the heat pump in [deci-°C], or null. */
 	protected final Integer heatPumpMaxTemperature;
+	/** Temperature difference between supply and return while charging in [K]. */
+	protected final double spread;
 	/** The storage to serve in this cycle, or null if none. */
 	protected final ThermalEss storage;
-	/** The current temperature of the served storage in [deci-°C], or null. */
+	/** The switching temperature of the served storage in [deci-°C], or null. */
 	protected final Integer storageTemperature;
 	/** An explicitly requested electrical power in [W], or null. */
 	protected final Integer requestedPower;
@@ -51,7 +47,7 @@ public class Context extends AbstractContext<SimulatorHeatPumpReactingImpl> {
 
 	public Context(SimulatorHeatPumpReactingImpl parent, boolean modulating, int nominalThermalPower,
 			int nominalActivePower, int minActivePower, int minActivePowerHysteresis, Duration minRuntime,
-			Instant now, Integer heatPumpMaxTemperature, HeatPumpPerformanceEstimator copEstimator,
+			Instant now, Integer heatPumpMaxTemperature, HeatPumpPerformanceEstimator copEstimator, double spread,
 			ThermalEss storage, Integer requestedPower, boolean autonomousDemand) {
 		super(parent);
 		this.modulating = modulating;
@@ -63,17 +59,16 @@ public class Context extends AbstractContext<SimulatorHeatPumpReactingImpl> {
 		this.now = now;
 		this.heatPumpMaxTemperature = heatPumpMaxTemperature;
 		this.copEstimator = copEstimator;
+		this.spread = spread;
 		this.storage = storage;
-		this.storageTemperature = storage != null ? storage.getTemperature().get() : null;
+		this.storageTemperature = storage != null ? parent.switchingTemperatureOf(storage) : null;
 		this.requestedPower = requestedPower;
 		this.autonomousDemand = autonomousDemand;
-		this.supplyTemperature = this.storageTemperature != null //
-				? this.storageTemperature / 10.0 + SUPPLY_TEMPERATURE_SPREAD //
-				: HeatPumpPerformanceEstimator.STANDARD_RATING_SINK_TEMPERATURE;
+		this.supplyTemperature = this.supplyTemperatureOf(storage);
 	}
 
 	/**
-	 * Gets the current temperature of the served storage.
+	 * Gets the switching temperature of the served storage.
 	 *
 	 * @return the temperature in [deci-°C], or null if no storage is served or
 	 *         its temperature is unknown
@@ -114,37 +109,30 @@ public class Context extends AbstractContext<SimulatorHeatPumpReactingImpl> {
 	}
 
 	/**
-	 * Gets the flow temperature while charging the given storage: a fixed spread
-	 * above the storage temperature, or the standard rating point if unknown.
+	 * Gets the flow temperature while charging the given storage: the spread above
+	 * the water returning from the storage, or the standard rating point if
+	 * unknown.
 	 *
 	 * @param storage the {@link ThermalEss}, or null
 	 * @return the flow temperature in [°C]
 	 */
 	public double supplyTemperatureOf(ThermalEss storage) {
-		var temperature = storage != null ? storage.getTemperature().get() : null;
+		var temperature = storage != null ? this.getParent().returnTemperatureOf(storage) : null;
 		return temperature != null //
-				? temperature / 10.0 + SUPPLY_TEMPERATURE_SPREAD //
+				? temperature / 10.0 + this.spread //
 				: HeatPumpPerformanceEstimator.STANDARD_RATING_SINK_TEMPERATURE;
 	}
 
 	/**
-	 * Whether the given storage can still take heat, i.e. is below the hardware
-	 * maximum temperatures of both the storage and the heat pump.
+	 * Whether the given storage can still take heat, i.e. its hottest point is
+	 * below the hardware maximum temperatures of both the storage and the heat
+	 * pump.
 	 *
 	 * @param storage the {@link ThermalEss}, or null for no temperature limits
 	 * @return true if heat can be delivered
 	 */
 	public boolean canTakeHeat(ThermalEss storage) {
-		if (storage == null) {
-			return true;
-		}
-		var temperature = storage.getTemperature().get();
-		var hardOffPoint = storage.getMaxTemperature().get();
-		if (this.heatPumpMaxTemperature != null
-				&& (hardOffPoint == null || this.heatPumpMaxTemperature < hardOffPoint)) {
-			hardOffPoint = this.heatPumpMaxTemperature;
-		}
-		return temperature == null || hardOffPoint == null || temperature < hardOffPoint;
+		return storage == null || this.getParent().canTakeHeat(storage, this.heatPumpMaxTemperature);
 	}
 
 	/**

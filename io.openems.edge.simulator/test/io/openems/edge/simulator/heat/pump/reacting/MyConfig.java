@@ -11,6 +11,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		private boolean modulating = false;
 		private int minThermalPower = 2000;
 		private float cop = 3.5f;
+		private float spread = 5;
 		private int minRuntime = 15;
 		private int hysteresis = 0;
 
@@ -42,6 +43,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 			return this;
 		}
 
+		public Builder setSpread(float v) {
+			this.spread = v;
+			return this;
+		}
+
 		public Builder setMinRuntime(int v) {
 			this.minRuntime = v;
 			return this;
@@ -57,6 +63,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		}
 	}
 
+	/**
+	 * Create a Config builder.
+	 *
+	 * @return a {@link Builder}
+	 */
 	public static Builder create() {
 		return new Builder();
 	}
@@ -86,6 +97,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	@Override
 	public float cop() {
 		return this.builder.cop;
+	}
+
+	@Override
+	public float spread() {
+		return this.builder.spread;
 	}
 
 	@Override

@@ -35,12 +35,12 @@ import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.heat.api.ManagedSymmetricHeating;
 import io.openems.edge.heat.api.SymmetricHeating;
-import io.openems.edge.heat.pump.api.ManagedHeatPump;
 import io.openems.edge.heat.tess.api.ManagedThermalEss;
 import io.openems.edge.heat.tess.api.ThermalEss;
 import io.openems.edge.heat.tess.api.utils.CalculateChargeDischargePower;
 import io.openems.edge.heat.tess.api.utils.CalculateEnergyFromTemperature;
 import io.openems.edge.heat.tess.api.utils.CalculateStateFromTemperature;
+import io.openems.edge.heat.tess.api.utils.HeatPumpCirculation;
 import io.openems.edge.heat.tess.api.utils.TargetPowerDistributor;
 import io.openems.edge.simulator.datasource.api.SimulatorDatasource;
 import io.openems.edge.timedata.api.Timedata;
@@ -223,13 +223,12 @@ public class SimulatorThermalEssReactingImpl extends AbstractOpenemsComponent im
 
 		// Aggregate net thermal power: heatings produce, datasource consumes. A
 		// heat pump shared between multiple storages only charges its currently
-		// active storage; its heat must not be booked into the other layers.
+		// served storage; its heat must not be booked into the other layers.
 		var chargePower = 0;
 		for (SymmetricHeating heating : this.heatings) {
-			if (heating instanceof ManagedHeatPump hp && !this.equals(hp.getThermalStorage())) {
-				continue;
+			if (HeatPumpCirculation.deliversTo(heating, this)) {
+				chargePower += heating.getThermalPower().orElse(0);
 			}
-			chargePower += heating.getThermalPower().orElse(0);
 		}
 		var dischargePower = 0;
 		if (this.datasource != null) {
