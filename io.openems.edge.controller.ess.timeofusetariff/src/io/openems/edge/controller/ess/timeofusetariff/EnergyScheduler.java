@@ -169,6 +169,10 @@ public class EnergyScheduler {
 					if (hasDischargeGrid) {
 						generateInitialPopulationForDischargeToGrid(result, goc, gridBuyPrices);
 					}
+					var hasDelayCharge = modes.streamForOptimizer().anyMatch(m -> m == DELAY_CHARGE);
+					if (hasDelayCharge) {
+						generateInitialPopulationForDelayCharge(result, goc, gridBuyPrices);
+					}
 					return result.build();
 				})
 
@@ -401,6 +405,25 @@ public class EnergyScheduler {
 						.toArray(StateMachine[]::new)) //
 				.map(InitialPopulation::new) //
 				.forEach(result::add);
+	}
+
+	/**
+	 * Seeds the schedule of a site that sells: the surplus stays with the grid and
+	 * is stored only in the price valleys.
+	 *
+	 * @param result the {@link InitialPopulation}s
+	 * @param goc    the {@link GlobalOptimizationContext}
+	 * @param prices the grid-buy prices per period
+	 */
+	private static void generateInitialPopulationForDelayCharge(
+			ImmutableSortedSet.Builder<InitialPopulation<StateMachine>> result, GlobalOptimizationContext goc,
+			double[] prices) {
+		final var valleyIndexes = findValleyIndexes(prices);
+		result.add(new InitialPopulation<>(goc.periods().stream() //
+				.map(p -> IntStream.of(valleyIndexes).anyMatch(i -> i == p.index()) //
+						? BALANCING //
+						: DELAY_CHARGE) //
+				.toArray(StateMachine[]::new)));
 	}
 
 	protected static int calculateDoNotDischargeToGridAfterPeriod(GlobalOptimizationContext goc, double[] prices) {

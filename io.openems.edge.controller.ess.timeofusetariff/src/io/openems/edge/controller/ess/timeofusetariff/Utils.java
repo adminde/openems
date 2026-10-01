@@ -149,9 +149,11 @@ public final class Utils {
 
 		var soc = ess.getSoc();
 		if (soc.isDefined() && soc.get() <= coc.minSocInDischargeGrid()) {
-			// The storage is at or below its floor. A discharge request beyond the floor
-			// would only trip the grid sell limit and report AVOID_GRID_SELL_LIMIT.
-			return new ApplyMode(BALANCING, pwrBalancing);
+			// The storage is at or below its floor and has nothing left to sell. The
+			// surplus the schedule meant to sell stays with the grid, so the storage
+			// idles instead of storing it. A site with a deficit keeps serving its
+			// consumption, which is BALANCING.
+			return calculateLimitCharge(ess, essActivePower, 0, pwrBalancing);
 		}
 
 		var essDischargeInDischargeGrid = calculateDischargePowerInDischargeGrid(ess); // [W]

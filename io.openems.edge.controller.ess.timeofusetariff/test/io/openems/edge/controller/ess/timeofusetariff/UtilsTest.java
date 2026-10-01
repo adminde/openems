@@ -214,6 +214,27 @@ class UtilsTest {
 	}
 
 	@Test
+	void testCalculateDischargeGrid_idlesAtTheFloorWithSurplus() {
+		final var ess = new DummyManagedSymmetricEss("ess0") //
+				.withCapacity(100_000) //
+				.withMaxApparentPower(80_000) //
+				.withSoc(1);
+		final int essActivePower = 0;
+		final int gridActivePower = -30_000;
+		final int pwrBalancing = essActivePower + gridActivePower;
+		final int gridSellHardLimit = 100_000;
+		final var coc = mock(EnergyScheduler.OptimizationContext.class);
+		when(coc.minSocInDischargeGrid()).thenReturn(1);
+
+		final var result = calculateDischargeGrid(ess, essActivePower, gridActivePower, pwrBalancing,
+				gridSellHardLimit, coc);
+
+		// Nothing left to sell. The 30 kW surplus stays with the grid instead of
+		// being stored at the price the schedule meant to sell at.
+		assertEquals(new Utils.ApplyMode(DELAY_CHARGE, 0), result);
+	}
+
+	@Test
 	void testCalculateDischargeGrid_dischargesAboveTheFloor() {
 		final var ess = new DummyManagedSymmetricEss("ess0") //
 				.withCapacity(100_000) //
