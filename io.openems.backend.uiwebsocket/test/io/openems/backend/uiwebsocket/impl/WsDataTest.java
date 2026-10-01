@@ -1,12 +1,12 @@
 package io.openems.backend.uiwebsocket.impl;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Optional;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import io.openems.backend.common.test.DummyUser;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
