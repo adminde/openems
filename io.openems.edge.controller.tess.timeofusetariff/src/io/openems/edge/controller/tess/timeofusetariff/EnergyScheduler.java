@@ -19,10 +19,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 
 import io.openems.common.jsonrpc.serialization.JsonSerializer;
+import io.openems.common.types.ChannelAddress;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.energy.api.handler.DifferentModes.InitialPopulation;
 import io.openems.edge.energy.api.handler.DifferentModes.Modes;
-import io.openems.edge.energy.api.handler.DifferentModes.Modes.Mode;
+import io.openems.edge.energy.api.handler.DifferentModes.Modes.SingleModes;
+import io.openems.edge.energy.api.handler.DifferentModes.Modes.SingleModes.SingleMode;
 import io.openems.edge.energy.api.handler.EnergyScheduleHandler;
 import io.openems.edge.energy.api.handler.EshWithDifferentModes;
 import io.openems.edge.energy.api.simulation.GlobalOptimizationContext;
@@ -186,12 +188,17 @@ public class EnergyScheduler {
 
 				.setModes(() -> {
 					var config = configSupplier.get();
-					return Modes.of(Arrays.stream(StateMachine.values()) //
-							.map(m -> new Mode<StateMachine>(//
-									m, //
-									m == NONE || config != null, //
-									preferenceRankFor(m))) //
-							.collect(toImmutableList()));
+					return new SingleModes<>(//
+							new Modes.Channels(//
+									new ChannelAddress(parent.id(),
+											TessTimeOfUseTariffController.ChannelId.STATE_MACHINE.id()),
+									null /* no ManagedConsumptionPower channel */), //
+							Arrays.stream(StateMachine.values()) //
+									.map(m -> new SingleMode<>(//
+											m, //
+											m == NONE || config != null, //
+											preferenceRankFor(m))) //
+									.collect(toImmutableList()));
 				})
 
 				.setInitialPopulationsProvider((goc, coc, modes) -> {

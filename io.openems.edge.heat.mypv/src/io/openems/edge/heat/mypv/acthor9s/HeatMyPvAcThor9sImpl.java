@@ -33,10 +33,10 @@ import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.sum.Sum;
 import io.openems.edge.common.taskmanager.Priority;
 import io.openems.edge.heat.api.AsymmetricHeating;
+import io.openems.edge.heat.api.Heat;
+import io.openems.edge.heat.api.ManagedHeatElement;
 import io.openems.edge.heat.api.ManagedSymmetricHeating;
 import io.openems.edge.heat.api.SymmetricHeating;
-import io.openems.edge.heat.element.api.HeatElement;
-import io.openems.edge.heat.element.api.ManagedHeatElement;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
@@ -50,7 +50,8 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 		EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE //
 })
 public class HeatMyPvAcThor9sImpl extends AbstractOpenemsModbusComponent implements HeatMyPvAcThor9s, ModbusComponent,
-		OpenemsComponent, HeatElement, ManagedHeatElement, TimedataProvider, EventHandler {
+		OpenemsComponent, SymmetricHeating, AsymmetricHeating, ManagedSymmetricHeating, Heat, ManagedHeatElement,
+		TimedataProvider, EventHandler {
 
 	// gets the total energy consumption in kWh
 	private final CalculateEnergyFromPower totalEnergy = new CalculateEnergyFromPower(this,
@@ -89,7 +90,7 @@ public class HeatMyPvAcThor9sImpl extends AbstractOpenemsModbusComponent impleme
 				SymmetricHeating.ChannelId.values(), //
 				AsymmetricHeating.ChannelId.values(), //
 				ManagedSymmetricHeating.ChannelId.values(), //
-				HeatElement.ChannelId.values(), //
+				Heat.ChannelId.values(), //
 				ManagedHeatElement.ChannelId.values(), //
 				HeatMyPvAcThor9s.ChannelId.values() //
 		);
@@ -138,12 +139,12 @@ public class HeatMyPvAcThor9sImpl extends AbstractOpenemsModbusComponent impleme
 				m(AsymmetricHeating.ChannelId.ACTIVE_POWER_L1, new SignedWordElement(1074)),
 				m(AsymmetricHeating.ChannelId.ACTIVE_POWER_L2, new SignedWordElement(1075)),
 				m(AsymmetricHeating.ChannelId.ACTIVE_POWER_L3, new SignedWordElement(1076)),
-				m(ManagedHeatElement.ChannelId.STATUS, new SignedWordElement(1077))));
+				m(Heat.ChannelId.STATUS, new SignedWordElement(1077))));//
 	}
 
 	@Override
 	public String debugLog() {
-		return "Status: " + this.channel(ManagedHeatElement.ChannelId.STATUS).value() //
+		return "Status: " + this.channel(Heat.ChannelId.STATUS).value() //
 				+ " | Read Only: " + this.config.readOnly(); //
 	}
 
