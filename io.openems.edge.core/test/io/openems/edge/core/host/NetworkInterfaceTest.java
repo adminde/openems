@@ -96,7 +96,7 @@ public class NetworkInterfaceTest {
 				  "dhcp": false,
 				  "linkLocalAddressing": true,
 				  "gateway": "10.4.0.2",
-				  "metric": 520,
+				  "dhpcRouteMetric": 520,
 				  "dns": "8.8.8.8",
 				  "addresses": [
 				    {
