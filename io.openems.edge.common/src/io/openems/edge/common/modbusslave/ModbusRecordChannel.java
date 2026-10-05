@@ -19,6 +19,7 @@ public class ModbusRecordChannel extends ModbusRecord {
 
 	private final Logger log = LoggerFactory.getLogger(ModbusRecordChannel.class);
 
+	private final String name;
 	private final ChannelId channelId;
 	private final AccessMode accessMode;
 	private final UnaryOperator<Number> mapValue;
@@ -33,7 +34,13 @@ public class ModbusRecordChannel extends ModbusRecord {
 
 	public ModbusRecordChannel(int offset, ModbusType type, ChannelId channelId, AccessMode modbusApiAccessMode,
 			UnaryOperator<Number> mapValue) {
+		this(offset, null, type, channelId, modbusApiAccessMode, mapValue);
+	}
+
+	public ModbusRecordChannel(int offset, String name, ModbusType type, ChannelId channelId,
+			AccessMode modbusApiAccessMode, UnaryOperator<Number> mapValue) {
 		super(offset, type);
+		this.name = name;
 		this.channelId = channelId;
 		this.accessMode = evaluateActualAccessMode(channelId, modbusApiAccessMode);
 		this.mapValue = mapValue;
@@ -231,7 +238,10 @@ public class ModbusRecordChannel extends ModbusRecord {
 
 	@Override
 	public String getName() {
-		return new ChannelAddress(this.getComponentId(), this.getChannelId().id()).toString();
+		if (this.name == null) {
+			return new ChannelAddress(this.getComponentId(), this.getChannelId().id()).toString();
+		}
+		return this.name;
 	}
 
 	@Override

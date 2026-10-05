@@ -5,6 +5,7 @@ import static io.openems.common.channel.AccessMode.WRITE_ONLY;
 import static io.openems.edge.common.modbusslave.ModbusType.INT16;
 import static io.openems.edge.common.modbusslave.ModbusType.UINT16;
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 
 import org.junit.jupiter.api.Test;
 
@@ -92,6 +93,19 @@ public class ModbusRecordChannelTest {
 		assertArrayEquals(ModbusRecordUint16.toByteArray(200),
 				new ModbusRecordChannel(0, UINT16, DummyComponent.ChannelId.READ_ONLY_CHANNEL, READ_WRITE,
 						value -> value.intValue() * 2).getValue(component));
+	}
+
+	@Test
+	public void testGetName() {
+		var unnamed = new ModbusRecordChannel(0, UINT16, DummyComponent.ChannelId.READ_ONLY_CHANNEL, READ_WRITE,
+				null);
+		unnamed.setComponentId("foo0");
+		assertEquals("foo0/ReadOnlyChannel", unnamed.getName());
+
+		var named = new ModbusRecordChannel(0, "Foo Value", UINT16, DummyComponent.ChannelId.READ_ONLY_CHANNEL,
+				READ_WRITE, null);
+		named.setComponentId("foo0");
+		assertEquals("Foo Value", named.getName());
 	}
 
 }

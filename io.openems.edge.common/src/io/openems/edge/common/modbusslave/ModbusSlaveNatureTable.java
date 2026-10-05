@@ -42,13 +42,16 @@ public final class ModbusSlaveNatureTable {
 		 * Add a Channel to the {@link Builder}.
 		 *
 		 * @param offset    the register address offset
+		 * @param name      an optional name of the register, replacing the Channel
+		 *                  address
 		 * @param channelId the {@link ChannelId}
 		 * @param type      the {@link ModbusType}
 		 * @param mapValue  an optional mapping function to map the Channel value to a
 		 *                  Number
 		 * @return myself
 		 */
-		public Builder channel(int offset, ChannelId channelId, ModbusType type, UnaryOperator<Number> mapValue) {
+		public Builder channel(int offset, String name, ChannelId channelId, ModbusType type,
+				UnaryOperator<Number> mapValue) {
 			var filter = this.accessModeFilter;
 			var channel = channelId.doc().getAccessMode();
 			if (
@@ -61,7 +64,7 @@ public final class ModbusSlaveNatureTable {
 					// Filter for WRITE_ONLY channels
 					filter == AccessMode.WRITE_ONLY
 							&& (channel == AccessMode.WRITE_ONLY || channel == AccessMode.READ_WRITE)) {
-				this.add(new ModbusRecordChannel(offset, type, channelId, filter, mapValue));
+				this.add(new ModbusRecordChannel(offset, name, type, channelId, filter, mapValue));
 
 			} else {
 				// Channel did not pass filter -> show as Reserved
@@ -86,10 +89,37 @@ public final class ModbusSlaveNatureTable {
 		 * @param offset    the register address offset
 		 * @param channelId the {@link ChannelId}
 		 * @param type      the {@link ModbusType}
+		 * @param mapValue  an optional mapping function to map the Channel value to a
+		 *                  Number
+		 * @return myself
+		 */
+		public Builder channel(int offset, ChannelId channelId, ModbusType type, UnaryOperator<Number> mapValue) {
+			return this.channel(offset, null, channelId, type, mapValue);
+		}
+
+		/**
+		 * Add a Channel with a name to the {@link Builder}.
+		 *
+		 * @param offset    the register address offset
+		 * @param name      the name of the register, replacing the Channel address
+		 * @param channelId the {@link ChannelId}
+		 * @param type      the {@link ModbusType}
+		 * @return myself
+		 */
+		public Builder channel(int offset, String name, ChannelId channelId, ModbusType type) {
+			return this.channel(offset, name, channelId, type, null);
+		}
+
+		/**
+		 * Add a Channel to the {@link Builder}.
+		 *
+		 * @param offset    the register address offset
+		 * @param channelId the {@link ChannelId}
+		 * @param type      the {@link ModbusType}
 		 * @return myself
 		 */
 		public Builder channel(int offset, ChannelId channelId, ModbusType type) {
-			return this.channel(offset, channelId, type, null);
+			return this.channel(offset, null, channelId, type, null);
 		}
 
 		/**

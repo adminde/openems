@@ -146,7 +146,7 @@ public interface Meta extends ModbusSlave {
 						.string16(51, "Manufacturer Version", oem.getManufacturerVersion()) //
 						.string16(67, "Manufacturer Serial Number", oem.getManufacturerSerialNumber()) //
 						.string16(83, "Manufacturer EMS Serial Number", oem.getManufacturerEmsSerialNumber()) //
-						.channel(99, ChannelId.SYSTEM_TIME_UTC, ModbusType.UINT64) //
+						.channel(99, "System Time UTC", ChannelId.SYSTEM_TIME_UTC, ModbusType.UINT64) //
 						.build());
 	}
 
