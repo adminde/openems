@@ -30,8 +30,8 @@ import io.openems.edge.common.type.TypeUtils;
  * <ul>
  * <li>{@link MeterType#GRID}
  * <ul>
- * <li>positive: import-from-grid
- * <li>negative: export-to-grid
+ * <li>positive: buy-from-grid
+ * <li>negative: feed-to-grid
  * </ul>
  * <li>{@link MeterType#PRODUCTION}
  * <ul>

@@ -59,7 +59,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: SymmetricEss)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values for Charge; positive for Discharge
+		 * <li>Range: negative values for Charge; positive for Discharge
 		 * </ul>
 		 */
 		ESS_ACTIVE_POWER(Doc.of(INTEGER)//
@@ -90,7 +90,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: AsymmetricEss)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values for Charge; positive for Discharge
+		 * <li>Range: negative values for Charge; positive for Discharge
 		 * </ul>
 		 */
 		ESS_ACTIVE_POWER_L1(Doc.of(INTEGER)//
@@ -108,7 +108,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: AsymmetricEss)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values for Charge; positive for Discharge
+		 * <li>Range: negative values for Charge; positive for Discharge
 		 * </ul>
 		 */
 		ESS_ACTIVE_POWER_L2(Doc.of(INTEGER)//
@@ -126,7 +126,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: AsymmetricEss)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values for Charge; positive for Discharge
+		 * <li>Range: negative values for Charge; positive for Discharge
 		 * </ul>
 		 */
 		ESS_ACTIVE_POWER_L3(Doc.of(INTEGER)//
@@ -144,7 +144,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: SymmetricEss)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values for Charge; positive for Discharge
+		 * <li>Range: negative values for Charge; positive for Discharge
 		 * <li>For AC coupled energy storage systems this is the same as
 		 * {@link ChannelId#ESS_ACTIVE_POWER}; for DC coupled or hybrid ESS this is the
 		 * {@link ChannelId#ESS_ACTIVE_POWER} minus
@@ -166,7 +166,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: SymmetricEss)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values or '0'
+		 * <li>Range: negative values or '0'
 		 * </ul>
 		 */
 		ESS_MIN_DISCHARGE_POWER(Doc.of(INTEGER)//
@@ -226,7 +226,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: ElectricityMeter)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values for Consumption (power that is 'leaving the
+		 * <li>Range: negative values for Consumption (power that is 'leaving the
 		 * system', e.g. feed-to-grid); positive for Production (power that is 'entering
 		 * the system')
 		 * </ul>
@@ -244,7 +244,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: ElectricityMeter)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values for Consumption (power that is 'leaving the
+		 * <li>Range: negative values for Consumption (power that is 'leaving the
 		 * system', e.g. feed-to-grid); positive for Production (power that is 'entering
 		 * the system')
 		 * </ul>
@@ -262,7 +262,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: ElectricityMeter)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values for Consumption (power that is 'leaving the
+		 * <li>Range: negative values for Consumption (power that is 'leaving the
 		 * system', e.g. feed-to-grid); positive for Production (power that is 'entering
 		 * the system')
 		 * </ul>
@@ -280,7 +280,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: ElectricityMeter))
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values or '0'
+		 * <li>Range: negative values or '0'
 		 * </ul>
 		 */
 		GRID_MIN_ACTIVE_POWER(Doc.of(INTEGER)//
@@ -308,7 +308,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: ElectricityMeter))
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values for leading (capacitive); positive for lagging
+		 * <li>Range: negative values for leading (capacitive); positive for lagging
 		 * (inductive) reactive power
 		 * </ul>
 		 */
@@ -326,7 +326,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: ElectricityMeter)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values for leading (capacitive); positive for lagging
+		 * <li>Range: negative values for leading (capacitive); positive for lagging
 		 * (inductive) reactive power
 		 * </ul>
 		 */
@@ -344,7 +344,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: ElectricityMeter)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values for leading (capacitive); positive for lagging
+		 * <li>Range: negative values for leading (capacitive); positive for lagging
 		 * (inductive) reactive power
 		 * </ul>
 		 */
@@ -362,7 +362,7 @@ public interface Sum extends OpenemsComponent {
 		 * <li>Interface: Sum (origin: ElectricityMeter)
 		 * <li>Type: Integer
 		 * <li>Unit: W
-		 * <li>Range: Negative values for leading (capacitive); positive for lagging
+		 * <li>Range: negative values for leading (capacitive); positive for lagging
 		 * (inductive) reactive power
 		 * </ul>
 		 */

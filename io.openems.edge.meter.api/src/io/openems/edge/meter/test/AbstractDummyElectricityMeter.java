@@ -260,7 +260,7 @@ public abstract class AbstractDummyElectricityMeter<SELF extends AbstractDummyEl
 	 * @param value the value
 	 * @return myself
 	 */
-	public SELF withReactiveLaggingEnergy(Integer value) {
+	public SELF withReactiveLaggingEnergy(Long value) {
 		TestUtils.withValue(this, ElectricityMeter.ChannelId.REACTIVE_LAGGING_ENERGY, value);
 		return this.self();
 	}
@@ -271,7 +271,7 @@ public abstract class AbstractDummyElectricityMeter<SELF extends AbstractDummyEl
 	 * @param value the value
 	 * @return myself
 	 */
-	public SELF withReactiveLeadingEnergy(Integer value) {
+	public SELF withReactiveLeadingEnergy(Long value) {
 		TestUtils.withValue(this, ElectricityMeter.ChannelId.REACTIVE_LEADING_ENERGY, value);
 		return this.self();
 	}
