@@ -34,9 +34,12 @@ Before reaching the shared pipeline, every point passes three steps:
    tables.
 2. *TimeFilter*: writes outside the configured date window are dropped;
    queries outside it are answered empty.
-3. *Metadata*: value type and unit come from the shared channel cache. Only a
-   channel that has never been resolved falls back to the Edge's `EdgeConfig`
-   (and, failing that, to type detection from the JSON value). A component that
+3. *Metadata*: value type and unit come from the shared channel cache. A
+   channel that has never been resolved gets its type detected from its JSON
+   value, like the InfluxDB backend does, because the `EdgeConfig` an Edge sends
+   carries its components without channels. The `EdgeConfig` only provides the
+   factory-ID of the component, the unit stays empty unless it is maintained in
+   `channel_def`. A component that
    is not registered yet and whose factory-ID cannot be determined has its points
    dropped, logged once. A value that does not fit the type of its channel, for
    example an empty string for an `INTEGER` channel, is dropped and logged once
@@ -53,7 +56,8 @@ Before reaching the shared pipeline, every point passes three steps:
    '-- resend ------------------------------------------------> write
                                                                   |
    ChannelFilter / TimeFilter  --reject--> drop + log             |
-   type/unit <- EdgeConfig, aggregate <- AggregateChannels <------'
+   type <- JSON value, factory <- EdgeConfig,                     |
+   aggregate <- AggregateChannels <-------------------------------'
    |
    v
  shared write pipeline (Tenancy.MULTI)
