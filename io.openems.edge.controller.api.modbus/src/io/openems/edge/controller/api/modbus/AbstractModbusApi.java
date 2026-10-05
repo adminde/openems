@@ -561,6 +561,7 @@ public abstract class AbstractModbusApi extends AbstractOpenemsComponent
 	}
 
 	private void resetModbusTable() {
+		this.components.clear();
 		this.records.clear();
 		// Add generic header
 		this.records.put(0, new ModbusRecordUint16Hash(0, "OpenEMS"));
