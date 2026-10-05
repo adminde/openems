@@ -487,7 +487,8 @@ public abstract class AbstractModbusApi extends AbstractOpenemsComponent
 		builder.handleRequest(GetModbusProtocolExportXlsxRequest.METHOD, def -> {
 			def.setGuards(this.componentMissingGuard(), this.componentNoModbusApiGuard());
 		}, call -> {
-			return new GetModbusProtocolExportXlsxResponse(call.getRequest().getId(), this.components, this.records);
+			return new GetModbusProtocolExportXlsxResponse(call.getRequest().getId(), this.config,
+					this.getAccessMode(), this.components, this.records);
 		});
 	}
 

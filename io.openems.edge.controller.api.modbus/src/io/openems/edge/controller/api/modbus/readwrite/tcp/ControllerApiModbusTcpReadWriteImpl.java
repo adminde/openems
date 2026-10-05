@@ -20,6 +20,7 @@ import com.ghgande.j2mod.modbus.slave.ModbusSlaveFactory;
 
 import io.openems.common.channel.AccessMode;
 import io.openems.common.exceptions.OpenemsException;
+import io.openems.common.oem.OpenemsEdgeOem;
 import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import io.openems.edge.common.channel.IntegerReadChannel;
 import io.openems.edge.common.component.ComponentManager;
@@ -53,6 +54,9 @@ public class ControllerApiModbusTcpReadWriteImpl extends AbstractModbusReadWrite
 	private Meta metaComponent;
 
 	@Reference
+	private OpenemsEdgeOem oem;
+
+	@Reference
 	private ConfigurationAdmin cm;
 
 	@Reference
@@ -82,14 +86,14 @@ public class ControllerApiModbusTcpReadWriteImpl extends AbstractModbusReadWrite
 
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
-		this.config = CommonConfig.Tcp.from(config, this.metaComponent);
+		this.config = CommonConfig.Tcp.from(config, this.metaComponent, this.oem);
 		super.activate(context, this.config, this.componentManager.getClock());
 		this.applyConfig(config.writeChannels());
 	}
 
 	@Modified
 	private void modified(ComponentContext context, Config config) {
-		this.config = CommonConfig.Tcp.from(config, this.metaComponent);
+		this.config = CommonConfig.Tcp.from(config, this.metaComponent, this.oem);
 		super.modified(context, this.config, this.componentManager.getClock());
 		this.applyConfig(config.writeChannels());
 	}

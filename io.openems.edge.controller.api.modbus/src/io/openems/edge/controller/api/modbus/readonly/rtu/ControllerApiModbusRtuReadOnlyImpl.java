@@ -21,6 +21,7 @@ import com.ghgande.j2mod.modbus.util.SerialParameters;
 
 import io.openems.common.channel.AccessMode;
 import io.openems.common.exceptions.OpenemsException;
+import io.openems.common.oem.OpenemsEdgeOem;
 import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
@@ -45,6 +46,9 @@ public class ControllerApiModbusRtuReadOnlyImpl extends AbstractModbusApi
 
 	@Reference
 	private Meta metaComponent;
+
+	@Reference
+	private OpenemsEdgeOem oem;
 
 	@Reference
 	private ComponentManager componentManager;
@@ -73,13 +77,13 @@ public class ControllerApiModbusRtuReadOnlyImpl extends AbstractModbusApi
 
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
-		this.config = CommonConfig.Rtu.from(config, this.metaComponent);
+		this.config = CommonConfig.Rtu.from(config, this.metaComponent, this.oem);
 		super.activate(context, this.config, this.componentManager.getClock());
 	}
 
 	@Modified
 	private void modified(ComponentContext context, Config config) {
-		this.config = CommonConfig.Rtu.from(config, this.metaComponent);
+		this.config = CommonConfig.Rtu.from(config, this.metaComponent, this.oem);
 		super.modified(context, this.config, this.componentManager.getClock());
 	}
 
