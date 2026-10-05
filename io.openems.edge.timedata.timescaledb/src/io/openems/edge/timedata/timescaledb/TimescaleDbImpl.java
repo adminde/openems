@@ -155,11 +155,10 @@ public class TimescaleDbImpl extends AbstractOpenemsComponent
 									return;
 								}
 
-								var unit = channel.channelDoc().getUnit().symbol;
 								synchronized (this.buffer) {
 									this.buffer.add(new DataPoint(
 											timestamp, null, componentAlias, componentType,
-											channel.channelId().id(), type, aggregate, unit, value));
+											channel.channelId().id(), type, aggregate, value));
 								}
 							});
 				});

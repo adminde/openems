@@ -10,6 +10,5 @@ public record DataPoint(
 		String channelName,
 		Type type,
 		boolean aggregate, // whether the channel is in the continuous-aggregate layer
-		String unit,       // e.g. "W", "Wh", "%", "V" — may be null
 		Object value       // Long, Double or String, matching the type
 ) {}

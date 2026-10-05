@@ -48,7 +48,7 @@ public class ChannelManager {
 		if (tenancy == Tenancy.MULTI) {
 			warmupQuery.append("e.name AS edgeName, ");
 		}
-		warmupQuery.append("co.name AS componentName, cd.name AS channelName, ch.id, cd.type, ch.aggregate, cd.unit ")
+		warmupQuery.append("co.name AS componentName, cd.name AS channelName, ch.id, cd.type, ch.aggregate ")
 				.append("FROM channel ch ")
 				.append("JOIN component co ON co.id = ch.component_id ");
 		if (tenancy == Tenancy.MULTI) {
@@ -58,7 +58,7 @@ public class ChannelManager {
 		warmupQuery.append("JOIN channel_def cd ON cd.id = ch.channel_def");
 
 		StringBuilder lookupQuery = new StringBuilder()
-				.append("SELECT ch.id, cd.type, ch.aggregate, cd.unit ")
+				.append("SELECT ch.id, cd.type, ch.aggregate ")
 				.append("FROM channel ch ")
 				.append("JOIN component co ON co.id = ch.component_id ");
 		if (tenancy == Tenancy.MULTI) {
@@ -72,7 +72,7 @@ public class ChannelManager {
 		}
 
 		String resolveQuery = "SELECT * FROM get_or_create_channel_id"
-				+ IntStream.range(0, tenancy == Tenancy.MULTI ? 7 : 6)
+				+ IntStream.range(0, tenancy == Tenancy.MULTI ? 6 : 5)
 						.mapToObj(i -> "?")
 						.collect(Collectors.joining(",", "(", ")"));
 
@@ -106,8 +106,7 @@ public class ChannelManager {
 						new ChannelInfo(
 								result.getObject("id", UUID.class),
 								Type.valueOf(result.getString("type")),
-								result.getBoolean("aggregate"),
-								result.getString("unit")
+								result.getBoolean("aggregate")
 						)
 				);
 				count++;
@@ -117,7 +116,7 @@ public class ChannelManager {
 	}
 
 	/**
-	 * Looks up the {@link ChannelInfo} (channel id, type, aggregate flag, unit)
+	 * Looks up the {@link ChannelInfo} (channel id, type, aggregate flag)
 	 * for one channel address on a given edge.
 	 *
 	 * <p>
@@ -160,7 +159,7 @@ public class ChannelManager {
 					return null;
 				}
 				return new ChannelInfo(result.getObject(1, UUID.class), Type.valueOf(result.getString(2)),
-						result.getBoolean(3), result.getString(4));
+						result.getBoolean(3));
 			}
 		}
 	}
@@ -170,8 +169,7 @@ public class ChannelManager {
 	 *
 	 * <p>
 	 * Tries the cache first; on a miss, or when a re-resolve is needed (aggregate
-	 * promotion or unit backfill), calls the {@code get_or_create_channel_id}
-	 * stored function.
+	 * promotion), calls the {@code get_or_create_channel_id} stored function.
 	 *
 	 * <p>
 	 * A point can only be registered when its component nature is known, because
@@ -220,8 +218,7 @@ public class ChannelManager {
 			statement.setString(i++, data.componentType());
 			statement.setString(i++, data.channelName());
 			statement.setString(i++, data.type().name());
-			statement.setBoolean(i++, data.aggregate());
-			statement.setString(i, data.unit());
+			statement.setBoolean(i, data.aggregate());
 			try (var rs = statement.executeQuery()) {
 				if (!rs.next()) {
 					// The conductor returns no row when the component could not be
@@ -229,7 +226,7 @@ public class ChannelManager {
 					return null;
 				}
 				return new ChannelInfo(rs.getObject(1, UUID.class), Type.valueOf(rs.getString(2)),
-						rs.getBoolean(3), data.unit());
+						rs.getBoolean(3));
 			}
 		}
 	}
@@ -249,7 +246,7 @@ public class ChannelManager {
 
 	/**
 	 * Cache-only lookup by address, for a producer that wants to know a channel's
-	 * value type and unit before building its {@link DataPoint} — and can skip
+	 * value type before building its {@link DataPoint} — and can skip
 	 * consulting its own metadata source when the channel is already registered.
 	 *
 	 * @param edgeName    the Edge identifier; ignored in single-tenant mode
@@ -263,7 +260,7 @@ public class ChannelManager {
 
 	/**
 	 * Drops every cached channel of one Edge. The next write re-resolves them, so
-	 * a changed unit or value type in the Edge's configuration takes effect.
+	 * a changed value type in the Edge's configuration takes effect.
 	 *
 	 * @param edgeName the Edge identifier
 	 */

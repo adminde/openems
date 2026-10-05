@@ -98,7 +98,7 @@ public class ChannelCache {
 	/**
 	 * Drops every cached channel of one Edge, so the next write re-resolves them
 	 * against the database. Called when an Edge's configuration changes, which is
-	 * the only way a channel's unit or value type can change without the data
+	 * the only way a channel's value type can change without the data
 	 * itself showing it.
 	 *
 	 * @param edgeName the Edge identifier
@@ -119,8 +119,7 @@ public class ChannelCache {
 	/**
 	 * Whether a cached entry still satisfies an incoming point. It does not when
 	 * the point is flagged for the aggregate layer but the stored channel is not,
-	 * or when the point carries a unit the stored channel does not have yet —
-	 * both are one-off promotions that have to reach the database.
+	 * which is a one-off promotion that has to reach the database.
 	 *
 	 * @param cached the cached entry
 	 * @param data   the incoming point
@@ -128,8 +127,7 @@ public class ChannelCache {
 	 */
 	public static boolean isCurrent(ChannelInfo cached, DataPoint data) {
 		var needsAggregatePromotion = data.aggregate() && !cached.aggregate();
-		var needsUnitBackfill = data.unit() != null && !data.unit().equals(cached.unit());
-		return !needsAggregatePromotion && !needsUnitBackfill;
+		return !needsAggregatePromotion;
 	}
 
 	private Map<String, ChannelInfo> edgeBucket(String edgeName) {

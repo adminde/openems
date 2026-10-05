@@ -53,7 +53,7 @@ value type:
 | `edge` | Edge identity — multi-tenant only
 | `component_def` | Component nature (factory-PID), once per deployment
 | `component` | Component-ID, referencing its `component_def`; scoped to the Edge in multi-tenant
-| `channel_def` | Channel-ID, value type (`INTEGER`/`FLOAT`/`STRING`) and unit, unique per `(component_def, name)`
+| `channel_def` | Channel-ID and value type (`INTEGER`/`FLOAT`/`STRING`), unique per `(component_def, name)`
 | `channel` | The actual channel instance: component x definition, plus the `aggregate` flag
 | `data_integer` / `data_float` / `data_string` | Raw hypertables `(time, channel_id, aggregate, value)`, indexed on `(channel_id, time DESC)`
 | `data_<tier>_<type>` | Continuous aggregates, e.g. `data_15m_integer`

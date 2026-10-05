@@ -244,12 +244,10 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 
 					String componentType = null;
 					Type channelType;
-					String channelUnit;
 
 					var channelInfo = connector.peekChannel(edgeId, componentId, channelId);
 					if (channelInfo != null) {
 						channelType = channelInfo.type();
-						channelUnit = channelInfo.unit();
 
 					} else {
 						if (!edgeConfigResolved) {
@@ -273,7 +271,6 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 							}
 						}
 						channelType = channel != null ? Type.fromOpenemsType(channel.getType()) : Type.detect(primitive);
-						channelUnit = channel != null && channel.getUnit() != null ? channel.getUnit().symbol : null;
 					}
 					Object value;
 					try {
@@ -289,7 +286,7 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 						continue;
 					}
 					points.add(new DataPoint(
-							timestamp, edgeId, componentId, componentType, channelId, channelType, aggregate, channelUnit, value));
+							timestamp, edgeId, componentId, componentType, channelId, channelType, aggregate, value));
 
 				} catch (OpenemsNamedException e) {
 					this.logWarn(this.log, "Unable to parse ChannelAddress [" + channelString + "]: " + e.getMessage());
@@ -321,7 +318,7 @@ public class TimescaleDbImpl extends AbstractOpenemsBackendComponent implements 
 			return;
 		}
 
-		// A new configuration is the only way a channel's unit or value type can
+		// A new configuration is the only way a channel's value type can
 		// change without the data showing it. Drop the Edge's cached channels so
 		// the next write resolves them against the fresh EdgeConfig.
 		if (Edge.Events.ON_SET_CONFIG.equals(event.getTopic())) {

@@ -218,7 +218,7 @@ public class SchemaHandler {
 	private void createComponentDefinitionTable(Statement statement, String uuidDefault) throws SQLException {
 		// The component nature (factory PID). Scoping channel_def by it is what
 		// keeps two factories that both expose e.g. "ActivePower" from sharing one
-		// value type and unit.
+		// value type.
 		statement.execute("""
 				CREATE TABLE IF NOT EXISTS component_def (
 					id         UUID DEFAULT %s PRIMARY KEY,
@@ -252,7 +252,7 @@ public class SchemaHandler {
 	}
 
 	private void createChannelDefinitionTable(Statement statement, String uuidDefault) throws SQLException {
-		// Scoped by component_def: value type and unit are a property of the
+		// Scoped by component_def: the value type is a property of the
 		// Channel-ID *within one component nature*, not of the Channel-ID alone.
 		statement.execute("""
 				CREATE TABLE IF NOT EXISTS channel_def (
@@ -260,7 +260,6 @@ public class SchemaHandler {
 					component_def    UUID NOT NULL REFERENCES component_def(id) ON DELETE CASCADE,
 					name        VARCHAR NOT NULL,
 					type        VARCHAR(16) NOT NULL CHECK (type IN ('INTEGER','FLOAT','STRING')),
-					unit        VARCHAR(16),
 					created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
 					UNIQUE (component_def, name)
 				)""".formatted(uuidDefault)
@@ -397,27 +396,22 @@ public class SchemaHandler {
 				    input_component_def UUID,
 				    input_channel_name VARCHAR,
 				    input_type VARCHAR,
-				    input_unit VARCHAR,
 				    OUT out_id UUID,
 				    OUT out_type VARCHAR
 				)
 				LANGUAGE plpgsql AS $$
-				DECLARE
-				    found_unit VARCHAR;
 				BEGIN
-				    SELECT id, type, unit INTO out_id, out_type, found_unit FROM channel_def
+				    SELECT id, type INTO out_id, out_type FROM channel_def
 				        WHERE component_def = input_component_def AND name = input_channel_name;
 				    IF out_id IS NULL THEN
-				        INSERT INTO channel_def (component_def, name, type, unit)
-				            VALUES (input_component_def, input_channel_name, input_type, input_unit)
+				        INSERT INTO channel_def (component_def, name, type)
+				            VALUES (input_component_def, input_channel_name, input_type)
 				            ON CONFLICT (component_def, name) DO NOTHING
 				            RETURNING id, type INTO out_id, out_type;
 				        IF out_id IS NULL THEN
-				            SELECT id, type, unit INTO out_id, out_type, found_unit FROM channel_def
+				            SELECT id, type INTO out_id, out_type FROM channel_def
 				                WHERE component_def = input_component_def AND name = input_channel_name;
 				        END IF;
-				    ELSIF input_unit IS NOT NULL AND found_unit IS DISTINCT FROM input_unit THEN
-				        UPDATE channel_def SET unit = input_unit WHERE id = out_id;
 				    END IF;
 				END;
 				$$"""
@@ -466,8 +460,7 @@ public class SchemaHandler {
 				.append("input_component_type VARCHAR, ")
 				.append("input_channel_name VARCHAR, ")
 				.append("input_type VARCHAR, ")
-				.append("input_aggregate BOOLEAN DEFAULT false, ")
-				.append("input_unit VARCHAR DEFAULT NULL ")
+				.append("input_aggregate BOOLEAN DEFAULT false ")
 				.append(") ")
 				.append("RETURNS TABLE (out_channel_id UUID, out_type VARCHAR, out_aggregate BOOLEAN) ")
 				.append("LANGUAGE plpgsql AS $$ ")
@@ -500,7 +493,7 @@ public class SchemaHandler {
 		conductorQuery.append("IF local_component_id IS NULL THEN RETURN; END IF; ")
 				.append("SELECT def_id, def_type INTO local_channel_def, local_type ")
 				.append("FROM get_or_create_channel_def(")
-				.append("local_component_def, input_channel_name, input_type, input_unit) ")
+				.append("local_component_def, input_channel_name, input_type) ")
 				.append("AS def(def_id, def_type); ")
 				.append("IF local_type IS DISTINCT FROM input_type THEN ")
 				.append("RAISE WARNING 'channel_def % type mismatch: stored=%, incoming=% (keeping stored)', ")

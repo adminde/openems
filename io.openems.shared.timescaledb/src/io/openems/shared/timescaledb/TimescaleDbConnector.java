@@ -472,7 +472,7 @@ public class TimescaleDbConnector {
 
 	/**
 	 * Cache-only lookup of a channel's resolved metadata. A producer that gets a
-	 * non-null answer already knows the value type and unit and does not have to
+	 * non-null answer already knows the value type and does not have to
 	 * consult its own metadata source (on the Backend: the Edge's
 	 * {@code EdgeConfig}, which costs a query against the metadata database).
 	 *
@@ -490,8 +490,8 @@ public class TimescaleDbConnector {
 
 	/**
 	 * Drops every cached channel of one Edge, so the next write re-resolves them.
-	 * Call this when the Edge's configuration changed: a channel's unit or value
-	 * type can change there without the data itself showing it.
+	 * Call this when the Edge's configuration changed: a channel's value type can
+	 * change there without the data itself showing it.
 	 *
 	 * @param edgeName the Edge identifier
 	 */
