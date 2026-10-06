@@ -104,12 +104,13 @@ public class SchedulerJSCalendarImplTest {
 								"alwaysBefore", //
 								"weekdaysAt8_30#1", "weekdaysAt8_30#2", //
 								"alwaysAfter#1", "alwaysAfter#2"))) //
-				.next(new TestCase() //
+				.next(new TestCase() // Both tasks are active, in the order of the calendar
 						.timeleap(clock, 1, MINUTES) //
 						.onBeforeProcessImage(() -> assertTime(clock, "Wed 2020-01-01 11:00")) //
 						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, //
 								"alwaysBefore", //
 								"dailyAt11", //
+								"weekdaysAt8_30#1", "weekdaysAt8_30#2", //
 								"alwaysAfter#1", "alwaysAfter#2"))) //
 				.next(new TestCase() //
 						.timeleap(clock, 59, MINUTES) //
@@ -117,6 +118,7 @@ public class SchedulerJSCalendarImplTest {
 						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, //
 								"alwaysBefore", //
 								"dailyAt11", //
+								"weekdaysAt8_30#1", "weekdaysAt8_30#2", //
 								"alwaysAfter#1", "alwaysAfter#2"))) //
 				.next(new TestCase() //
 						.timeleap(clock, 1, MINUTES) //
@@ -151,12 +153,12 @@ public class SchedulerJSCalendarImplTest {
 								"alwaysBefore", //
 								"weekdaysAt8_30#1", "weekdaysAt8_30#2", //
 								"alwaysAfter#1", "alwaysAfter#2"))) //
-				.next(new TestCase() //
+				.next(new TestCase() // A task whose whole occurrence the leap skipped is not run late
 						.timeleap(clock, 4 * 60 + 30, MINUTES) //
 						.onBeforeProcessImage(() -> assertTime(clock, "Thu 2020-01-02 13:00")) //
 						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, //
 								"alwaysBefore", //
-								"dailyAt11", //
+								"weekdaysAt8_30#1", "weekdaysAt8_30#2", //
 								"alwaysAfter#1", "alwaysAfter#2"))) //
 				.next(new TestCase() //
 						.timeleap(clock, 19 * 60 + 30, MINUTES) //
@@ -184,6 +186,7 @@ public class SchedulerJSCalendarImplTest {
 						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, //
 								"alwaysBefore", //
 								"dailyAt11", //
+								"weekendsAt7_30", //
 								"alwaysAfter#1", "alwaysAfter#2"))) //
 				.next(new TestCase() //
 						.timeleap(clock, 10 * 60 + 29, MINUTES) //
@@ -198,6 +201,97 @@ public class SchedulerJSCalendarImplTest {
 						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, //
 								"alwaysBefore", //
 								"alwaysAfter#1", "alwaysAfter#2"))) //
+				.deactivate();
+	}
+
+	@Test
+	public void testOverlappingTasks() throws Exception {
+		final var clock = createDummyClock(); // Starts on a WEDNESDAY
+		final var tasks = JSCalendar.Tasks.<Payload>create(clock) //
+				.add(t -> t //
+						.setStart(LocalTime.of(8, 0)) //
+						.setDuration(Duration.ofHours(4)) //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(DAILY)) //
+						.setPayload(new Payload(new String[] { "window", "hold" }))) //
+				.add(t -> t // Sunday 12:00 to Friday 18:00
+						.setStart(LocalTime.of(12, 0)) //
+						.setDuration(Duration.ofHours(5 * 24 + 6)) //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(WEEKLY) //
+								.addByDay(SUNDAY)) //
+						.setPayload(new Payload(new String[] { "hold" }))) //
+				.build();
+
+		final SchedulerJSCalendarImpl sut = new SchedulerJSCalendarImpl();
+		new ComponentTest(sut) //
+				.addReference("componentManager", new DummyComponentManager(clock)) //
+				.addComponent(new DummyController("window")) //
+				.addComponent(new DummyController("hold")) //
+				.addComponent(new DummyController("alwaysBefore")) //
+				.addComponent(new DummyController("alwaysAfter")) //
+				.activate(MyConfig.create() //
+						.setId("scheduler0") //
+						.setAlwaysRunBeforeControllerIds("alwaysBefore") //
+						.setJSCalendar(JSCalendar.Tasks.serializer(clock, Payload.serializer()) //
+								.serialize(tasks) //
+								.toString()) //
+						.setAlwaysRunAfterControllerIds("alwaysAfter") //
+						.build()) //
+				.next(new TestCase() // The weekly task runs since Sunday
+						.onBeforeProcessImage(() -> assertTime(clock, "Wed 2020-01-01 00:00")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, //
+								"alwaysBefore", //
+								"hold", //
+								"alwaysAfter"))) //
+				.next(new TestCase() // Both tasks, in the order of the calendar, a shared Controller once
+						.timeleap(clock, 8 * 60, MINUTES) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Wed 2020-01-01 08:00")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, //
+								"alwaysBefore", //
+								"window", "hold", //
+								"alwaysAfter"))) //
+				.next(new TestCase() //
+						.timeleap(clock, 4 * 60, MINUTES) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Wed 2020-01-01 12:00")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, //
+								"alwaysBefore", //
+								"hold", //
+								"alwaysAfter"))) //
+				.next(new TestCase() //
+						.timeleap(clock, 2 * 24 * 60 + 5 * 60 + 59, MINUTES) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Fri 2020-01-03 17:59")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, //
+								"alwaysBefore", //
+								"hold", //
+								"alwaysAfter"))) //
+				.next(new TestCase() //
+						.timeleap(clock, 1, MINUTES) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Fri 2020-01-03 18:00")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, //
+								"alwaysBefore", //
+								"alwaysAfter"))) //
+				.next(new TestCase() // The daily task alone on the weekend
+						.timeleap(clock, 14 * 60, MINUTES) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Sat 2020-01-04 08:00")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, //
+								"alwaysBefore", //
+								"window", "hold", //
+								"alwaysAfter"))) //
+				.next(new TestCase() //
+						.timeleap(clock, 27 * 60 + 59, MINUTES) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Sun 2020-01-05 11:59")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, //
+								"alwaysBefore", //
+								"window", "hold", //
+								"alwaysAfter"))) //
+				.next(new TestCase() // The daily task ends as the weekly one begins
+						.timeleap(clock, 1, MINUTES) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Sun 2020-01-05 12:00")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, //
+								"alwaysBefore", //
+								"hold", //
+								"alwaysAfter"))) //
 				.deactivate();
 	}
 

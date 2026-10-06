@@ -17,6 +17,7 @@ import static java.time.DayOfWeek.SUNDAY;
 import static java.time.DayOfWeek.THURSDAY;
 import static java.time.DayOfWeek.TUESDAY;
 import static java.time.DayOfWeek.WEDNESDAY;
+import static java.time.temporal.ChronoUnit.HOURS;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.UUID.randomUUID;
 import static org.junit.Assert.assertEquals;
@@ -32,6 +33,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
 
 import org.junit.Test;
 
@@ -247,6 +249,71 @@ public class JSCalendarTest {
 	public void testTasks_getActiveOneTask() {
 		var tasks = JSCalendar.Tasks.empty();
 		assertNull(tasks.getActiveOneTask());
+	}
+
+	@Test
+	public void testTasks_getActiveOneTasks() {
+		final var clock = createDummyClock(); // Wednesday 2020-01-01 00:00
+		final var tasks = JSCalendar.Tasks.<StringPayload>create(clock) //
+				.add(t -> t //
+						.setStart("10:00") //
+						.setDuration(Duration.ofHours(2)) //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(DAILY)) //
+						.setPayload(new StringPayload("SHORT"))) //
+				.add(t -> t //
+						.setStart("08:00") //
+						.setDuration(Duration.ofHours(10)) //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(DAILY)) //
+						.setPayload(new StringPayload("LONG"))) //
+				.add(t -> t //
+						.setStart("22:00") //
+						.setDuration(Duration.ofHours(4)) //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(WEEKLY) //
+								.addByDay(WEDNESDAY)) //
+						.setPayload(new StringPayload("NIGHT"))) //
+				.add(t -> t //
+						.setStart("09:00") //
+						.setDuration(Duration.ofHours(1)) //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(DAILY) //
+								.setUntil(LocalDate.of(2019, 12, 31))) //
+						.setPayload(new StringPayload("EXPIRED"))) //
+				.add(t -> t //
+						.setStart("09:00") //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(DAILY)) //
+						.setPayload(new StringPayload("INSTANT"))) //
+				.build();
+
+		assertEquals(List.of(), activePayloads(tasks));
+
+		clock.leap(9, HOURS); // 09:00
+		assertEquals(List.of("LONG"), activePayloads(tasks));
+
+		clock.leap(1, HOURS); // 10:00, in the order of the calendar although LONG started earlier
+		assertEquals(List.of("SHORT", "LONG"), activePayloads(tasks));
+		assertOneTask(tasks.getActiveOneTasks().get(1), "2020-01-01T08:00Z", "2020-01-01T18:00Z", "LONG");
+
+		clock.leap(2, HOURS); // 12:00
+		assertEquals(List.of("LONG"), activePayloads(tasks));
+
+		clock.leap(11, HOURS); // 23:00
+		assertEquals(List.of("NIGHT"), activePayloads(tasks));
+
+		clock.leap(2, HOURS); // Thursday 01:00, still the occurrence of the previous day
+		assertEquals(List.of("NIGHT"), activePayloads(tasks));
+
+		clock.leap(1, HOURS); // 02:00
+		assertEquals(List.of(), activePayloads(tasks));
+	}
+
+	private static List<String> activePayloads(Tasks<StringPayload> tasks) {
+		return tasks.getActiveOneTasks().stream() //
+				.map(ot -> ot.payload().value()) //
+				.toList();
 	}
 
 	@Test

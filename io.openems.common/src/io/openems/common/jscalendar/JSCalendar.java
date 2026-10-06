@@ -290,6 +290,35 @@ public class JSCalendar<PAYLOAD> {
 		}
 
 		/**
+		 * Gets all {@link OneTask}s that are active now, in the order of their
+		 * {@link Task}s.
+		 *
+		 * <p>
+		 * {@link #getActiveOneTask()} answers which single {@link Task} applies now and
+		 * lets an earlier {@link Task} displace a later one for as long as the two
+		 * overlap. This method instead returns every {@link Task} whose occurrence
+		 * spans the current time, each with its full occurrence, for callers that
+		 * combine the payloads of all active {@link Task}s. A {@link Task} without
+		 * duration is never active here.
+		 *
+		 * @return the active {@link OneTask}s; empty if none is active
+		 */
+		public ImmutableList<OneTask<PAYLOAD>> getActiveOneTasks() {
+			final var now = ZonedDateTime.now(this.clock);
+			final var result = ImmutableList.<OneTask<PAYLOAD>>builder();
+			for (var task : this.tasks) {
+				if (task.duration.isZero()) {
+					continue;
+				}
+				task.getOccurrencesBetween(this.clock, now, now).stream() //
+						.filter(start -> !now.isBefore(start) && now.isBefore(start.plus(task.duration))) //
+						.min(Comparator.naturalOrder()) //
+						.ifPresent(start -> result.add(OneTask.from(task, start, task.duration)));
+			}
+			return result.build();
+		}
+
+		/**
 		 * Gets the occurrences of the {@link Task}s (including currently active task)
 		 * between two dates.
 		 *

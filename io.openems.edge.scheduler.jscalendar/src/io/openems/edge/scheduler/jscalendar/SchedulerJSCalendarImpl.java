@@ -4,6 +4,7 @@ import static org.osgi.service.component.annotations.ConfigurationPolicy.REQUIRE
 
 import java.time.Clock;
 import java.util.LinkedHashSet;
+import java.util.List;
 
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
@@ -29,7 +30,8 @@ import io.openems.edge.scheduler.jscalendar.Utils.Payload;
 
 /**
  * This Scheduler returns all active Controllers from the JSCalendar including
- * the before/after controllers.
+ * the before/after controllers. Tasks that are active at the same time
+ * contribute their Controllers in the order of the Tasks in the calendar.
  */
 @Designate(ocd = Config.class, factory = true)
 @Component(//
@@ -88,7 +90,7 @@ public class SchedulerJSCalendarImpl extends AbstractOpenemsComponent
 	}
 
 	/**
-	 * Gets the active {@link OneTask} under the ComponentManager's current
+	 * Gets the {@link OneTask}s active under the ComponentManager's current
 	 * {@link Clock}.
 	 *
 	 * <p>
@@ -100,14 +102,15 @@ public class SchedulerJSCalendarImpl extends AbstractOpenemsComponent
 	 * Tasks as they are. The stored clock is the one asked, because a system clock
 	 * only equals another system clock.
 	 *
-	 * @return the active {@link OneTask}; null if none is active
+	 * @return the active {@link OneTask}s in the order of the calendar; empty if
+	 *         none is active
 	 */
-	private OneTask<Payload> getActiveOneTask() {
+	private List<OneTask<Payload>> getActiveOneTasks() {
 		final var clock = this.componentManager.getClock();
 		if (!this.tasksClock.equals(clock)) {
 			this.parseTasks(clock);
 		}
-		return this.tasks.getActiveOneTask();
+		return this.tasks.getActiveOneTasks();
 	}
 
 	@Override
@@ -123,11 +126,8 @@ public class SchedulerJSCalendarImpl extends AbstractOpenemsComponent
 		// Add "Always Run Before" Controllers
 		this.addControllersById(result, this.config.alwaysRunBeforeController_ids());
 
-		// Get and update Active-Task
-		var activeTask = this.getActiveOneTask();
-
-		// Add active controllers from JSCalendar
-		if (activeTask != null) {
+		// Add the controllers of every active task, in the order of the calendar
+		for (var activeTask : this.getActiveOneTasks()) {
 			this.addControllersById(result, activeTask.payload().controllerIds());
 		}
 
