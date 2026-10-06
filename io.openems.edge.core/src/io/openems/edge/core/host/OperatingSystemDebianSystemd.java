@@ -18,6 +18,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
@@ -69,7 +70,6 @@ public class OperatingSystemDebianSystemd extends OperatingSystemLinux implement
 	private static final String RASPBERRY_TEMPERATURE_FILE = "/sys/class/thermal/thermal_zone0/temp";
 	private static final String NETWORK_BASE_PATH = "/etc/systemd/network";
 	private static final String NETWORK_MANAGER_BASE_PATH = "/etc/NetworkManager/system-connections";
-	private static final String NETWORK_MANAGER_RUN_PATH = "/run/NetworkManager/system-connections";
 	private static final Path UDEV_PATH = Paths.get("/etc/udev/rules.d/99-usb-serial.rules");
 	private static final int DEFAULT_DHCP_ROUTE_METRIC = 1024;
 	private static final String MATCH_SECTION = "[Match]";
@@ -81,6 +81,7 @@ public class OperatingSystemDebianSystemd extends OperatingSystemLinux implement
 	private static final String IPV4_SECTION = "[ipv4]";
 	private static final String IPV6_SECTION = "[ipv6]";
 	private static final String EMPTY_SECTION = "";
+	private static final String STATIC_ADDRESS_LABEL = "static";
 
 	private static final Logger log = LoggerFactory.getLogger(OperatingSystemDebianSystemd.class);
 
@@ -96,8 +97,25 @@ public class OperatingSystemDebianSystemd extends OperatingSystemLinux implement
 		UNDEFINED, MATCH, NETWORK, ADDRESS, ROUTE, DHCP
 	}
 
-	private static enum NetworkManagerBlock {
-		UNDEFINED, CONNECTION, IPV4
+	/**
+	 * A NetworkManager connection as listed by {@code nmcli connection show}.
+	 *
+	 * @param name     the connection id
+	 * @param uuid     the connection uuid
+	 * @param type     the connection type, e.g. {@code 802-3-ethernet}
+	 * @param filename the backing keyfile, or null if the connection is not
+	 *                 stored as a keyfile
+	 */
+	protected static record NmcliConnection(String name, String uuid, String type, File filename) {
+
+		/**
+		 * Whether this is an ethernet connection.
+		 *
+		 * @return true for ethernet connections
+		 */
+		public boolean isEthernet() {
+			return isNmcliEthernetType(this.type);
+		}
 	}
 
 	private final NetworkService network;
@@ -146,26 +164,35 @@ public class OperatingSystemDebianSystemd extends OperatingSystemLinux implement
 		return new NetworkConfiguration(interfaces);
 	}
 
+	/**
+	 * Reads the NetworkManager configuration through {@code nmcli}. Connection
+	 * settings are readable by any local user over D-Bus, so this path needs no
+	 * root privileges. Secrets are not part of the queried fields.
+	 *
+	 * @return the {@link NetworkConfiguration}
+	 * @throws OpenemsNamedException on error
+	 */
 	private NetworkConfiguration readNetworkManagerConfig() throws OpenemsNamedException {
 		var interfaces = new TreeMap<String, NetworkInterface<?>>();
 
-		var files = new ArrayList<File>();
-		files.addAll(this.readNetworkConfigFiles(NETWORK_MANAGER_RUN_PATH));
-		files.addAll(this.readNetworkConfigFiles(NETWORK_MANAGER_BASE_PATH));
-		for (final File file : files) {
-			if (file.isDirectory() || !file.getName().endsWith(".nmconnection")) {
+		var connections = this.executeNmcli("nmcli -t -f NAME,UUID,TYPE,FILENAME connection show");
+		for (var connection : parseNmcliConnectionList(connections)) {
+			if (!connection.isEthernet()) {
 				continue;
 			}
 			try {
-				var lines = this.handleExecuteSystemReadFile(file.toPath());
-				NetworkInterface<File> networkInterface = parseNetworkManagerConnectionFile(lines, file);
+				var lines = this.executeNmcli("nmcli -t -f " //
+						+ "connection.id,connection.interface-name,connection.type," //
+						+ "ipv4.method,ipv4.addresses,ipv4.gateway,ipv4.dns,ipv4.route-metric " //
+						+ "connection show uuid " + connection.uuid());
+				var networkInterface = parseNmcliConnection(lines, connection.filename());
 				if (networkInterface == null) {
-					// unsupported connection type (e.g. wifi, bridge) — skip silently
 					continue;
 				}
 				interfaces.put(networkInterface.getName(), networkInterface);
-			} catch (IllegalArgumentException e) {
-				throw new OpenemsException("Unable to read file [" + file + "]: " + e.getMessage());
+			} catch (OpenemsNamedException | IllegalArgumentException e) {
+				throw new OpenemsException(
+						"Unable to read NetworkManager connection [" + connection.name() + "]: " + e.getMessage());
 			}
 		}
 		return new NetworkConfiguration(interfaces);
@@ -499,7 +526,7 @@ public class OperatingSystemDebianSystemd extends OperatingSystemLinux implement
 	 * @param iface the network interface configuration
 	 * @return the file contents as a list of lines
 	 */
-	private static List<String> toNetworkManagerFileFormat(User user, NetworkInterface<?> iface) {
+	protected static List<String> toNetworkManagerFileFormat(User user, NetworkInterface<?> iface) {
 		List<String> result = new ArrayList<>();
 		result.add("# changedBy: " //
 				+ user.getName());
@@ -524,9 +551,15 @@ public class OperatingSystemDebianSystemd extends OperatingSystemLinux implement
 			method = "manual";
 		}
 		result.add("method=" + method);
-		if (!method.equals("auto") && iface.getAddresses().isSetAndNotNull()) {
+		if (iface.getAddresses().isSetAndNotNull()) {
+			// With method=auto NetworkManager adds these addresses to the one obtained
+			// via DHCP. NetworkManager has no address labels and treats the first address
+			// as the primary one, so the static address has to be written first.
+			var addresses = iface.getAddresses().getValue().stream() //
+					.sorted(Comparator.comparing(a -> !STATIC_ADDRESS_LABEL.equals(a.getLabel()))) //
+					.toList();
 			var idx = 1;
-			for (var address : iface.getAddresses().getValue()) {
+			for (var address : addresses) {
 				result.add("address" + idx + "=" + address.toString());
 				idx++;
 			}
@@ -623,6 +656,28 @@ public class OperatingSystemDebianSystemd extends OperatingSystemLinux implement
 				.execute();
 	}
 
+	/**
+	 * Runs an unprivileged {@code nmcli} query and returns its output lines.
+	 *
+	 * @param command the complete nmcli command line
+	 * @return the stdout lines
+	 * @throws OpenemsNamedException if the command cannot be run or exits
+	 *                               with an error
+	 */
+	private List<String> executeNmcli(String command) throws OpenemsNamedException {
+		var request = ExecuteSystemCommandRequest.withoutAuthentication(command, false, 5);
+		try {
+			var response = this.handleExecuteSystemCommandRequest(request).get().scr;
+			if (response.exitcode() != 0) {
+				throw new OpenemsException("Command [" + command + "] failed with exit code " + response.exitcode()
+						+ ": " + String.join(" ", response.stderr()));
+			}
+			return response.stdout();
+		} catch (InterruptedException | ExecutionException e) {
+			throw new OpenemsException("Unable to execute [" + command + "]: " + e.getMessage());
+		}
+	}
+
 	@Override
 	public String getUsbConfiguration() throws OpenemsNamedException {
 		try {
@@ -654,10 +709,6 @@ public class OperatingSystemDebianSystemd extends OperatingSystemLinux implement
 			.compile("^IPv4Forwarding=(\\w+)$");
 	private static final Pattern NETWORK_IP_MASQUERADE = Pattern //
 			.compile("^IPMasquerade=(\\w+)$");
-	private static final Pattern NETWORK_MANAGER_SECTION = Pattern //
-			.compile("^\\[([a-zA-Z0-9_-]+)\\]$");
-	private static final Pattern NETWORK_MANAGER_ADDRESS_N = Pattern //
-			.compile("^address\\d+$");
 	private static final Pattern ROUTE_METRIC = Pattern //
 			.compile("^Metric=([0-9]+)$");
 	private static final Pattern DHCP_METRIC = Pattern //
@@ -930,11 +981,34 @@ public class OperatingSystemDebianSystemd extends OperatingSystemLinux implement
 	}
 
 	/**
-	 * Parses a NetworkManager keyfile (.nmconnection).
+	 * Parses the terse output of
+	 * {@code nmcli -t -f NAME,UUID,TYPE,FILENAME connection show}.
+	 *
+	 * @param lines the output lines, one connection per line
+	 * @return the listed connections
+	 */
+	protected static List<NmcliConnection> parseNmcliConnectionList(List<String> lines) {
+		var result = new ArrayList<NmcliConnection>();
+		for (var line : lines) {
+			if (line.isBlank()) {
+				continue;
+			}
+			var fields = splitNmcliTerseLine(line);
+			if (fields.size() < 3) {
+				continue;
+			}
+			var filename = fields.size() > 3 && !fields.get(3).isEmpty() ? new File(fields.get(3)) : null;
+			result.add(new NmcliConnection(fields.get(0), fields.get(1), fields.get(2), filename));
+		}
+		return result;
+	}
+
+	/**
+	 * Parses the terse output of {@code nmcli -t -f <fields> connection show} for
+	 * a single connection, one {@code key:value} pair per line.
 	 *
 	 * <p>
-	 * Only {@code type=ethernet} connections are returned; all others yield
-	 * {@code null}.
+	 * Only ethernet connections are returned. All others yield {@code null}.
 	 *
 	 * @param <A>        the type of the attachment
 	 * @param lines      the lines to parse
@@ -944,147 +1018,155 @@ public class OperatingSystemDebianSystemd extends OperatingSystemLinux implement
 	 *         connections
 	 * @throws OpenemsNamedException on error
 	 */
-	protected static <A> NetworkInterface<A> parseNetworkManagerConnectionFile(List<String> lines, A attachment)
+	protected static <A> NetworkInterface<A> parseNmcliConnection(List<String> lines, A attachment)
 			throws OpenemsNamedException {
-		var currentBlock = NetworkManagerBlock.UNDEFINED;
 		String id = null;
 		String interfaceName = null;
 		String connectionType = null;
+		ConfigurationProperty<Boolean> dhcp = ConfigurationProperty.asNotSet();
+		ConfigurationProperty<Boolean> linkLocalAddressing = ConfigurationProperty.asNotSet();
+		ConfigurationProperty<Inet4Address> gateway = ConfigurationProperty.asNotSet();
+		ConfigurationProperty<Inet4Address> dns = ConfigurationProperty.asNotSet();
+		ConfigurationProperty<Integer> dhcpRouteMetric = ConfigurationProperty.asNotSet();
+		var addressValues = new ArrayList<String>();
+		var manual = false;
 
-		final var dhcp = new AtomicReference<ConfigurationProperty<Boolean>>(//
-				ConfigurationProperty.asNotSet());
-		final var linkLocalAddressing = new AtomicReference<ConfigurationProperty<Boolean>>(//
-				ConfigurationProperty.asNotSet());
-		final var gateway = new AtomicReference<ConfigurationProperty<Inet4Address>>(//
-				ConfigurationProperty.asNotSet());
-		final var dns = new AtomicReference<ConfigurationProperty<Inet4Address>>(//
-				ConfigurationProperty.asNotSet());
-		final var dhcpRouteMetric = new AtomicReference<ConfigurationProperty<Integer>>(//
-				ConfigurationProperty.asNotSet());
-		final var addresses = new AtomicReference<ConfigurationProperty<Set<Inet4AddressWithSubnetmask>>>(//
-				ConfigurationProperty.asNotSet());
-
-		for (var raw : lines) {
-			var line = raw.trim();
-			if (line.isEmpty() || line.startsWith("#") || line.startsWith(";")) {
+		for (var line : lines) {
+			var fields = splitNmcliTerseLine(line);
+			if (fields.size() < 2) {
 				continue;
 			}
-			var sectionMatcher = NETWORK_MANAGER_SECTION.matcher(line);
-			if (sectionMatcher.matches()) {
-				currentBlock = switch (sectionMatcher.group(1).toLowerCase()) {
-				case "connection" -> NetworkManagerBlock.CONNECTION;
-				case "ipv4" -> NetworkManagerBlock.IPV4;
-				default -> NetworkManagerBlock.UNDEFINED;
-				};
+			var key = fields.get(0).trim().toLowerCase();
+			var value = String.join(":", fields.subList(1, fields.size())).trim();
+			// nmcli prints unset properties as an empty value or as "--"
+			if (value.isEmpty() || value.equals("--")) {
 				continue;
 			}
-			var eq = line.indexOf('=');
-			if (eq < 0) {
-				continue;
-			}
-			var key = line.substring(0, eq).trim().toLowerCase();
-			var value = line.substring(eq + 1).trim();
 
-			switch (currentBlock) {
-			case CONNECTION -> {
-				switch (key) {
-				case "id" -> id = value;
-				case "interface-name" -> interfaceName = value;
-				case "type" -> connectionType = value.toLowerCase();
+			switch (key) {
+			case "connection.id" -> id = value;
+			case "connection.interface-name" -> interfaceName = value;
+			case "connection.type" -> connectionType = value.toLowerCase();
+			case "ipv4.method" -> {
+				switch (value.toLowerCase()) {
+				case "auto" -> {
+					dhcp = ConfigurationProperty.of(true);
+					linkLocalAddressing = ConfigurationProperty.of(true);
+				}
+				case "manual" -> {
+					dhcp = ConfigurationProperty.of(false);
+					manual = true;
+				}
+				case "link-local" -> {
+					dhcp = ConfigurationProperty.of(false);
+					linkLocalAddressing = ConfigurationProperty.of(true);
+				}
+				case "disabled" -> {
+					dhcp = ConfigurationProperty.of(false);
+					linkLocalAddressing = ConfigurationProperty.of(false);
+				}
 				default -> doNothing();
 				}
 			}
-			case IPV4 -> {
-				if (NETWORK_MANAGER_ADDRESS_N.matcher(key).matches()) {
-					// format: <ip>/<prefix>[,<gateway>]
-					var parts = value.split(",");
-					if (parts.length >= 1 && !parts[0].isBlank()) {
-						var addressDetails = addresses.get().getValue();
-						if (addressDetails == null) {
-							addressDetails = new HashSet<>();
-						}
-						addressDetails.add(Inet4AddressWithSubnetmask.fromString("", parts[0].trim()));
-						addresses.set(ConfigurationProperty.of(addressDetails));
-					}
-					if (parts.length >= 2 && !parts[1].isBlank() && !gateway.get().isSet()) {
-						var parsed = InetAddressUtils.parseOrNull(parts[1].trim());
-						if (parsed != null) {
-							gateway.set(ConfigurationProperty.of(parsed));
-						}
-					}
-				} else {
-					switch (key) {
-					case "method" -> {
-						switch (value.toLowerCase()) {
-						case "auto" -> {
-							dhcp.set(ConfigurationProperty.of(true));
-							linkLocalAddressing.set(ConfigurationProperty.of(true));
-						}
-						case "manual" -> dhcp.set(ConfigurationProperty.of(false));
-						case "link-local" -> {
-							dhcp.set(ConfigurationProperty.of(false));
-							linkLocalAddressing.set(ConfigurationProperty.of(true));
-						}
-						case "disabled" -> {
-							dhcp.set(ConfigurationProperty.of(false));
-							linkLocalAddressing.set(ConfigurationProperty.of(false));
-						}
-						default -> doNothing();
-						}
-					}
-					case "gateway" -> {
-						var parsed = InetAddressUtils.parseOrNull(value);
-						if (parsed != null) {
-							gateway.set(ConfigurationProperty.of(parsed));
-						}
-					}
-					case "dns" -> {
-						// semicolon-separated; take first entry
-						var first = value.split(";", 2)[0].trim();
-						if (!first.isEmpty()) {
-							var parsed = InetAddressUtils.parseOrNull(first);
-							if (parsed != null) {
-								dns.set(ConfigurationProperty.of(parsed));
-							}
-						}
-					}
-					case "route-metric" -> {
-						try {
-							dhcpRouteMetric.set(ConfigurationProperty.of(Integer.parseInt(value)));
-						} catch (NumberFormatException e) {
-							/* ignore malformed metric */
-						}
-					}
-					default -> doNothing();
+			case "ipv4.addresses" -> {
+				for (var address : value.split(",")) {
+					if (!address.isBlank()) {
+						addressValues.add(address.trim());
 					}
 				}
 			}
-			case UNDEFINED -> doNothing();
+			case "ipv4.gateway" -> {
+				var parsed = parseOrNull(value);
+				if (parsed != null) {
+					gateway = ConfigurationProperty.of(parsed);
+				}
+			}
+			case "ipv4.dns" -> {
+				// Only the first name server is represented in the NetworkInterface
+				var parsed = parseOrNull(value.split(",", 2)[0].trim());
+				if (parsed != null) {
+					dns = ConfigurationProperty.of(parsed);
+				}
+			}
+			case "ipv4.route-metric" -> {
+				// nmcli reports -1 when the metric is left at its default
+				try {
+					var metric = Integer.parseInt(value);
+					if (metric >= 0) {
+						dhcpRouteMetric = ConfigurationProperty.of(metric);
+					}
+				} catch (NumberFormatException e) {
+					doNothing();
+				}
+			}
+			default -> doNothing();
 			}
 		}
 
-		if (connectionType != null && !connectionType.equals("ethernet")) {
+		if (!isNmcliEthernetType(connectionType)) {
 			return null;
 		}
 
 		final var name = interfaceName != null ? interfaceName : id;
 		if (name == null) {
-			throw new OpenemsException("NetworkManager connection file has neither interface-name nor id");
+			throw new OpenemsException("NetworkManager connection has neither interface-name nor id");
 		}
 
+		ConfigurationProperty<Set<Inet4AddressWithSubnetmask>> addresses = ConfigurationProperty.asNotSet();
+		if (!addressValues.isEmpty()) {
+			var addressDetails = new HashSet<Inet4AddressWithSubnetmask>();
+			for (var i = 0; i < addressValues.size(); i++) {
+				// NetworkManager has no address labels and treats the first address of a
+				// manual connection as the primary one
+				var label = manual && i == 0 ? STATIC_ADDRESS_LABEL : "";
+				addressDetails.add(Inet4AddressWithSubnetmask.fromString(label, addressValues.get(i)));
+			}
+			addresses = ConfigurationProperty.of(addressDetails);
+		}
+
+		// IPv4 forwarding, masquerading and static routes are not represented in a
+		// NetworkManager connection
 		return new NetworkInterface<>(name, //
-				dhcp.get(), //
-				linkLocalAddressing.get(), //
-				gateway.get(), //
-				dns.get(), //
-				addresses.get(), //
-				dhcpRouteMetric.get(), //
-				ConfigurationProperty.asNotSet(), // ipv4Forwarding — not represented in NM keyfile
-				ConfigurationProperty.asNotSet(), // ipMasquerade — not represented in NM keyfile
-				ConfigurationProperty.asNotSet(), // destination — not represented in NM keyfile
-				ConfigurationProperty.asNotSet(), // gatewayOnLink — not represented in NM keyfile
-				ConfigurationProperty.asNotSet(), // routes — not represented in NM keyfile
+				dhcp, //
+				linkLocalAddressing, //
+				gateway, //
+				dns, //
+				addresses, //
+				dhcpRouteMetric, //
+				ConfigurationProperty.asNotSet(), // ipv4Forwarding
+				ConfigurationProperty.asNotSet(), // ipMasquerade
+				ConfigurationProperty.asNotSet(), // destination
+				ConfigurationProperty.asNotSet(), // gatewayOnLink
+				ConfigurationProperty.asNotSet(), // routes
 				attachment);
+	}
+
+	/**
+	 * Splits a line of nmcli terse output at unescaped colons. nmcli escapes
+	 * colons and backslashes inside values with a backslash.
+	 *
+	 * @param line the line
+	 * @return the unescaped fields
+	 */
+	private static List<String> splitNmcliTerseLine(String line) {
+		var fields = new ArrayList<String>();
+		var current = new StringBuilder();
+		var escaped = false;
+		for (var c : line.toCharArray()) {
+			if (escaped) {
+				current.append(c);
+				escaped = false;
+			} else if (c == '\\') {
+				escaped = true;
+			} else if (c == ':') {
+				fields.add(current.toString());
+				current.setLength(0);
+			} else {
+				current.append(c);
+			}
+		}
+		fields.add(current.toString());
+		return fields;
 	}
 
 	@Override
@@ -1367,6 +1449,10 @@ public class OperatingSystemDebianSystemd extends OperatingSystemLinux implement
 		}
 
 		return Optional.empty();
+	}
+
+	private static boolean isNmcliEthernetType(String type) {
+		return "802-3-ethernet".equals(type) || "ethernet".equals(type);
 	}
 
 	private static double readMilliCelsiusFromFile(String file) {
