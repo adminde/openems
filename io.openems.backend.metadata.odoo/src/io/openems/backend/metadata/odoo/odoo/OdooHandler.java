@@ -290,7 +290,12 @@ public class OdooHandler {
 				Field.Partner.ZIP, //
 				Field.Partner.CITY, //
 				Field.Partner.COUNTRY, //
-				Field.Partner.COMPANY_NAME);
+				Field.Partner.NAME, //
+				Field.Partner.COMMERCIAL_PARTNER);
+
+		// 'commercial_company_name' is the key of GetUserInformationResponse; the
+		// Odoo field is not read, since Odoo 20 it is the own name of a person
+		odooPartner.put(Field.Partner.COMPANY_NAME.id(), this.getCompanyName(partnerId, odooPartner).orElse(null));
 
 		var odooCountryId = ObjectUtils.getAsObjectArrray(odooPartner.get("country_id"));
 		if (odooCountryId.length > 1) {
@@ -406,14 +411,12 @@ public class OdooHandler {
 			return new HashMap<>();
 		}
 		var jCompanyName = companyNameOpt.get();
+		var jVatOpt = getAsOptionalString(companyOpt.get(), "vat") //
+				.map(String::trim) //
+				.filter(vat -> !vat.isEmpty());
 
 		if (user != null) {
-			var odooPartner = OdooUtils.readOne(this.credentials, Field.Partner.ODOO_MODEL, //
-					this.getOdooPartnerId(user), //
-					Field.Partner.COMPANY_NAME);
-
-			var partnerCompanyNameOpt = ObjectUtils
-					.getAsOptionalString(odooPartner.get(Field.Partner.COMPANY_NAME.id()));
+			var partnerCompanyNameOpt = this.getCompanyName(this.getOdooPartnerId(user));
 			if (partnerCompanyNameOpt.isPresent()) {
 				if (jCompanyName.equals(partnerCompanyNameOpt.get())) {
 					return new HashMap<>();
@@ -421,21 +424,136 @@ public class OdooHandler {
 			}
 		}
 
-		var companyFound = OdooUtils.search(this.credentials, Field.Partner.ODOO_MODEL, //
-				new Domain(Field.Partner.IS_COMPANY, Operator.EQ, true),
-				new Domain(Field.Partner.COMPANY_NAME, Operator.EQ, jCompanyName));
-
 		Map<String, Object> companyFields = new HashMap<>();
-		if (companyFound.length > 0) {
-			companyFields.put(Field.Partner.PARENT.id(), companyFound[0]);
-		} else {
-			var createdCompany = OdooUtils.create(this.credentials, Field.Partner.ODOO_MODEL, //
-					new FieldValue<>(Field.Partner.IS_COMPANY, true),
-					new FieldValue<>(Field.Partner.NAME, jCompanyName));
-			companyFields.put(Field.Partner.PARENT.id(), createdCompany);
+		companyFields.put(Field.Partner.PARENT.id(), this.findOrCreateCompany(jCompanyName, jVatOpt));
+		return companyFields;
+	}
+
+	/**
+	 * Finds the company with the given name or VAT, otherwise creates it.
+	 *
+	 * <p>
+	 * A company is a partner without parent_id; contacts are linked to it via
+	 * parent_id. The search does not rely on is_company: since Odoo 20 it is
+	 * computed from the VAT and false for companies without one. Partners of users
+	 * are excluded, so a contact never becomes its own parent. A new company is
+	 * created with is_company, which Odoo up to 18 stores and Odoo 20 recomputes;
+	 * company_type no longer exists in Odoo 20.
+	 *
+	 * @param name the company name
+	 * @param vat  the optional VAT
+	 * @return the Odoo partner id of the company
+	 * @throws OpenemsException on error
+	 */
+	private int findOrCreateCompany(String name, Optional<String> vat) throws OpenemsException {
+		for (var domains : getCompanySearchDomains(name, vat)) {
+			var found = OdooUtils.search(this.credentials, Field.Partner.ODOO_MODEL, //
+					Map.of("order", "is_company desc, id asc", "limit", 1), domains);
+			if (found.length > 0) {
+				return found[0];
+			}
 		}
 
-		return companyFields;
+		Map<String, Object> companyFields = new HashMap<>();
+		companyFields.put(Field.Partner.NAME.id(), name);
+		companyFields.put(Field.Partner.IS_COMPANY.id(), true);
+		vat.ifPresent(v -> companyFields.put(Field.Partner.VAT.id(), v));
+		return OdooUtils.create(this.credentials, Field.Partner.ODOO_MODEL, companyFields);
+	}
+
+	/**
+	 * Gets the search domains for a company, in the order they are tried: by VAT
+	 * if given, then by name.
+	 *
+	 * @param name the company name
+	 * @param vat  the optional VAT
+	 * @return the domains of each search
+	 */
+	protected static List<Domain[]> getCompanySearchDomains(String name, Optional<String> vat) {
+		final var noParent = new Domain(Field.Partner.PARENT, Operator.EQ, false);
+		final var noUser = new Domain(Field.Partner.USERS, Operator.EQ, false);
+		final var searches = new ArrayList<Domain[]>();
+		vat.ifPresent(v -> searches.add(new Domain[] { noParent, noUser, //
+				new Domain(Field.Partner.VAT, Operator.EQ, v) }));
+		searches.add(new Domain[] { noParent, noUser, //
+				new Domain(Field.Partner.NAME, Operator.EQ, name) });
+		return searches;
+	}
+
+	/**
+	 * Gets the name of the company of a partner.
+	 *
+	 * <p>
+	 * The company is the commercial_partner_id if that is another partner,
+	 * otherwise the partner itself if it is a company record (see
+	 * {@link #isCompanyRecord(int)}). commercial_company_name is not used: since
+	 * Odoo 20 it is the own name of a person without parent_id.
+	 *
+	 * @param partnerId the Odoo partner id
+	 * @return the company name or empty
+	 * @throws OpenemsException on error
+	 */
+	private Optional<String> getCompanyName(int partnerId) throws OpenemsException {
+		var partner = OdooUtils.readOne(this.credentials, Field.Partner.ODOO_MODEL, partnerId, //
+				Field.Partner.COMMERCIAL_PARTNER, Field.Partner.NAME);
+		return this.getCompanyName(partnerId, partner);
+	}
+
+	private Optional<String> getCompanyName(int partnerId, Map<String, Object> partner) throws OpenemsException {
+		var companyIdOpt = getOtherCommercialPartnerId(partnerId, partner);
+		if (companyIdOpt.isPresent()) {
+			var company = OdooUtils.readOne(this.credentials, Field.Partner.ODOO_MODEL, companyIdOpt.get(), //
+					Field.Partner.NAME);
+			return ObjectUtils.getAsOptionalString(company.get(Field.Partner.NAME.id()));
+		}
+		if (this.isCompanyRecord(partnerId)) {
+			return ObjectUtils.getAsOptionalString(partner.get(Field.Partner.NAME.id()));
+		}
+		return Optional.empty();
+	}
+
+	/**
+	 * Checks if a partner is a company record itself, whose name must not be
+	 * replaced by the first and last name of a person.
+	 *
+	 * <p>
+	 * True if it is_company (since Odoo 20 only with a VAT) or if it has no
+	 * parent_id and contacts are linked to it via parent_id.
+	 *
+	 * @param partnerId the Odoo partner id
+	 * @return true if the partner is a company
+	 * @throws OpenemsException on error
+	 */
+	private boolean isCompanyRecord(int partnerId) throws OpenemsException {
+		var partner = OdooUtils.readOne(this.credentials, Field.Partner.ODOO_MODEL, partnerId, //
+				Field.Partner.IS_COMPANY, Field.Partner.PARENT);
+		if (Boolean.TRUE.equals(partner.get(Field.Partner.IS_COMPANY.id()))) {
+			return true;
+		}
+		if (OdooUtils.getOdooReferenceId(partner.get(Field.Partner.PARENT.id())).isPresent()) {
+			return false;
+		}
+		var contacts = OdooUtils.search(this.credentials, Field.Partner.ODOO_MODEL, Map.of("limit", 1), //
+				new Domain(Field.Partner.PARENT, Operator.EQ, partnerId), //
+				new Domain(Field.Partner.ADDRESS_TYPE, Operator.EQ, "contact"));
+		return contacts.length > 0;
+	}
+
+	/**
+	 * Gets the commercial_partner_id of a partner if it is another partner, i.e.
+	 * the company the partner is linked to via parent_id.
+	 *
+	 * @param partnerId the Odoo partner id
+	 * @param partner   the partner with the field commercial_partner_id
+	 * @return the Odoo partner id of the company or empty
+	 */
+	protected static Optional<Integer> getOtherCommercialPartnerId(int partnerId, Map<String, Object> partner) {
+		var commercialPartnerIdOpt = OdooUtils
+				.getOdooReferenceId(partner.get(Field.Partner.COMMERCIAL_PARTNER.id()));
+		if (commercialPartnerIdOpt.isPresent() && commercialPartnerIdOpt.get() != partnerId) {
+			return commercialPartnerIdOpt;
+		}
+		return Optional.empty();
 	}
 
 	/**
@@ -547,10 +665,7 @@ public class OdooHandler {
 
 		this.updateEdgeComment(userJson, edgeId, foundEdge[0]);
 
-		final var installer = OdooUtils.readOne(this.credentials, Field.Partner.ODOO_MODEL, installerId,
-				Field.Partner.IS_COMPANY);
-		final var isCompany = (boolean) installer.get("is_company");
-		if (!isCompany) {
+		if (!this.isCompanyRecord(installerId)) {
 			Map<String, Object> fieldsToUpdate = new HashMap<>();
 			getAsOptionalString(installerJson, "firstname") //
 					.ifPresent(firstname -> fieldsToUpdate.put(Field.Partner.FIRSTNAME.id(), firstname));
