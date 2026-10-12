@@ -27,7 +27,7 @@ public @interface Config {
 	@AttributeDefinition(name = "Odoo Login", description = "The odoo login")
 	String odooLogin() default "admin";
 
-	@AttributeDefinition(name = "Odoo Password", description = "The odoo login password", type = AttributeType.PASSWORD)
+	@AttributeDefinition(name = "Odoo Password", description = "The odoo login password. Used for /web/session/authenticate and for XML-RPC, so it must be the password of the user; Odoo does not accept an API key for the session login. If the user is restricted to API keys for RPC, Odoo 20 only accepts keys with scope 'rpc'.", type = AttributeType.PASSWORD)
 	String odooPassword();
 
 	@AttributeDefinition(name = "Postgres Host", description = "The Postgres host")
