@@ -432,8 +432,9 @@ public class OdooHandler {
 	 * <p>
 	 * A company is a partner without parent_id; contacts are linked to it via
 	 * parent_id. The search does not rely on is_company: since Odoo 20 it is
-	 * computed from the VAT and false for companies without one. Partners of users
-	 * are excluded, so a contact never becomes its own parent. A new company is
+	 * computed from the VAT and false for companies without one. Partners of users,
+	 * archived users included, are excluded, so a contact never becomes its own
+	 * parent. A new company is
 	 * created with is_company, which Odoo up to 18 stores and Odoo 20 recomputes;
 	 * company_type no longer exists in Odoo 20.
 	 *
@@ -443,7 +444,8 @@ public class OdooHandler {
 	 */
 	private int findOrCreateCompany(String name) throws OpenemsException {
 		var found = OdooUtils.search(this.credentials, Field.Partner.ODOO_MODEL, //
-				Map.of("order", "is_company desc, id asc", "limit", 1), getCompanySearchDomains(name));
+				Map.of("order", "is_company desc, id asc", "limit", 1), //
+				getCompanySearchDomains(name, this.getUserPartnerIdsByName(name)));
 		if (found.length > 0) {
 			return found[0];
 		}
@@ -455,15 +457,43 @@ public class OdooHandler {
 	}
 
 	/**
+	 * Gets the partner ids of all users, archived users included, whose partner
+	 * has the given name and no parent_id.
+	 *
+	 * <p>
+	 * 'user_ids' of a partner only holds active users, so the users are read with
+	 * active_test=False.
+	 *
+	 * @param name the partner name
+	 * @return the partner ids
+	 * @throws OpenemsException on error
+	 */
+	private List<Integer> getUserPartnerIdsByName(String name) throws OpenemsException {
+		var users = OdooUtils.searchRead(this.credentials, Field.User.ODOO_MODEL, //
+				new Field[] { Field.User.PARTNER }, //
+				Map.of("context", Map.of("active_test", false)), //
+				new Domain(new Field[] { Field.User.PARTNER, Field.Partner.NAME }, Operator.EQ, name), //
+				new Domain(new Field[] { Field.User.PARTNER, Field.Partner.PARENT }, Operator.EQ, false));
+		return Stream.of(users) //
+				.map(user -> OdooUtils.getOdooReferenceId(user.get(Field.User.PARTNER.id()))) //
+				.flatMap(Optional::stream) //
+				.distinct() //
+				.toList();
+	}
+
+	/**
 	 * Gets the search domains for a company by name.
 	 *
-	 * @param name the company name
+	 * @param name           the company name
+	 * @param userPartnerIds the partner ids of users, see
+	 *                       {@link #getUserPartnerIdsByName(String)}
 	 * @return the domains
 	 */
-	protected static Domain[] getCompanySearchDomains(String name) {
+	protected static Domain[] getCompanySearchDomains(String name, List<Integer> userPartnerIds) {
 		return new Domain[] { //
 				new Domain(Field.Partner.PARENT, Operator.EQ, false), //
 				new Domain(Field.Partner.USERS, Operator.EQ, false), //
+				new Domain("id", Operator.NOT_IN, userPartnerIds), //
 				new Domain(Field.Partner.NAME, Operator.EQ, name) };
 	}
 

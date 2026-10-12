@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -21,15 +22,17 @@ class OdooHandlerTest {
 
 	@Test
 	void testGetCompanySearchDomains() {
+		// partners of archived users are excluded by id
 		assertArrayEquals(new Domain[] { NO_PARENT, NO_USER, //
+				new Domain("id", Operator.NOT_IN, List.of(3, 5)), //
 				new Domain(Field.Partner.NAME, Operator.EQ, "Oros Energy Europe GmbH") }, //
-				OdooHandler.getCompanySearchDomains("Oros Energy Europe GmbH"));
+				OdooHandler.getCompanySearchDomains("Oros Energy Europe GmbH", List.of(3, 5)));
 	}
 
 	@Test
 	void testGetCompanySearchDomainsDoNotUseIsCompany() {
 		// is_company is computed from the VAT since Odoo 20
-		for (var domain : OdooHandler.getCompanySearchDomains("Oros Energy Europe GmbH")) {
+		for (var domain : OdooHandler.getCompanySearchDomains("Oros Energy Europe GmbH", List.of())) {
 			assertFalse(Field.Partner.IS_COMPANY.id().equals(domain.field));
 			assertFalse(Field.Partner.COMPANY_NAME.id().equals(domain.field));
 		}
