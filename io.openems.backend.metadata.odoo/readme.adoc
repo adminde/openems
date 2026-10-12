@@ -15,6 +15,12 @@ and OpenEMS the open-source https://github.com/OpenEMS/odoo-openems[Odoo-OpenEMS
 the user `odooLogin`. Odoo 20 accepts API keys for RPC only with scope `rpc`, Odoo 18 also keys
 without scope. Where API keys are used against Odoo 20, check after the upgrade that they have
 scope `rpc`, otherwise create new keys with scope `rpc`.
+* The name of the groups field of `res.users` and the id of the portal group (`base.group_portal`)
+are resolved once and cached. After an Odoo upgrade or a newly set up Odoo database the backend
+has to be restarted.
+* The company of a contact is its `commercial_partner_id` (not `commercial_company_name`). With
+Odoo 18 the fallback to the free text field `company_name` of a contact without company no
+longer applies; such a contact has no company in the user information.
 ====
 
 
