@@ -1,6 +1,7 @@
 package io.openems.backend.metadata.odoo.odoo;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
@@ -85,6 +86,20 @@ public class OdooUtilsTest {
 			assertEquals(Operator.EQ.getValue(), v[1]);
 			assertEquals("bar", v[2]);
 		}
+	}
+
+	@Test
+	public void testIsSessionExpiredError() {
+		// Odoo 18/19
+		assertTrue(OdooUtils.isSessionExpiredError("odoo.http.SessionExpiredException"));
+		// Odoo 20
+		assertTrue(OdooUtils.isSessionExpiredError("odoo.http.session.SessionExpiredException"));
+		assertTrue(OdooUtils.isSessionExpiredError("SessionExpiredException"));
+
+		assertFalse(OdooUtils.isSessionExpiredError("odoo.exceptions.AccessDenied"));
+		assertFalse(OdooUtils.isSessionExpiredError("odoo.http.NoSessionExpiredException"));
+		assertFalse(OdooUtils.isSessionExpiredError(""));
+		assertFalse(OdooUtils.isSessionExpiredError(null));
 	}
 
 	@Test

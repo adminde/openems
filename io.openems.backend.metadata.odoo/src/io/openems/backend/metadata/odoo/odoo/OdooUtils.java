@@ -154,12 +154,13 @@ public class OdooUtils {
 				// "exception_type":"access_denied"
 				var dataExceptionType = JsonUtils.getAsOptionalString(data, "exception_type");
 
+				if (isSessionExpiredError(dataName)) {
+					throw new SessionExpiredException();
+				}
+
 				switch (dataName) {
 				case "odoo.exceptions.AccessDenied":
 					throw OpenemsError.COMMON_AUTHENTICATION_FAILED.exception();
-
-				case "odoo.http.SessionExpiredException":
-					throw new SessionExpiredException();
 
 				default:
 					// for OpenemsExceptions from Odoo only throw OpenemsException with message for
@@ -197,6 +198,24 @@ public class OdooUtils {
 				connection.disconnect();
 			}
 		}
+	}
+
+	/**
+	 * Checks if the name of an Odoo JSON-RPC error denotes an expired session.
+	 *
+	 * <p>
+	 * Odoo up to 19 serializes the error as
+	 * {@code odoo.http.SessionExpiredException}, Odoo 20 as
+	 * {@code odoo.http.session.SessionExpiredException}. Only the class name is
+	 * compared, so both work.
+	 *
+	 * @param dataName the 'error.data.name' of the JSON-RPC response
+	 * @return true if the session expired
+	 */
+	public static boolean isSessionExpiredError(String dataName) {
+		return dataName != null //
+				&& (dataName.equals("SessionExpiredException") //
+						|| dataName.endsWith(".SessionExpiredException"));
 	}
 
 	protected static SuccessResponseAndHeaders sendAdminJsonrpcRequest(Credentials credentials, String url,

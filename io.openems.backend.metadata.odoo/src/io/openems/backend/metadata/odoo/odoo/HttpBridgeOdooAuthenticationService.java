@@ -45,7 +45,7 @@ public class HttpBridgeOdooAuthenticationService
 		return json.flatMap(JsonUtils::getAsOptionalJsonObject) //
 				.map(j -> j.get("error")) //
 				.map(OdooResponseError.serializer()::deserialize) //
-				.map(error -> "odoo.http.SessionExpiredException".equals(error.dataName())) //
+				.map(error -> OdooUtils.isSessionExpiredError(error.dataName())) //
 				.orElse(false);
 	}
 
