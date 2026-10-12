@@ -16,6 +16,7 @@ import org.junit.Test;
 import io.openems.backend.metadata.odoo.Field;
 import io.openems.backend.metadata.odoo.Field.EdgeDevice;
 import io.openems.backend.metadata.odoo.odoo.Domain.Operator;
+import io.openems.common.exceptions.OpenemsException;
 
 public class OdooUtilsTest {
 
@@ -100,6 +101,19 @@ public class OdooUtilsTest {
 		assertFalse(OdooUtils.isSessionExpiredError("odoo.http.NoSessionExpiredException"));
 		assertFalse(OdooUtils.isSessionExpiredError(""));
 		assertFalse(OdooUtils.isSessionExpiredError(null));
+	}
+
+	@Test
+	public void testGetObjectReferenceId() throws OpenemsException {
+		assertEquals(10, OdooUtils.getObjectReferenceId("base", "group_portal", //
+				new Object[] { "res.groups", 10 }));
+
+		// no read access: check_object_reference returns (model, False)
+		assertThrows(OpenemsException.class, () -> OdooUtils.getObjectReferenceId("base", "group_portal", //
+				new Object[] { "res.groups", false }));
+		assertThrows(OpenemsException.class, () -> OdooUtils.getObjectReferenceId("base", "group_portal", //
+				new Object[] { "res.groups" }));
+		assertThrows(OpenemsException.class, () -> OdooUtils.getObjectReferenceId("base", "group_portal", null));
 	}
 
 	@Test

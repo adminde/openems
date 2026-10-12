@@ -471,18 +471,32 @@ public class OdooUtils {
 	 */
 	protected static int getObjectReference(Credentials credentials, String module, String name)
 			throws OpenemsException {
+		final Object result;
 		try {
 			// Execute XML request
-			var resultObj = (Object[]) executeKw(credentials, "ir.model.data", "check_object_reference",
-					new Object[] { module, name });
-			if (resultObj == null) {
-				throw new OpenemsException(
-						"No matching entry found for module [" + module + "] and name [" + name + "]");
-			}
-			return (int) resultObj[1];
+			result = executeKw(credentials, "ir.model.data", "check_object_reference", new Object[] { module, name });
 		} catch (Throwable e) {
 			throw new OpenemsException("Unable to read from Odoo: " + e.getMessage());
 		}
+		return getObjectReferenceId(module, name, result);
+	}
+
+	/**
+	 * Gets the id from the result of 'ir.model.data.check_object_reference', which
+	 * is (model, id), or (model, False) if the user has no read access.
+	 *
+	 * @param module the Odoo module
+	 * @param name   the external identifier
+	 * @param result the result of check_object_reference
+	 * @return internal id of external identifier
+	 * @throws OpenemsException if the result holds no id
+	 */
+	protected static int getObjectReferenceId(String module, String name, Object result) throws OpenemsException {
+		if (result instanceof Object[] reference && reference.length > 1 && reference[1] instanceof Integer id) {
+			return id;
+		}
+		throw new OpenemsException("No id for external identifier [" + module + "." + name + "]: " //
+				+ "not found or no read access for the Odoo user");
 	}
 
 	/**
