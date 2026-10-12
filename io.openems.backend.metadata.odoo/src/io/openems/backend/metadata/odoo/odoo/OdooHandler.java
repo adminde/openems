@@ -291,7 +291,9 @@ public class OdooHandler {
 				Field.Partner.CITY, //
 				Field.Partner.COUNTRY, //
 				Field.Partner.NAME, //
-				Field.Partner.COMMERCIAL_PARTNER);
+				Field.Partner.COMMERCIAL_PARTNER, //
+				Field.Partner.IS_COMPANY, //
+				Field.Partner.PARENT);
 
 		// 'commercial_company_name' is the key of GetUserInformationResponse; the
 		// Odoo field is not read, since Odoo 20 it is the own name of a person
@@ -512,10 +514,19 @@ public class OdooHandler {
 	 */
 	private Optional<String> getCompanyName(int partnerId) throws OpenemsException {
 		var partner = OdooUtils.readOne(this.credentials, Field.Partner.ODOO_MODEL, partnerId, //
-				Field.Partner.COMMERCIAL_PARTNER, Field.Partner.NAME);
+				Field.Partner.COMMERCIAL_PARTNER, Field.Partner.NAME, Field.Partner.IS_COMPANY, Field.Partner.PARENT);
 		return this.getCompanyName(partnerId, partner);
 	}
 
+	/**
+	 * Gets the name of the company of a partner, see {@link #getCompanyName(int)}.
+	 *
+	 * @param partnerId the Odoo partner id
+	 * @param partner   the partner with the fields commercial_partner_id, name,
+	 *                  is_company and parent_id
+	 * @return the company name or empty
+	 * @throws OpenemsException on error
+	 */
 	private Optional<String> getCompanyName(int partnerId, Map<String, Object> partner) throws OpenemsException {
 		var companyIdOpt = getOtherCommercialPartnerId(partnerId, partner);
 		if (companyIdOpt.isPresent()) {
@@ -523,7 +534,7 @@ public class OdooHandler {
 					Field.Partner.NAME);
 			return ObjectUtils.getAsOptionalString(company.get(Field.Partner.NAME.id()));
 		}
-		if (this.isCompanyRecord(partnerId)) {
+		if (this.isCompanyRecord(partnerId, partner)) {
 			return ObjectUtils.getAsOptionalString(partner.get(Field.Partner.NAME.id()));
 		}
 		return Optional.empty();
@@ -544,6 +555,19 @@ public class OdooHandler {
 	private boolean isCompanyRecord(int partnerId) throws OpenemsException {
 		var partner = OdooUtils.readOne(this.credentials, Field.Partner.ODOO_MODEL, partnerId, //
 				Field.Partner.IS_COMPANY, Field.Partner.PARENT);
+		return this.isCompanyRecord(partnerId, partner);
+	}
+
+	/**
+	 * Checks if a partner is a company record itself, see
+	 * {@link #isCompanyRecord(int)}.
+	 *
+	 * @param partnerId the Odoo partner id
+	 * @param partner   the partner with the fields is_company and parent_id
+	 * @return true if the partner is a company
+	 * @throws OpenemsException on error
+	 */
+	private boolean isCompanyRecord(int partnerId, Map<String, Object> partner) throws OpenemsException {
 		if (Boolean.TRUE.equals(partner.get(Field.Partner.IS_COMPANY.id()))) {
 			return true;
 		}
