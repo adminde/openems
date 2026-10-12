@@ -358,7 +358,6 @@ public interface Field {
 		ADDRESS_TYPE("type", true), //
 		LANGUAGE("lang", true), //
 		CATEGORY_ID("category_id", true), //
-		VAT("vat", true), //
 		/**
 		 * The company of a contact: the partner itself if it has no parent_id (up to
 		 * Odoo 18 also if it is_company), otherwise that of its parent.

@@ -411,9 +411,6 @@ public class OdooHandler {
 			return new HashMap<>();
 		}
 		var jCompanyName = companyNameOpt.get();
-		var jVatOpt = getAsOptionalString(companyOpt.get(), "vat") //
-				.map(String::trim) //
-				.filter(vat -> !vat.isEmpty());
 
 		if (user != null) {
 			var partnerCompanyNameOpt = this.getCompanyName(this.getOdooPartnerId(user));
@@ -425,12 +422,12 @@ public class OdooHandler {
 		}
 
 		Map<String, Object> companyFields = new HashMap<>();
-		companyFields.put(Field.Partner.PARENT.id(), this.findOrCreateCompany(jCompanyName, jVatOpt));
+		companyFields.put(Field.Partner.PARENT.id(), this.findOrCreateCompany(jCompanyName));
 		return companyFields;
 	}
 
 	/**
-	 * Finds the company with the given name or VAT, otherwise creates it.
+	 * Finds the company with the given name, otherwise creates it.
 	 *
 	 * <p>
 	 * A company is a partner without parent_id; contacts are linked to it via
@@ -441,43 +438,33 @@ public class OdooHandler {
 	 * company_type no longer exists in Odoo 20.
 	 *
 	 * @param name the company name
-	 * @param vat  the optional VAT
 	 * @return the Odoo partner id of the company
 	 * @throws OpenemsException on error
 	 */
-	private int findOrCreateCompany(String name, Optional<String> vat) throws OpenemsException {
-		for (var domains : getCompanySearchDomains(name, vat)) {
-			var found = OdooUtils.search(this.credentials, Field.Partner.ODOO_MODEL, //
-					Map.of("order", "is_company desc, id asc", "limit", 1), domains);
-			if (found.length > 0) {
-				return found[0];
-			}
+	private int findOrCreateCompany(String name) throws OpenemsException {
+		var found = OdooUtils.search(this.credentials, Field.Partner.ODOO_MODEL, //
+				Map.of("order", "is_company desc, id asc", "limit", 1), getCompanySearchDomains(name));
+		if (found.length > 0) {
+			return found[0];
 		}
 
 		Map<String, Object> companyFields = new HashMap<>();
 		companyFields.put(Field.Partner.NAME.id(), name);
 		companyFields.put(Field.Partner.IS_COMPANY.id(), true);
-		vat.ifPresent(v -> companyFields.put(Field.Partner.VAT.id(), v));
 		return OdooUtils.create(this.credentials, Field.Partner.ODOO_MODEL, companyFields);
 	}
 
 	/**
-	 * Gets the search domains for a company, in the order they are tried: by VAT
-	 * if given, then by name.
+	 * Gets the search domains for a company by name.
 	 *
 	 * @param name the company name
-	 * @param vat  the optional VAT
-	 * @return the domains of each search
+	 * @return the domains
 	 */
-	protected static List<Domain[]> getCompanySearchDomains(String name, Optional<String> vat) {
-		final var noParent = new Domain(Field.Partner.PARENT, Operator.EQ, false);
-		final var noUser = new Domain(Field.Partner.USERS, Operator.EQ, false);
-		final var searches = new ArrayList<Domain[]>();
-		vat.ifPresent(v -> searches.add(new Domain[] { noParent, noUser, //
-				new Domain(Field.Partner.VAT, Operator.EQ, v) }));
-		searches.add(new Domain[] { noParent, noUser, //
-				new Domain(Field.Partner.NAME, Operator.EQ, name) });
-		return searches;
+	protected static Domain[] getCompanySearchDomains(String name) {
+		return new Domain[] { //
+				new Domain(Field.Partner.PARENT, Operator.EQ, false), //
+				new Domain(Field.Partner.USERS, Operator.EQ, false), //
+				new Domain(Field.Partner.NAME, Operator.EQ, name) };
 	}
 
 	/**
