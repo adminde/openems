@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
@@ -481,6 +482,30 @@ public class OdooUtils {
 			return (int) resultObj[1];
 		} catch (Throwable e) {
 			throw new OpenemsException("Unable to read from Odoo: " + e.getMessage());
+		}
+	}
+
+	/**
+	 * Returns those of the given fields that exist on an Odoo model, using
+	 * 'fields_get'. Used where field names differ between Odoo versions.
+	 *
+	 * @param credentials the Odoo credentials
+	 * @param model       Odoo model to query (e.g. 'res.users')
+	 * @param fields      the candidate fields
+	 * @return the names of the existing fields
+	 * @throws OpenemsException on error
+	 */
+	@SuppressWarnings("unchecked")
+	protected static Set<String> getExistingFields(Credentials credentials, String model, Field... fields)
+			throws OpenemsException {
+		var fieldStrings = getAsStringArray(fields);
+		try {
+			// Execute XML request
+			var result = (Map<String, Object>) executeKw(credentials, model, "fields_get", new Object[] {},
+					Map.of("allfields", fieldStrings, "attributes", new String[] { "type" }));
+			return Set.copyOf(result.keySet());
+		} catch (Throwable e) {
+			throw new OpenemsException("Unable to read fields from Odoo: " + e.getMessage());
 		}
 	}
 

@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -83,6 +84,11 @@ public class OdooHandler {
 
 	private final DebugExecutor refreshToken;
 	private final DebugExecutor executor;
+
+	/** Database IDs of the {@link OdooUserGroup}s, resolved by XML-ID. */
+	private final Map<OdooUserGroup, Integer> groupIds = new ConcurrentHashMap<>();
+	/** Name of the groups field of 'res.users', see getUserGroupsField(). */
+	private volatile String userGroupsField;
 
 	public OdooHandler(MetadataOdoo parent, EdgeCache edgeCache, Config config, DebugExecutor refreshToken,
 			DebugExecutor executor) {
@@ -1018,7 +1024,7 @@ public class OdooHandler {
 		userFields.put(Field.User.LOGIN.id(), email);
 		userFields.put(Field.Partner.EMAIL.id(), email);
 		userFields.put(Field.User.GLOBAL_ROLE.id(), role.getOdooRole());
-		userFields.put(Field.User.GROUPS.id(), role.toOdooIds());
+		userFields.put(this.getUserGroupsField(), this.getOdooGroupIds(role));
 		userFields.putAll(this.updateAddress(jsonObject));
 		userFields.putAll(this.updateCompany(jsonObject));
 
@@ -1076,6 +1082,52 @@ public class OdooHandler {
 		} else {
 			this.sendRegistrationMail(createdUserId, oem);
 		}
+	}
+
+	/**
+	 * Gets the name of the groups field of 'res.users': 'group_ids' since Odoo 19,
+	 * 'groups_id' before. Resolved once via 'fields_get' and cached.
+	 *
+	 * @return the field name
+	 * @throws OpenemsException on error
+	 */
+	private String getUserGroupsField() throws OpenemsException {
+		var field = this.userGroupsField;
+		if (field != null) {
+			return field;
+		}
+		var existing = OdooUtils.getExistingFields(this.credentials, Field.User.ODOO_MODEL, //
+				Field.User.GROUPS, Field.User.GROUPS_LEGACY);
+		if (existing.contains(Field.User.GROUPS.id())) {
+			field = Field.User.GROUPS.id();
+		} else if (existing.contains(Field.User.GROUPS_LEGACY.id())) {
+			field = Field.User.GROUPS_LEGACY.id();
+		} else {
+			throw new OpenemsException("Groups field not found on [" + Field.User.ODOO_MODEL + "]");
+		}
+		this.userGroupsField = field;
+		return field;
+	}
+
+	/**
+	 * Gets the database IDs of the Odoo groups of the given {@link OdooUserRole}.
+	 * Each group is resolved once by its XML-ID and cached.
+	 *
+	 * @param role the {@link OdooUserRole}
+	 * @return the group IDs
+	 * @throws OpenemsException on error
+	 */
+	protected List<Integer> getOdooGroupIds(OdooUserRole role) throws OpenemsException {
+		final var ids = new ArrayList<Integer>();
+		for (var group : role.getOdooGroups()) {
+			var id = this.groupIds.get(group);
+			if (id == null) {
+				id = OdooUtils.getObjectReference(this.credentials, group.getModule(), group.getName());
+				this.groupIds.put(group, id);
+			}
+			ids.add(id);
+		}
+		return ids;
 	}
 
 	/**

@@ -1,5 +1,6 @@
 package io.openems.backend.metadata.odoo.odoo;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
@@ -16,7 +17,19 @@ public class OdooUserRoleTest {
 		var role = OdooUserRole.INSTALLER;
 		assertEquals("installer", role.getOdooRole());
 		assertNotNull("OdooGroups should not be null", role.getOdooGroups());
-		assertNotNull("OdooIds should not be null", role.toOdooIds());
+	}
+
+	@Test
+	public void testOdooGroups() {
+		assertArrayEquals(new OdooUserGroup[] { OdooUserGroup.PORTAL }, OdooUserRole.INSTALLER.getOdooGroups());
+		assertArrayEquals(new OdooUserGroup[] { OdooUserGroup.PORTAL }, OdooUserRole.OWNER.getOdooGroups());
+		assertEquals(0, OdooUserRole.ADMIN.getOdooGroups().length);
+		assertEquals(0, OdooUserRole.GUEST.getOdooGroups().length);
+
+		// resolved by XML-ID, the database ID differs between Odoo databases
+		assertEquals("base", OdooUserGroup.PORTAL.getModule());
+		assertEquals("group_portal", OdooUserGroup.PORTAL.getName());
+		assertEquals("base.group_portal", OdooUserGroup.PORTAL.getXmlId());
 	}
 
 	@Test
