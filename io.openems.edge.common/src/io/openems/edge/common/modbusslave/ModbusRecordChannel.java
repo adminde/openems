@@ -156,12 +156,19 @@ public class ModbusRecordChannel extends ModbusRecord {
 		if (unit.discreteUnit != null) {
 			return getBaseUnit(unit.discreteUnit);
 		}
+		// The Unit enumeration does not relate per mille to percent.
+		if (unit == Unit.THOUSANDTH) {
+			return Unit.PERCENT;
+		}
 		return unit.baseUnit != null ? unit.baseUnit : unit;
 	}
 
 	private static int getScaleFactor(Unit unit) {
 		if (unit.discreteUnit != null) {
 			return getScaleFactor(unit.discreteUnit);
+		}
+		if (unit == Unit.THOUSANDTH) {
+			return -1;
 		}
 		return unit.baseUnit != null ? unit.scaleFactor : 0;
 	}

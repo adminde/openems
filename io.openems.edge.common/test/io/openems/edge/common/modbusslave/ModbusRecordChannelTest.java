@@ -35,6 +35,9 @@ public class ModbusRecordChannelTest {
 					.accessMode(READ_WRITE)), //
 			VOLTAGE_CHANNEL(Doc.of(OpenemsType.INTEGER)//
 					.unit(Unit.MILLIVOLT) //
+					.accessMode(READ_WRITE)), //
+			SHARE_CHANNEL(Doc.of(OpenemsType.INTEGER)//
+					.unit(Unit.THOUSANDTH) //
 					.accessMode(READ_WRITE)); //
 
 			private final Doc doc;
@@ -169,6 +172,16 @@ public class ModbusRecordChannelTest {
 		bytes = ModbusRecordUint16.toByteArray(40000);
 		voltage.writeValue(0, bytes[0], bytes[1]);
 		assertEquals(4_000_000L, written[0]);
+	}
+
+	@Test
+	public void testPerMilleAsPercent() {
+		var component = new DummyComponent("foo0");
+		TestUtils.withValue(component, DummyComponent.ChannelId.SHARE_CHANNEL, 456);
+
+		var share = new ModbusRecordChannel(0, "Share", UINT16, DummyComponent.ChannelId.SHARE_CHANNEL, READ_WRITE,
+				null, null, Unit.PERCENT, 10);
+		assertArrayEquals(ModbusRecordUint16.toByteArray(456), share.getValue(component));
 	}
 
 	@Test
