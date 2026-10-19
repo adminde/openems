@@ -4,6 +4,8 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +15,7 @@ import io.openems.common.channel.Unit;
 import io.openems.common.types.ChannelAddress;
 import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.channel.ChannelId;
+import io.openems.edge.common.channel.EnumDoc;
 import io.openems.edge.common.component.OpenemsComponent;
 
 public class ModbusRecordChannel extends ModbusRecord {
@@ -20,6 +23,7 @@ public class ModbusRecordChannel extends ModbusRecord {
 	private final Logger log = LoggerFactory.getLogger(ModbusRecordChannel.class);
 
 	private final String name;
+	private final String description;
 	private final ChannelId channelId;
 	private final AccessMode accessMode;
 	private final UnaryOperator<Number> mapValue;
@@ -43,7 +47,7 @@ public class ModbusRecordChannel extends ModbusRecord {
 
 	public ModbusRecordChannel(int offset, String name, ModbusType type, ChannelId channelId,
 			AccessMode modbusApiAccessMode, UnaryOperator<Number> mapValue) {
-		this(offset, name, type, channelId, modbusApiAccessMode, null, mapValue, null, 1);
+		this(offset, name, null, type, channelId, modbusApiAccessMode, null, mapValue, null, 1);
 	}
 
 	/**
@@ -62,8 +66,15 @@ public class ModbusRecordChannel extends ModbusRecord {
 	 * the Modbus table if no source is given. A source allows a table to pass
 	 * through the Channel of another Component, e.g. of the Sum.
 	 *
+	 * <p>
+	 * The optional description replaces the text of the Channel, because the text
+	 * describes the Channel in its own Unit, while the register may transmit it
+	 * differently. The options of an enumeration are appended to it.
+	 *
 	 * @param offset              the register address offset
 	 * @param name                the name of the register
+	 * @param description         the description of the register, or null for
+	 *                            the text of the Channel
 	 * @param type                the {@link ModbusType}
 	 * @param channelId           the {@link ChannelId}
 	 * @param modbusApiAccessMode the configured {@link AccessMode}
@@ -75,11 +86,12 @@ public class ModbusRecordChannel extends ModbusRecord {
 	 *                            the Channel value as it is
 	 * @param gain                the positive gain of the register
 	 */
-	public ModbusRecordChannel(int offset, String name, ModbusType type, ChannelId channelId,
+	public ModbusRecordChannel(int offset, String name, String description, ModbusType type, ChannelId channelId,
 			AccessMode modbusApiAccessMode, OpenemsComponent source, UnaryOperator<Number> mapValue, Unit unit,
 			int gain) {
 		super(offset, type);
 		this.name = name;
+		this.description = description;
 		this.channelId = channelId;
 		this.accessMode = evaluateActualAccessMode(channelId, modbusApiAccessMode);
 		this.mapValue = mapValue;
@@ -381,7 +393,20 @@ public class ModbusRecordChannel extends ModbusRecord {
 
 	@Override
 	public String getValueDescription() {
-		return this.channelId.doc().getText();
+		if (this.description == null) {
+			return this.channelId.doc().getText();
+		}
+		if (this.channelId.doc() instanceof EnumDoc doc) {
+			// Some enumerations like Level use a valid option as undefined option.
+			var options = Stream.of(doc.getOptions()) //
+					.filter(option -> !option.isUndefined() || option.getValue() >= 0) //
+					.map(option -> option.getValue() + ":" + option.getName()) //
+					.collect(Collectors.joining(", "));
+			if (!options.isEmpty()) {
+				return this.description + "; " + options;
+			}
+		}
+		return this.description;
 	}
 
 	@Override

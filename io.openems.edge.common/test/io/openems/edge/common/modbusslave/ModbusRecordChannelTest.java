@@ -123,13 +123,13 @@ public class ModbusRecordChannelTest {
 				.withPowerChannel(-12346) //
 				.withVoltageChannel(400_049);
 
-		var power = new ModbusRecordChannel(0, "Power", INT32, DummyComponent.ChannelId.POWER_CHANNEL, READ_WRITE,
+		var power = new ModbusRecordChannel(0, "Power", null, INT32, DummyComponent.ChannelId.POWER_CHANNEL, READ_WRITE,
 				null, null, Unit.KILOWATT, 100);
 		assertArrayEquals(ModbusRecordInt32.toByteArray(-1235), power.getValue(component));
 		assertEquals(Unit.KILOWATT, power.getUnit());
 		assertEquals(100, power.getGain());
 
-		var voltage = new ModbusRecordChannel(0, "Voltage", UINT16, DummyComponent.ChannelId.VOLTAGE_CHANNEL,
+		var voltage = new ModbusRecordChannel(0, "Voltage", null, UINT16, DummyComponent.ChannelId.VOLTAGE_CHANNEL,
 				READ_WRITE, null, null, Unit.VOLT, 10);
 		assertArrayEquals(ModbusRecordUint16.toByteArray(4000), voltage.getValue(component));
 	}
@@ -139,7 +139,7 @@ public class ModbusRecordChannelTest {
 		var component = new DummyComponent("foo0") //
 				.withPowerChannel(-12346);
 
-		var power = new ModbusRecordChannel(0, "Power", INT32, DummyComponent.ChannelId.POWER_CHANNEL, READ_WRITE,
+		var power = new ModbusRecordChannel(0, "Power", null, INT32, DummyComponent.ChannelId.POWER_CHANNEL, READ_WRITE,
 				null, value -> -value.intValue(), Unit.KILOWATT, 100);
 		assertArrayEquals(ModbusRecordInt32.toByteArray(1235), power.getValue(component));
 	}
@@ -151,13 +151,13 @@ public class ModbusRecordChannelTest {
 				.withReadOnlyChannel(100);
 
 		assertArrayEquals(ModbusRecordUint16.toByteArray(100),
-				new ModbusRecordChannel(0, "Bar", UINT16, DummyComponent.ChannelId.READ_ONLY_CHANNEL, READ_WRITE,
+				new ModbusRecordChannel(0, "Bar", null, UINT16, DummyComponent.ChannelId.READ_ONLY_CHANNEL, READ_WRITE,
 						source, null, null, 1).getValue(table));
 	}
 
 	@Test
 	public void testWriteValueWithGain() {
-		var power = new ModbusRecordChannel(0, "Power", INT32, DummyComponent.ChannelId.POWER_CHANNEL, READ_WRITE,
+		var power = new ModbusRecordChannel(0, "Power", null, INT32, DummyComponent.ChannelId.POWER_CHANNEL, READ_WRITE,
 				null, null, Unit.KILOWATT, 100);
 		var written = new Object[1];
 		power.onWriteValue(value -> written[0] = value);
@@ -166,7 +166,7 @@ public class ModbusRecordChannelTest {
 		power.writeValue(1, bytes[2], bytes[3]);
 		assertEquals(-12340L, written[0]);
 
-		var voltage = new ModbusRecordChannel(0, "Voltage", UINT16, DummyComponent.ChannelId.VOLTAGE_CHANNEL,
+		var voltage = new ModbusRecordChannel(0, "Voltage", null, UINT16, DummyComponent.ChannelId.VOLTAGE_CHANNEL,
 				READ_WRITE, null, null, Unit.VOLT, 10);
 		voltage.onWriteValue(value -> written[0] = value);
 		bytes = ModbusRecordUint16.toByteArray(40000);
@@ -179,16 +179,32 @@ public class ModbusRecordChannelTest {
 		var component = new DummyComponent("foo0");
 		TestUtils.withValue(component, DummyComponent.ChannelId.SHARE_CHANNEL, 456);
 
-		var share = new ModbusRecordChannel(0, "Share", UINT16, DummyComponent.ChannelId.SHARE_CHANNEL, READ_WRITE,
+		var share = new ModbusRecordChannel(0, "Share", null, UINT16, DummyComponent.ChannelId.SHARE_CHANNEL, READ_WRITE,
 				null, null, Unit.PERCENT, 10);
 		assertArrayEquals(ModbusRecordUint16.toByteArray(456), share.getValue(component));
 	}
 
 	@Test
+	public void testDescription() {
+		var plain = new ModbusRecordChannel(0, "Power", null, INT32, DummyComponent.ChannelId.POWER_CHANNEL,
+				READ_WRITE, null, null, Unit.KILOWATT, 100);
+		assertEquals("", plain.getValueDescription());
+
+		var described = new ModbusRecordChannel(0, "Power", "Active power of the device", INT32,
+				DummyComponent.ChannelId.POWER_CHANNEL, READ_WRITE, null, null, Unit.KILOWATT, 100);
+		assertEquals("Active power of the device", described.getValueDescription());
+
+		var state = new ModbusRecordChannel(0, "State", "Highest Level of the active States", UINT16,
+				OpenemsComponent.ChannelId.STATE, READ_WRITE, null, null, null, 1);
+		assertEquals("Highest Level of the active States; 0:Ok, 1:Info, 2:Warning, 3:Fault",
+				state.getValueDescription());
+	}
+
+	@Test
 	public void testIncompatibleUnit() {
-		assertThrows(IllegalArgumentException.class, () -> new ModbusRecordChannel(0, "Power", INT32,
+		assertThrows(IllegalArgumentException.class, () -> new ModbusRecordChannel(0, "Power", null, INT32,
 				DummyComponent.ChannelId.POWER_CHANNEL, READ_WRITE, null, null, Unit.VOLT, 10));
-		assertThrows(IllegalArgumentException.class, () -> new ModbusRecordChannel(0, "Power", INT32,
+		assertThrows(IllegalArgumentException.class, () -> new ModbusRecordChannel(0, "Power", null, INT32,
 				DummyComponent.ChannelId.POWER_CHANNEL, READ_WRITE, null, null, Unit.KILOWATT, 0));
 	}
 

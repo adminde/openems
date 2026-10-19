@@ -50,22 +50,24 @@ public final class ModbusSlaveNatureTable {
 		 * conversion. The Channel belongs to the optional source Component, e.g. the
 		 * Sum, or to the Component of this table.
 		 *
-		 * @param offset    the register address offset
-		 * @param name      an optional name of the register, replacing the Channel
-		 *                  address
-		 * @param source    the Component of the Channel, or null for the Component
-		 *                  of this table
-		 * @param channelId the {@link ChannelId}
-		 * @param type      the {@link ModbusType}
-		 * @param unit      the {@link Unit} of the register, sharing the base Unit of
-		 *                  the Channel, or null to transmit the Channel value as it is
-		 * @param gain      the positive gain of the register
-		 * @param mapValue  an optional mapping function to map the Channel value to a
-		 *                  Number
+		 * @param offset      the register address offset
+		 * @param name        an optional name of the register, replacing the Channel
+		 *                    address
+		 * @param description an optional description of the register, replacing the
+		 *                    text of the Channel
+		 * @param source      the Component of the Channel, or null for the Component
+		 *                    of this table
+		 * @param channelId   the {@link ChannelId}
+		 * @param type        the {@link ModbusType}
+		 * @param unit        the {@link Unit} of the register, sharing the base Unit of
+		 *                    the Channel, or null to transmit the Channel value as it is
+		 * @param gain        the positive gain of the register
+		 * @param mapValue    an optional mapping function to map the Channel value to a
+		 *                    Number
 		 * @return myself
 		 */
-		public Builder channel(int offset, String name, OpenemsComponent source, ChannelId channelId,
-				ModbusType type, Unit unit, int gain, UnaryOperator<Number> mapValue) {
+		public Builder channel(int offset, String name, String description, OpenemsComponent source,
+				ChannelId channelId, ModbusType type, Unit unit, int gain, UnaryOperator<Number> mapValue) {
 			var filter = this.accessModeFilter;
 			var channel = channelId.doc().getAccessMode();
 			if (
@@ -78,7 +80,8 @@ public final class ModbusSlaveNatureTable {
 					// Filter for WRITE_ONLY channels
 					filter == AccessMode.WRITE_ONLY
 							&& (channel == AccessMode.WRITE_ONLY || channel == AccessMode.READ_WRITE)) {
-				this.add(new ModbusRecordChannel(offset, name, type, channelId, filter, source, mapValue, unit, gain));
+				this.add(new ModbusRecordChannel(offset, name, description, type, channelId, filter, source, mapValue,
+						unit, gain));
 
 			} else {
 				// Channel did not pass filter -> show as Reserved
@@ -111,13 +114,13 @@ public final class ModbusSlaveNatureTable {
 		 */
 		public Builder channel(int offset, String name, ChannelId channelId, ModbusType type,
 				UnaryOperator<Number> mapValue) {
-			return this.channel(offset, name, null, channelId, type, null, 1, mapValue);
+			return this.channel(offset, name, null, null, channelId, type, null, 1, mapValue);
 		}
 
 		/**
 		 * Add a Channel with a name to the {@link Builder} that is transmitted in the
 		 * given {@link Unit}, multiplied by the given gain. See
-		 * {@link #channel(int, String, OpenemsComponent, ChannelId, ModbusType, Unit, int, UnaryOperator)}.
+		 * {@link #channel(int, String, String, OpenemsComponent, ChannelId, ModbusType, Unit, int, UnaryOperator)}.
 		 *
 		 * @param offset    the register address offset
 		 * @param name      the name of the register, replacing the Channel address
@@ -128,7 +131,7 @@ public final class ModbusSlaveNatureTable {
 		 * @return myself
 		 */
 		public Builder channel(int offset, String name, ChannelId channelId, ModbusType type, Unit unit, int gain) {
-			return this.channel(offset, name, null, channelId, type, unit, gain, null);
+			return this.channel(offset, name, null, null, channelId, type, unit, gain, null);
 		}
 
 		/**
