@@ -1,5 +1,7 @@
 package io.openems.edge.ess.power.api;
 
+import java.util.function.Predicate;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +68,27 @@ public interface Power {
 	public int getMaxPower(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr);
 
 	/**
+	 * Gets the maximum possible Power under the Constraints that pass the given
+	 * filter.
+	 *
+	 * <p>
+	 * The filter applies to the Constraints that were added during the current
+	 * Cycle, e.g. by Controllers. The generic and static Constraints of the ESS
+	 * always apply. A filter that rejects all EQUALS Constraints gives the range
+	 * that remains for a setpoint under all other limits.
+	 *
+	 * @param ess    the {@link ManagedSymmetricEss}
+	 * @param phase  the {@link SingleOrAllPhase}
+	 * @param pwr    the {@link Pwr}
+	 * @param filter the filter for the Constraints of the current Cycle
+	 * @return the maximum possible power
+	 */
+	public default int getMaxPower(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr,
+			Predicate<Constraint> filter) {
+		return this.getMaxPower(ess, phase, pwr);
+	}
+
+	/**
 	 * Gets the minimum possible possible Power under the active Constraints.
 	 * 
 	 * @param ess   the {@link ManagedSymmetricEss}
@@ -74,6 +97,22 @@ public interface Power {
 	 * @return the minimum possible power
 	 */
 	public int getMinPower(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr);
+
+	/**
+	 * Gets the minimum possible Power under the Constraints that pass the given
+	 * filter. See
+	 * {@link #getMaxPower(ManagedSymmetricEss, SingleOrAllPhase, Pwr, Predicate)}.
+	 *
+	 * @param ess    the {@link ManagedSymmetricEss}
+	 * @param phase  the {@link SingleOrAllPhase}
+	 * @param pwr    the {@link Pwr}
+	 * @param filter the filter for the Constraints of the current Cycle
+	 * @return the minimum possible power
+	 */
+	public default int getMinPower(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr,
+			Predicate<Constraint> filter) {
+		return this.getMinPower(ess, phase, pwr);
+	}
 
 	/**
 	 * Gets the Coefficient singleton for a specific combination of ess, phase and

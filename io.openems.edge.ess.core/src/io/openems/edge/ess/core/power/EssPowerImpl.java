@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Predicate;
 
 import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -182,8 +183,18 @@ public class EssPowerImpl extends AbstractOpenemsComponent implements EssPower, 
 	}
 
 	@Override
+	public int getMaxPower(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr, Predicate<Constraint> filter) {
+		return this.powerDistributionHandler.getPowerExtrema(ess, phase, pwr, GoalType.MAXIMIZE, filter);
+	}
+
+	@Override
 	public int getMinPower(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr) {
 		return this.powerDistributionHandler.getPowerExtrema(ess, phase, pwr, GoalType.MINIMIZE);
+	}
+
+	@Override
+	public int getMinPower(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr, Predicate<Constraint> filter) {
+		return this.powerDistributionHandler.getPowerExtrema(ess, phase, pwr, GoalType.MINIMIZE, filter);
 	}
 
 	@Override

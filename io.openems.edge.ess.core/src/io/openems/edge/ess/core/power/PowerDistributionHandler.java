@@ -1,5 +1,7 @@
 package io.openems.edge.ess.core.power;
 
+import java.util.function.Predicate;
+
 import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
 
 import io.openems.common.exceptions.OpenemsException;
@@ -91,4 +93,19 @@ public interface PowerDistributionHandler {
 	 * @return the value
 	 */
 	public int getPowerExtrema(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr, GoalType goal);
+
+	/**
+	 * Gets the extrem value for the given term under the Constraints of the
+	 * current Cycle that pass the given filter. The generic and static Constraints
+	 * of the ESS always apply.
+	 *
+	 * @param ess    the {@link ManagedSymmetricEss}
+	 * @param phase  the {@link SingleOrAllPhase}
+	 * @param pwr    the {@link Pwr}
+	 * @param goal   the {@link GoalType}
+	 * @param filter the filter for the Constraints of the current Cycle
+	 * @return the value
+	 */
+	public int getPowerExtrema(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr, GoalType goal,
+			Predicate<Constraint> filter);
 }

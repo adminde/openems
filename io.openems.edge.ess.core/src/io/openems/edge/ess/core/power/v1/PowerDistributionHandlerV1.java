@@ -5,6 +5,7 @@ import static io.openems.edge.ess.core.power.v1.data.LogUtil.debugLogConstraints
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
@@ -119,9 +120,15 @@ public class PowerDistributionHandlerV1 implements PowerDistributionHandler {
 
 	@Override
 	public int getPowerExtrema(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr, GoalType goal) {
+		return this.getPowerExtrema(ess, phase, pwr, goal, constraint -> true);
+	}
+
+	@Override
+	public int getPowerExtrema(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr, GoalType goal,
+			Predicate<Constraint> filter) {
 		final List<Constraint> allConstraints;
 		try {
-			allConstraints = this.data.getConstraintsForAllInverters();
+			allConstraints = this.data.getConstraintsForAllInverters(filter);
 		} catch (OpenemsException e) {
 			this.log.error("Unable to get Constraints " + e.getMessage());
 			return 0;
