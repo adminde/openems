@@ -23,6 +23,9 @@ public class ModbusRecordChannel extends ModbusRecord {
 	private final ChannelId channelId;
 	private final AccessMode accessMode;
 	private final UnaryOperator<Number> mapValue;
+	private final Unit unit;
+	private final int gain;
+	private final double factor;
 
 	protected Consumer<Object> onWriteValueCallback = null;
 
@@ -39,11 +42,41 @@ public class ModbusRecordChannel extends ModbusRecord {
 
 	public ModbusRecordChannel(int offset, String name, ModbusType type, ChannelId channelId,
 			AccessMode modbusApiAccessMode, UnaryOperator<Number> mapValue) {
+		this(offset, name, type, channelId, modbusApiAccessMode, mapValue, null, 1);
+	}
+
+	/**
+	 * Creates a {@link ModbusRecordChannel} that transmits the Channel value in
+	 * the given {@link Unit}, multiplied by the given gain.
+	 *
+	 * <p>
+	 * The register value is the Channel value converted to the given Unit and
+	 * multiplied by the gain, e.g. a Channel in [W] with Unit [kW] and gain 100
+	 * transmits 12345 W as 1235. Written values are converted back accordingly.
+	 * The optional mapping function is applied to read values before the
+	 * conversion.
+	 *
+	 * @param offset              the register address offset
+	 * @param name                the name of the register
+	 * @param type                the {@link ModbusType}
+	 * @param channelId           the {@link ChannelId}
+	 * @param modbusApiAccessMode the configured {@link AccessMode}
+	 * @param mapValue            an optional mapping function for read values
+	 * @param unit                the {@link Unit} of the register, sharing the
+	 *                            base Unit of the Channel, or null to transmit
+	 *                            the Channel value as it is
+	 * @param gain                the positive gain of the register
+	 */
+	public ModbusRecordChannel(int offset, String name, ModbusType type, ChannelId channelId,
+			AccessMode modbusApiAccessMode, UnaryOperator<Number> mapValue, Unit unit, int gain) {
 		super(offset, type);
 		this.name = name;
 		this.channelId = channelId;
 		this.accessMode = evaluateActualAccessMode(channelId, modbusApiAccessMode);
 		this.mapValue = mapValue;
+		this.unit = unit;
+		this.gain = gain;
+		this.factor = unit == null ? 1 : calculateFactor(channelId, unit, gain);
 
 		// initialize buffer
 		var byteLength = switch (this.getType()) {
@@ -86,6 +119,41 @@ public class ModbusRecordChannel extends ModbusRecord {
 			case READ_WRITE, WRITE_ONLY -> AccessMode.WRITE_ONLY;
 			};
 		};
+	}
+
+	/**
+	 * Calculates the factor between the Channel value and the register value.
+	 *
+	 * @param channelId the {@link ChannelId}
+	 * @param unit      the {@link Unit} of the register
+	 * @param gain      the gain of the register
+	 * @return the factor
+	 */
+	private static double calculateFactor(ChannelId channelId, Unit unit, int gain) {
+		if (gain <= 0) {
+			throw new IllegalArgumentException(
+					"Gain [" + gain + "] of Channel [" + channelId.id() + "] is not positive");
+		}
+		var channelUnit = channelId.doc().getUnit();
+		if (getBaseUnit(channelUnit) != getBaseUnit(unit)) {
+			throw new IllegalArgumentException("Unit [" + channelUnit + "] of Channel [" + channelId.id()
+					+ "] cannot be converted to [" + unit + "]");
+		}
+		return Math.pow(10, getScaleFactor(channelUnit) - getScaleFactor(unit)) * gain;
+	}
+
+	private static Unit getBaseUnit(Unit unit) {
+		if (unit.discreteUnit != null) {
+			return getBaseUnit(unit.discreteUnit);
+		}
+		return unit.baseUnit != null ? unit.baseUnit : unit;
+	}
+
+	private static int getScaleFactor(Unit unit) {
+		if (unit.discreteUnit != null) {
+			return getScaleFactor(unit.discreteUnit);
+		}
+		return unit.baseUnit != null ? unit.scaleFactor : 0;
 	}
 
 	public ChannelId getChannelId() {
@@ -219,14 +287,19 @@ public class ModbusRecordChannel extends ModbusRecord {
 		Arrays.fill(this.writeValueBuffer, null);
 
 		// Get Value-Object from ByteBuffer
-		var value = switch (this.getType()) {
-		case ENUM16, UINT16, INT16 -> buff.getShort();
-		case UINT32, INT32 -> buff.getInt();
-		case UINT64, INT64 -> buff.getLong();
-		case FLOAT32 -> buff.getFloat();
-		case FLOAT64 -> buff.getDouble();
-		case STRING16 -> ""; // TODO implement String conversion
-		};
+		final Object value;
+		if (this.unit != null) {
+			value = this.toChannelValue(buff);
+		} else {
+			value = switch (this.getType()) {
+			case ENUM16, UINT16, INT16 -> buff.getShort();
+			case UINT32, INT32 -> buff.getInt();
+			case UINT64, INT64 -> buff.getLong();
+			case FLOAT32 -> buff.getFloat();
+			case FLOAT64 -> buff.getDouble();
+			case STRING16 -> ""; // TODO implement String conversion
+			};
+		}
 
 		// Forward Value to ApiWorker
 		if (this.onWriteValueCallback != null) {
@@ -244,9 +317,38 @@ public class ModbusRecordChannel extends ModbusRecord {
 		return this.name;
 	}
 
+	/**
+	 * Converts a written register value to the Channel value.
+	 *
+	 * @param buff the {@link ByteBuffer} holding the register value
+	 * @return the Channel value
+	 */
+	private Object toChannelValue(ByteBuffer buff) {
+		double registerValue = switch (this.getType()) {
+		case ENUM16, UINT16 -> Short.toUnsignedInt(buff.getShort());
+		case INT16 -> buff.getShort();
+		case UINT32 -> Integer.toUnsignedLong(buff.getInt());
+		case INT32 -> buff.getInt();
+		case UINT64, INT64 -> buff.getLong();
+		case FLOAT32 -> buff.getFloat();
+		case FLOAT64 -> buff.getDouble();
+		case STRING16 -> throw new IllegalArgumentException("A String register cannot have a gain");
+		};
+		var channelValue = registerValue / this.factor;
+		return switch (this.channelId.doc().getType()) {
+		case FLOAT, DOUBLE -> channelValue;
+		case BOOLEAN, SHORT, INTEGER, LONG, STRING -> Math.round(channelValue);
+		};
+	}
+
 	@Override
 	public Unit getUnit() {
-		return this.channelId.doc().getUnit();
+		return this.unit != null ? this.unit : this.channelId.doc().getUnit();
+	}
+
+	@Override
+	public int getGain() {
+		return this.gain;
 	}
 
 	@Override
@@ -261,10 +363,28 @@ public class ModbusRecordChannel extends ModbusRecord {
 
 	private Object getMappedValueOrChannelValue(final Channel<?> channel) {
 		final var channelValue = channel.value().get();
-		if (channelValue == null || this.mapValue == null) {
-			return channelValue;
+		if (channelValue == null) {
+			return null;
 		}
-		return this.applyValueMapper(channelValue);
+		final var mappedValue = this.mapValue == null //
+				? channelValue //
+				: this.applyValueMapper(channelValue);
+		if (this.unit == null) {
+			return mappedValue;
+		}
+		return this.applyFactor(mappedValue);
+	}
+
+	private Object applyFactor(Object value) {
+		if (!(value instanceof Number number)) {
+			throw new IllegalArgumentException(
+					"Gain can only be applied to Number values, but got [" + value.getClass().getName() + "]");
+		}
+		var registerValue = number.doubleValue() * this.factor;
+		return switch (this.getType()) {
+		case FLOAT32, FLOAT64 -> registerValue;
+		case ENUM16, UINT16, UINT32, UINT64, INT16, INT32, INT64, STRING16 -> Math.round(registerValue);
+		};
 	}
 
 	private Object applyValueMapper(Object value) {

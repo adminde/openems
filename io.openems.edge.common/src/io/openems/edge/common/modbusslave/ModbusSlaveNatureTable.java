@@ -39,18 +39,29 @@ public final class ModbusSlaveNatureTable {
 		}
 
 		/**
-		 * Add a Channel to the {@link Builder}.
+		 * Add a Channel to the {@link Builder} that is transmitted in the given
+		 * {@link Unit}, multiplied by the given gain.
+		 *
+		 * <p>
+		 * The register value is the Channel value converted to the given Unit and
+		 * multiplied by the gain, e.g. a Channel in [W] with Unit [kW] and gain 100
+		 * transmits 12345 W as 1235. Written values are converted back accordingly.
+		 * The optional mapping function is applied to read values before the
+		 * conversion.
 		 *
 		 * @param offset    the register address offset
 		 * @param name      an optional name of the register, replacing the Channel
 		 *                  address
 		 * @param channelId the {@link ChannelId}
 		 * @param type      the {@link ModbusType}
+		 * @param unit      the {@link Unit} of the register, sharing the base Unit of
+		 *                  the Channel, or null to transmit the Channel value as it is
+		 * @param gain      the positive gain of the register
 		 * @param mapValue  an optional mapping function to map the Channel value to a
 		 *                  Number
 		 * @return myself
 		 */
-		public Builder channel(int offset, String name, ChannelId channelId, ModbusType type,
+		public Builder channel(int offset, String name, ChannelId channelId, ModbusType type, Unit unit, int gain,
 				UnaryOperator<Number> mapValue) {
 			var filter = this.accessModeFilter;
 			var channel = channelId.doc().getAccessMode();
@@ -64,7 +75,7 @@ public final class ModbusSlaveNatureTable {
 					// Filter for WRITE_ONLY channels
 					filter == AccessMode.WRITE_ONLY
 							&& (channel == AccessMode.WRITE_ONLY || channel == AccessMode.READ_WRITE)) {
-				this.add(new ModbusRecordChannel(offset, name, type, channelId, filter, mapValue));
+				this.add(new ModbusRecordChannel(offset, name, type, channelId, filter, mapValue, unit, gain));
 
 			} else {
 				// Channel did not pass filter -> show as Reserved
@@ -81,6 +92,40 @@ public final class ModbusSlaveNatureTable {
 				}
 			}
 			return this;
+		}
+
+		/**
+		 * Add a Channel to the {@link Builder}.
+		 *
+		 * @param offset    the register address offset
+		 * @param name      an optional name of the register, replacing the Channel
+		 *                  address
+		 * @param channelId the {@link ChannelId}
+		 * @param type      the {@link ModbusType}
+		 * @param mapValue  an optional mapping function to map the Channel value to a
+		 *                  Number
+		 * @return myself
+		 */
+		public Builder channel(int offset, String name, ChannelId channelId, ModbusType type,
+				UnaryOperator<Number> mapValue) {
+			return this.channel(offset, name, channelId, type, null, 1, mapValue);
+		}
+
+		/**
+		 * Add a Channel with a name to the {@link Builder} that is transmitted in the
+		 * given {@link Unit}, multiplied by the given gain. See
+		 * {@link #channel(int, String, ChannelId, ModbusType, Unit, int, UnaryOperator)}.
+		 *
+		 * @param offset    the register address offset
+		 * @param name      the name of the register, replacing the Channel address
+		 * @param channelId the {@link ChannelId}
+		 * @param type      the {@link ModbusType}
+		 * @param unit      the {@link Unit} of the register
+		 * @param gain      the positive gain of the register
+		 * @return myself
+		 */
+		public Builder channel(int offset, String name, ChannelId channelId, ModbusType type, Unit unit, int gain) {
+			return this.channel(offset, name, channelId, type, unit, gain, null);
 		}
 
 		/**
@@ -489,6 +534,15 @@ public final class ModbusSlaveNatureTable {
 			this.nextOffset += record.getType().getWords();
 			// TODO validate that this 'offset' is not already used (e.g. by float32)
 			this.maps.add(record);
+		}
+
+		/**
+		 * Gets the offset of the next record.
+		 *
+		 * @return the next offset
+		 */
+		public int getNextOffset() {
+			return this.nextOffset;
 		}
 
 		public ModbusSlaveNatureTable build() {
