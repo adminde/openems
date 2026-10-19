@@ -17,6 +17,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.dhatim.fastexcel.Color;
 import org.dhatim.fastexcel.Workbook;
@@ -288,7 +290,7 @@ public class GetModbusProtocolExportXlsxResponse extends Base64PayloadResponse {
 		sheet.value(rowCount, COL_VALUE_DESCRIPTION, record.getValueDescription());
 		var unit = record.getUnit();
 		if (unit != Unit.NONE) {
-			sheet.value(rowCount, COL_UNIT, unit.toString());
+			sheet.value(rowCount, COL_UNIT, getUnitName(unit));
 		}
 		var gain = record.getGain();
 		if (unit != Unit.NONE || gain != 1) {
@@ -306,6 +308,23 @@ public class GetModbusProtocolExportXlsxResponse extends Base64PayloadResponse {
 		sheet.rowHeight(rowCount, getRowHeight(record.getValueDescription()));
 	}
 
+	/**
+	 * Gets the written out name of a Unit with its symbol, e.g. "Kilowatt-Hours
+	 * [kWh]".
+	 *
+	 * @param unit the {@link Unit}
+	 * @return the name
+	 */
+	protected static String getUnitName(Unit unit) {
+		var name = Stream.of(unit.name().split("_")) //
+				.map(word -> word.charAt(0) + word.substring(1).toLowerCase(Locale.ROOT)) //
+				.collect(Collectors.joining(" ")) //
+				.replace("olt Ampere", "olt-Ampere") //
+				.replace("att Hours", "att-Hours") //
+				.replace("mpere Hours", "mpere-Hours");
+		return name + " [" + unit.symbol + "]";
+	}
+
 	private static void addReservedRange(Worksheet sheet, int firstAddress, int lastAddress, ModbusType type,
 			int rowCount) {
 		var length = lastAddress - firstAddress + 1;
@@ -313,7 +332,7 @@ public class GetModbusProtocolExportXlsxResponse extends Base64PayloadResponse {
 			sheet.value(rowCount, COL_ADDRESS, firstAddress);
 		} else {
 			sheet.value(rowCount, COL_ADDRESS, firstAddress + " to " + lastAddress);
-			sheet.value(rowCount, COL_VALUE_DESCRIPTION, length + " registers");
+			sheet.value(rowCount, COL_VALUE_DESCRIPTION, length + " Reserved Registers");
 		}
 		sheet.value(rowCount, COL_NAME, "Reserved");
 		if (type != null) {

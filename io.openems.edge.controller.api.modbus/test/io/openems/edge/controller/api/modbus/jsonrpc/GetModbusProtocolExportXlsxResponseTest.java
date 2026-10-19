@@ -30,6 +30,7 @@ import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
 
 import io.openems.common.channel.AccessMode;
+import io.openems.common.channel.Unit;
 import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.oem.DummyOpenemsEdgeOem;
 import io.openems.common.oem.OpenemsEdgeOem;
@@ -146,9 +147,9 @@ public class GetModbusProtocolExportXlsxResponseTest {
 		assertEquals(List.of("200", "Component-ID", "STRING16"), cells(findRow(ess, "200"), 3));
 		assertEquals(List.of("216", "Length of block \"ess0\""), cells(findRow(ess, "216"), 2));
 		assertEquals(List.of("222", "State", "UINT16", "\"0\"", "", "", "RO"), cells(findRow(ess, "222"), 7));
-		assertEquals(List.of("223 to 224", "Reserved", "UINT16", "2 registers"), cells(findRow(ess, "223 to 224"), 4));
-		assertEquals(List.of("226 to 245", "Reserved", "", "20 registers"), cells(findRow(ess, "226 to 245"), 4));
-		assertEquals(List.of("250 to 253", "Reserved", "INT64", "4 registers"), cells(findRow(ess, "250 to 253"), 4));
+		assertEquals(List.of("223 to 224", "Reserved", "UINT16", "2 Reserved Registers"), cells(findRow(ess, "223 to 224"), 4));
+		assertEquals(List.of("226 to 245", "Reserved", "", "20 Reserved Registers"), cells(findRow(ess, "226 to 245"), 4));
+		assertEquals(List.of("250 to 253", "Reserved", "INT64", "4 Reserved Registers"), cells(findRow(ess, "250 to 253"), 4));
 		assertEquals(List.of("260", "Reserved", "INT16", ""), cells(findRow(ess, "260"), 4));
 
 		var meter = workbook.get("storage_ north (2)");
@@ -160,6 +161,17 @@ public class GetModbusProtocolExportXlsxResponseTest {
 		assertEquals(List.of("400", "Component-ID", "STRING16", "\"_sum\""), cells(findRow(sum, "400"), 4));
 		assertEquals(List.of("416", "Length of block \"Summary\""), cells(findRow(sum, "416"), 2));
 		assertEquals(List.of("421", "Length of block \"Sum\""), cells(findRow(sum, "421"), 2));
+	}
+
+	@Test
+	public void testUnitName() {
+		assertEquals("Kilowatt [kW]", GetModbusProtocolExportXlsxResponse.getUnitName(Unit.KILOWATT));
+		assertEquals("Kilowatt-Hours [kWh]", GetModbusProtocolExportXlsxResponse.getUnitName(Unit.KILOWATT_HOURS));
+		assertEquals("Kilovolt-Ampere Reactive [kvar]",
+				GetModbusProtocolExportXlsxResponse.getUnitName(Unit.KILOVOLT_AMPERE_REACTIVE));
+		assertEquals("Kilovolt-Ampere Reactive Hours [kvarh]",
+				GetModbusProtocolExportXlsxResponse.getUnitName(Unit.KILOVOLT_AMPERE_REACTIVE_HOURS));
+		assertEquals("Degree Celsius [°C]", GetModbusProtocolExportXlsxResponse.getUnitName(Unit.DEGREE_CELSIUS));
 	}
 
 	@Test
