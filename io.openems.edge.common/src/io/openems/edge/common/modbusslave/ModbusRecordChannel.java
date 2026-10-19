@@ -23,6 +23,7 @@ public class ModbusRecordChannel extends ModbusRecord {
 	private final ChannelId channelId;
 	private final AccessMode accessMode;
 	private final UnaryOperator<Number> mapValue;
+	private final OpenemsComponent source;
 	private final Unit unit;
 	private final int gain;
 	private final double factor;
@@ -42,7 +43,7 @@ public class ModbusRecordChannel extends ModbusRecord {
 
 	public ModbusRecordChannel(int offset, String name, ModbusType type, ChannelId channelId,
 			AccessMode modbusApiAccessMode, UnaryOperator<Number> mapValue) {
-		this(offset, name, type, channelId, modbusApiAccessMode, mapValue, null, 1);
+		this(offset, name, type, channelId, modbusApiAccessMode, null, mapValue, null, 1);
 	}
 
 	/**
@@ -56,11 +57,18 @@ public class ModbusRecordChannel extends ModbusRecord {
 	 * The optional mapping function is applied to read values before the
 	 * conversion.
 	 *
+	 * <p>
+	 * The Channel belongs to the given source Component, or to the Component of
+	 * the Modbus table if no source is given. A source allows a table to pass
+	 * through the Channel of another Component, e.g. of the Sum.
+	 *
 	 * @param offset              the register address offset
 	 * @param name                the name of the register
 	 * @param type                the {@link ModbusType}
 	 * @param channelId           the {@link ChannelId}
 	 * @param modbusApiAccessMode the configured {@link AccessMode}
+	 * @param source              the Component of the Channel, or null for the
+	 *                            Component of the Modbus table
 	 * @param mapValue            an optional mapping function for read values
 	 * @param unit                the {@link Unit} of the register, sharing the
 	 *                            base Unit of the Channel, or null to transmit
@@ -68,12 +76,14 @@ public class ModbusRecordChannel extends ModbusRecord {
 	 * @param gain                the positive gain of the register
 	 */
 	public ModbusRecordChannel(int offset, String name, ModbusType type, ChannelId channelId,
-			AccessMode modbusApiAccessMode, UnaryOperator<Number> mapValue, Unit unit, int gain) {
+			AccessMode modbusApiAccessMode, OpenemsComponent source, UnaryOperator<Number> mapValue, Unit unit,
+			int gain) {
 		super(offset, type);
 		this.name = name;
 		this.channelId = channelId;
 		this.accessMode = evaluateActualAccessMode(channelId, modbusApiAccessMode);
 		this.mapValue = mapValue;
+		this.source = source;
 		this.unit = unit;
 		this.gain = gain;
 		this.factor = unit == null ? 1 : calculateFactor(channelId, unit, gain);
@@ -160,6 +170,16 @@ public class ModbusRecordChannel extends ModbusRecord {
 		return this.channelId;
 	}
 
+	/**
+	 * Gets the Component of the Channel, if it differs from the Component of the
+	 * Modbus table.
+	 *
+	 * @return the source Component, or null
+	 */
+	public OpenemsComponent getSource() {
+		return this.source;
+	}
+
 	@Override
 	public String toString() {
 		return "ModbusRecordChannel [" //
@@ -170,7 +190,8 @@ public class ModbusRecordChannel extends ModbusRecord {
 	}
 
 	@Override
-	public byte[] getValue(OpenemsComponent component) {
+	public byte[] getValue(OpenemsComponent tableComponent) {
+		final var component = this.source != null ? this.source : tableComponent;
 		final Object value;
 		if (component != null) {
 			Channel<?> channel = component.channel(this.channelId);

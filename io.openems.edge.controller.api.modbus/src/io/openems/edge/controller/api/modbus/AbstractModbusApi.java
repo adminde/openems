@@ -372,7 +372,8 @@ public abstract class AbstractModbusApi extends AbstractOpenemsComponent
 		// Handle writes to the Channel; limited to ModbusRecordChannels
 		if (record instanceof ModbusRecordChannel r) {
 			r.onWriteValue(value -> {
-				var readChannel = component.channel(r.getChannelId());
+				var owner = r.getSource() != null ? r.getSource() : component;
+				var readChannel = owner.channel(r.getChannelId());
 				if (!(readChannel instanceof WriteChannel wc)) {
 					this.logWarn(this.log, "Unable to write to Read-Only-Channel [" + readChannel.address() + "]");
 					return;
