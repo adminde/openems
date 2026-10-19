@@ -139,12 +139,13 @@ public class GetModbusProtocolExportXlsxResponseTest {
 
 		var ess = workbook.get("Storage_ North");
 		assertEquals("Storage: North, addresses 200 to 299", ess.get(0).get(0));
-		assertEquals(List.of("Address", "Name", "Type", "Value/Description", "Unit", "Access"), cells(ess.get(1), 6));
+		assertEquals(List.of("Address", "Name", "Type", "Value/Description", "Unit", "Gain", "Access"),
+				cells(ess.get(1), 7));
 		assertEquals(List.of("200", "216", "220", "221", "222", "223 to 224", "225", "226 to 245", "250 to 253", "260"),
 				ess.subList(2, ess.size()).stream().map(r -> r.get(0)).toList());
 		assertEquals(List.of("200", "Component-ID", "STRING16"), cells(findRow(ess, "200"), 3));
 		assertEquals(List.of("216", "Length of block \"ess0\""), cells(findRow(ess, "216"), 2));
-		assertEquals(List.of("222", "State", "UINT16", "\"0\"", "", "RO"), cells(findRow(ess, "222"), 6));
+		assertEquals(List.of("222", "State", "UINT16", "\"0\"", "", "", "RO"), cells(findRow(ess, "222"), 7));
 		assertEquals(List.of("223 to 224", "Reserved", "UINT16", "2 registers"), cells(findRow(ess, "223 to 224"), 4));
 		assertEquals(List.of("226 to 245", "Reserved", "", "20 registers"), cells(findRow(ess, "226 to 245"), 4));
 		assertEquals(List.of("250 to 253", "Reserved", "INT64", "4 registers"), cells(findRow(ess, "250 to 253"), 4));
@@ -194,7 +195,7 @@ public class GetModbusProtocolExportXlsxResponseTest {
 				"Data types", "Connection", "Data encoding", "Function codes", "Exception codes");
 		assertEquals(titles, firstCells.stream().filter(titles::contains).toList());
 
-		assertTrue(findRow(protocol, "Unit").get(1).contains("without a scaling factor"));
+		assertTrue(findRow(protocol, "Gain").get(1).contains("multiplied by the gain"));
 		assertEquals(List.of("RO", "03, 04"), cells(findRow(protocol, "RO"), 2));
 		assertEquals(List.of("RW", "03, 04, 06, 16"), cells(findRow(protocol, "RW"), 2));
 		assertEquals(List.of("WO", "06, 16"), cells(findRow(protocol, "WO"), 2));

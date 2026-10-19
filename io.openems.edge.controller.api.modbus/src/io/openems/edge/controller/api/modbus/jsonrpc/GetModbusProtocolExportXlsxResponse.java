@@ -94,7 +94,8 @@ public class GetModbusProtocolExportXlsxResponse extends Base64PayloadResponse {
 	private static final int COL_TYPE = 2;
 	private static final int COL_VALUE_DESCRIPTION = 3;
 	private static final int COL_UNIT = 4;
-	private static final int COL_ACCESS = 5;
+	private static final int COL_GAIN = 5;
+	private static final int COL_ACCESS = 6;
 
 	private static final int ROW_TITLE = 0;
 	private static final int ROW_HEADER = 1;
@@ -219,6 +220,7 @@ public class GetModbusProtocolExportXlsxResponse extends Base64PayloadResponse {
 		ws.width(COL_TYPE, 12);
 		ws.width(COL_VALUE_DESCRIPTION, DESCRIPTION_WIDTH);
 		ws.width(COL_UNIT, 30);
+		ws.width(COL_GAIN, 10);
 		ws.width(COL_ACCESS, 10);
 
 		addSheetTitle(ws, title);
@@ -274,6 +276,7 @@ public class GetModbusProtocolExportXlsxResponse extends Base64PayloadResponse {
 		sheet.value(ROW_HEADER, COL_TYPE, "Type");
 		sheet.value(ROW_HEADER, COL_VALUE_DESCRIPTION, "Value/Description");
 		sheet.value(ROW_HEADER, COL_UNIT, "Unit");
+		sheet.value(ROW_HEADER, COL_GAIN, "Gain");
 		sheet.value(ROW_HEADER, COL_ACCESS, "Access");
 		styleTableHeader(sheet, ROW_HEADER, COL_ACCESS);
 	}
@@ -286,6 +289,10 @@ public class GetModbusProtocolExportXlsxResponse extends Base64PayloadResponse {
 		var unit = record.getUnit();
 		if (unit != Unit.NONE) {
 			sheet.value(rowCount, COL_UNIT, unit.toString());
+		}
+		var gain = record.getGain();
+		if (unit != Unit.NONE || gain != 1) {
+			sheet.value(rowCount, COL_GAIN, gain);
 		}
 		sheet.value(rowCount, COL_ACCESS, record.getAccessMode().getAbbreviation());
 		if (record instanceof ModbusRecordUint16Hash) {
@@ -394,11 +401,15 @@ public class GetModbusProtocolExportXlsxResponse extends Base64PayloadResponse {
 				new Object[] { "Address",
 						"Zero based register address. A range like \"1000 to 1099\" combines consecutive reserved "
 								+ "registers." }, //
-				new Object[] { "Name", "Channel address in the form Component-ID/Channel, or the name of a fixed register" }, //
+				new Object[] { "Name",
+						"Name of the register, or the Channel address in the form Component-ID/Channel" }, //
 				new Object[] { "Type", "Data type of the value, see \"" + DATA_TYPES + "\"" }, //
 				new Object[] { "Value/Description",
 						"Value of a fixed register, or description of the Channel with the options of an enumeration" }, //
-				new Object[] { "Unit", "Unit of the value. Values are transmitted in this unit without a scaling factor." }, //
+				new Object[] { "Unit", "Unit of the value" }, //
+				new Object[] { "Gain",
+						"The register holds the value in its unit multiplied by the gain. Example: 12.34 kW with gain "
+								+ "100 is transmitted as 1234. Written values are divided by the gain." }, //
 				new Object[] { "Access", "RO, RW or WO, see \"" + ACCESS_MODES + "\"" });
 	}
 
