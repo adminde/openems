@@ -9,6 +9,13 @@ import static java.time.DayOfWeek.SUNDAY;
 import static java.time.DayOfWeek.THURSDAY;
 import static java.time.DayOfWeek.TUESDAY;
 import static java.time.DayOfWeek.WEDNESDAY;
+import static java.time.Month.DECEMBER;
+import static java.time.Month.FEBRUARY;
+import static java.time.Month.JANUARY;
+import static java.time.Month.NOVEMBER;
+import static java.time.Month.OCTOBER;
+import static java.time.temporal.ChronoUnit.DAYS;
+import static java.time.temporal.ChronoUnit.HOURS;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -292,6 +299,78 @@ public class SchedulerJSCalendarImplTest {
 								"alwaysBefore", //
 								"hold", //
 								"alwaysAfter"))) //
+				.deactivate();
+	}
+
+	@Test
+	public void testSeasonalTasks() throws Exception {
+		final var clock = createDummyClock(); // Starts on a WEDNESDAY in a leap year
+		final var tasks = JSCalendar.Tasks.<Payload>create(clock) //
+				.add(t -> t // Every day of the season from November to February
+						.setStart(LocalTime.of(8, 0)) //
+						.setDuration(Duration.ofHours(4)) //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(DAILY) //
+								.addByMonth(NOVEMBER, DECEMBER, JANUARY, FEBRUARY)) //
+						.setPayload(new Payload(new String[] { "winter" }))) //
+				.add(t -> t // The evening before the season
+						.setStart(LocalTime.of(22, 30)) //
+						.setDuration(Duration.ofHours(2)) //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(DAILY) //
+								.addByMonth(OCTOBER) //
+								.addByMonthDay(-1)) //
+						.setPayload(new Payload(new String[] { "eve" }))) //
+				.build();
+
+		final SchedulerJSCalendarImpl sut = new SchedulerJSCalendarImpl();
+		new ComponentTest(sut) //
+				.addReference("componentManager", new DummyComponentManager(clock)) //
+				.addComponent(new DummyController("winter")) //
+				.addComponent(new DummyController("eve")) //
+				.activate(MyConfig.create() //
+						.setId("scheduler0") //
+						.setAlwaysRunBeforeControllerIds() //
+						.setJSCalendar(JSCalendar.Tasks.serializer(clock, Payload.serializer()) //
+								.serialize(tasks) //
+								.toString()) //
+						.setAlwaysRunAfterControllerIds() //
+						.build()) //
+				.next(new TestCase() //
+						.onBeforeProcessImage(() -> assertTime(clock, "Wed 2020-01-01 00:00")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut))) //
+				.next(new TestCase() //
+						.timeleap(clock, 8, HOURS) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Wed 2020-01-01 08:00")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, "winter"))) //
+				.next(new TestCase() // The leap day is part of the season
+						.timeleap(clock, 59, DAYS) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Sat 2020-02-29 08:00")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, "winter"))) //
+				.next(new TestCase() //
+						.timeleap(clock, 1, DAYS) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Sun 2020-03-01 08:00")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut))) //
+				.next(new TestCase() //
+						.timeleap(clock, 244 * 24 * 60 + 14 * 60 + 29, MINUTES) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Sat 2020-10-31 22:29")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut))) //
+				.next(new TestCase() //
+						.timeleap(clock, 1, MINUTES) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Sat 2020-10-31 22:30")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, "eve"))) //
+				.next(new TestCase() //
+						.timeleap(clock, 90, MINUTES) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Sun 2020-11-01 00:00")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, "eve"))) //
+				.next(new TestCase() //
+						.timeleap(clock, 30, MINUTES) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Sun 2020-11-01 00:30")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut))) //
+				.next(new TestCase() //
+						.timeleap(clock, 7 * 60 + 30, MINUTES) //
+						.onBeforeProcessImage(() -> assertTime(clock, "Sun 2020-11-01 08:00")) //
+						.onBeforeControllersCallbacks(() -> assertControllerIds(sut, "winter"))) //
 				.deactivate();
 	}
 
