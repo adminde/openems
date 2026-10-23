@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-import { Component, Inject, ChangeDetectionStrategy } from "@angular/core";
+import { ChangeDetectionStrategy, Component, ElementRef, Inject, signal, ViewChild, WritableSignal, } from "@angular/core";
 import { FormBuilder } from "@angular/forms";
 import { ActivatedRoute, Router } from "@angular/router";
 import { ModalController } from "@ionic/angular";
@@ -33,6 +33,8 @@ export class FlatComponent extends AbstractFlatWidget {
     protected readonly isSmartphoneResolution = this.service.getIsSmartphoneResolution();
     protected readonly isApp: boolean = PlatFormService.platform !== "web";
     protected chartHeight: number | null = null;
+    protected readonly chartHeightOffset: WritableSignal<number | null> = signal(null);
+    private resizeObserver: ResizeObserver | null = null;
 
     constructor(
         @Inject(Websocket) protected override websocket: Websocket,
@@ -50,8 +52,24 @@ export class FlatComponent extends AbstractFlatWidget {
         this.chartHeight = this.getChartHeight();
     }
 
+    @ViewChild("flatWidget", { read: ElementRef })
+    private set flatWidget(element: ElementRef<HTMLElement> | undefined) {
+        this.resizeObserver?.disconnect();
+        const card = element?.nativeElement.querySelector<HTMLElement>("ion-card");
+        if (card == null) {
+            return;
+        }
+        this.resizeObserver = new ResizeObserver(() => this.updateChartHeightOffset(card));
+        this.resizeObserver.observe(card);
+    }
+
     public getChartHeight(): number {
         return ViewUtils.getChartContentHeightInVh(this.navigationService.position());
+    }
+
+    public override ngOnDestroy(): void {
+        this.resizeObserver?.disconnect();
+        super.ngOnDestroy();
     }
 
     protected override onCurrentData(currentData: CurrentData) {
@@ -119,5 +137,25 @@ export class FlatComponent extends AbstractFlatWidget {
                     this.service.stopSpinner(this.spinnerId);
                 });
         });
+    }
+
+    /**
+     * Measures the space that the card takes besides the chart, so that the card fills the view exactly.
+     *
+     * The space between the top of the grid and the card is kept below the card as well. Both distances are independent
+     * of the scroll position and of the current chart height.
+     *
+     * @param card The card that contains the chart
+     */
+    private updateChartHeightOffset(card: HTMLElement): void {
+        const chartArea = card.querySelector<HTMLElement>("#chart-area");
+        const grid = card.closest<HTMLElement>("ion-grid");
+        if (chartArea == null || grid == null) {
+            return;
+        }
+        const cardRect = card.getBoundingClientRect();
+        const spaceAboveCard = cardRect.top - grid.getBoundingClientRect().top;
+        const cardWithoutChart = cardRect.height - chartArea.getBoundingClientRect().height;
+        this.chartHeightOffset.set(Math.round(cardWithoutChart + 2 * spaceAboveCard));
     }
 }
