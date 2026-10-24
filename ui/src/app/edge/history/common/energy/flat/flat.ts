@@ -28,6 +28,7 @@ export class FlatComponent extends AbstractFlatWidget {
     private static readonly EXCEL_TYPE =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
     private static readonly EXCEL_EXTENSION = ".xlsx";
+    private static readonly MIN_CHART_HEIGHT = 300;
     protected spinnerId: string = uuidv4();
     protected autarchyValue: number | null = null;
     protected readonly isSmartphoneResolution = this.service.getIsSmartphoneResolution();
@@ -61,6 +62,33 @@ export class FlatComponent extends AbstractFlatWidget {
         }
         this.resizeObserver = new ResizeObserver(() => this.updateChartHeightOffset(card));
         this.resizeObserver.observe(card);
+        const row = card.closest<HTMLElement>("ion-row");
+        if (row != null) {
+            this.resizeObserver.observe(row);
+        }
+    }
+
+    /**
+     * Gets the height of all columns that follow the column of the card in the grid row.
+     *
+     * @param card The card that contains the chart
+     * @returns The height in px, or 0 if no widget follows the card
+     */
+    private static getWidgetsHeight(card: HTMLElement): number {
+        const widgets: DOMRect[] = [];
+        let sibling = card.closest("ion-col")?.nextElementSibling ?? null;
+        while (sibling != null) {
+            if (sibling.tagName === "ION-COL") {
+                widgets.push(sibling.getBoundingClientRect());
+            }
+            sibling = sibling.nextElementSibling;
+        }
+        if (widgets.length === 0) {
+            return 0;
+        }
+        const top = Math.min(...widgets.map((widget) => widget.top));
+        const bottom = Math.max(...widgets.map((widget) => widget.bottom));
+        return bottom - top;
     }
 
     public getChartHeight(): number {
@@ -140,10 +168,11 @@ export class FlatComponent extends AbstractFlatWidget {
     }
 
     /**
-     * Measures the space that the card takes besides the chart, so that the card fills the view exactly.
+     * Measures the space that the view needs besides the chart, so that the card and the widgets below it fit into the
+     * view together.
      *
-     * The space between the top of the grid and the card is kept below the card as well. Both distances are independent
-     * of the scroll position and of the current chart height.
+     * The space between the top of the grid and the card is kept below the card as well. All distances are independent
+     * of the scroll position and of the current chart height. The chart keeps at least {@link MIN_CHART_HEIGHT}.
      *
      * @param card The card that contains the chart
      */
@@ -156,6 +185,9 @@ export class FlatComponent extends AbstractFlatWidget {
         const cardRect = card.getBoundingClientRect();
         const spaceAboveCard = cardRect.top - grid.getBoundingClientRect().top;
         const cardWithoutChart = cardRect.height - chartArea.getBoundingClientRect().height;
-        this.chartHeightOffset.set(Math.round(cardWithoutChart + 2 * spaceAboveCard));
+        const offset = cardWithoutChart + 2 * spaceAboveCard + FlatComponent.getWidgetsHeight(card);
+        const maxOffset =
+            ViewUtils.getViewHeightInPx(this.navigationService.position()) - FlatComponent.MIN_CHART_HEIGHT;
+        this.chartHeightOffset.set(Math.round(Math.max(0, Math.min(offset, maxOffset))));
     }
 }
