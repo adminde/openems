@@ -19,7 +19,7 @@ export namespace SharedThermalStorage {
      */
     export function getNavigationTree(translate: TranslateService) {
         return new NavigationTree("heat-storage", { baseString: "common/heat/storage" }, { name: "flame", color: "danger" }, translate.instant("GENERAL.THERMAL_STORAGE_SYSTEM"), "label", [
-            NavigationConstants.CommonNodes.HISTORY(translate),
+            NavigationConstants.CommonNodes.HISTORY(translate, "heat-storage"),
         ], null).toConstructorParams();
     }
 
