@@ -1,6 +1,7 @@
 package io.openems.edge.controller.asymmetric.peakshaving;
 
 import static io.openems.edge.ess.api.ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_EQUALS;
+import static io.openems.edge.ess.api.ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_GREATER_OR_EQUALS;
 import static io.openems.edge.meter.api.ElectricityMeter.ChannelId.ACTIVE_POWER;
 import static io.openems.edge.meter.api.ElectricityMeter.ChannelId.ACTIVE_POWER_L1;
 import static io.openems.edge.meter.api.ElectricityMeter.ChannelId.ACTIVE_POWER_L2;
@@ -87,6 +88,13 @@ public class ControllerAsymmetricPeakShavingImplTest {
 						.input("ess0", ACTIVE_POWER, 20377) //
 						.input("meter0", ACTIVE_POWER, 120000 - 20377) //
 						.output("ess0", SET_ACTIVE_POWER_EQUALS, 19772)) //
+				// Below the peak the ESS is only bounded, so that subsequent Controllers
+				// cannot import power above peakShavingPower
+				.next(new TestCase() //
+						.input("ess0", ACTIVE_POWER, 0) //
+						.input("meter0", ACTIVE_POWER, 70000) //
+						.output("ess0", SET_ACTIVE_POWER_GREATER_OR_EQUALS, 70000 - 99999) //
+						.output("ess0", SET_ACTIVE_POWER_EQUALS, null)) //
 				.deactivate();
 	}
 

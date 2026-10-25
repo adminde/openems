@@ -3,6 +3,8 @@ package io.openems.edge.ess.core.power.v2;
 import static java.util.stream.Collectors.toSet;
 
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
@@ -29,6 +31,7 @@ public class PowerDistributionHandlerV2 implements PowerDistributionHandler {
 	private final Supplier<List<ManagedSymmetricEss>> esssSupplier;
 	private final BooleanConsumer onSetNotSolved;
 	private final Coefficients coefficients = new Coefficients();
+	private final List<Constraint.Simple> cycleConstraints = new CopyOnWriteArrayList<>();
 
 	private PowerDistribution pd;
 
@@ -53,6 +56,7 @@ public class PowerDistributionHandlerV2 implements PowerDistributionHandler {
 	public void onAfterProcessImage() {
 		final var esss = this.esssSupplier.get();
 		this.pd = PowerDistribution.from(esss);
+		this.cycleConstraints.clear();
 	}
 
 	@Override
@@ -84,6 +88,11 @@ public class PowerDistributionHandlerV2 implements PowerDistributionHandler {
 		if (this.pd == null) {
 			return;
 		}
+		this.cycleConstraints.add(constraint);
+		apply(this.pd, constraint);
+	}
+
+	private static void apply(PowerDistribution pd, Constraint.Simple constraint) {
 		final var pwr = constraint.coefficient.getCoefficient().getPwr();
 		final var essId = constraint.coefficient.getCoefficient().getEssId();
 		final var value = constraint.value;
@@ -92,21 +101,21 @@ public class PowerDistributionHandlerV2 implements PowerDistributionHandler {
 		case ACTIVE -> {
 			switch (constraint.relationship) {
 			case EQUALS //
-				-> this.pd.setEquals(essId, value);
+				-> pd.setEquals(essId, value);
 			case LESS_OR_EQUALS //
-				-> this.pd.setLessOrEquals(essId, value);
+				-> pd.setLessOrEquals(essId, value);
 			case GREATER_OR_EQUALS //
-				-> this.pd.setGreaterOrEquals(essId, value);
+				-> pd.setGreaterOrEquals(essId, value);
 			}
 		}
 		case REACTIVE -> {
 			switch (constraint.relationship) {
 			case EQUALS //
-				-> this.pd.setReactiveEquals(essId, value);
+				-> pd.setReactiveEquals(essId, value);
 			case LESS_OR_EQUALS //
-				-> this.pd.setReactiveLessOrEquals(essId, value);
+				-> pd.setReactiveLessOrEquals(essId, value);
 			case GREATER_OR_EQUALS //
-				-> this.pd.setReactiveGreaterOrEquals(essId, value);
+				-> pd.setReactiveGreaterOrEquals(essId, value);
 			}
 		}
 		}
@@ -139,12 +148,31 @@ public class PowerDistributionHandlerV2 implements PowerDistributionHandler {
 
 	@Override
 	public int getPowerExtrema(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr, GoalType goal) {
+		return getPowerExtrema(this.pd, ess, pwr, goal);
+	}
+
+	@Override
+	public int getPowerExtrema(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr, GoalType goal,
+			Predicate<Constraint> filter) {
 		if (this.pd == null) {
 			return 0;
 		}
-		if (pwr == Pwr.ACTIVE) {
-			return this.pd.getActivePowerExtrema(ess.id(), goal);
+		// The distribution merges every Constraint into its bounds, so the filtered
+		// Constraints are applied to a fresh distribution of the same ESS.
+		var pd = PowerDistribution.from(this.esssSupplier.get());
+		this.cycleConstraints.stream() //
+				.filter(filter) //
+				.forEach(constraint -> apply(pd, constraint));
+		return getPowerExtrema(pd, ess, pwr, goal);
+	}
+
+	private static int getPowerExtrema(PowerDistribution pd, ManagedSymmetricEss ess, Pwr pwr, GoalType goal) {
+		if (pd == null) {
+			return 0;
 		}
-		return this.pd.getReactivePowerExtrema(ess.id(), goal);
+		if (pwr == Pwr.ACTIVE) {
+			return pd.getActivePowerExtrema(ess.id(), goal);
+		}
+		return pd.getReactivePowerExtrema(ess.id(), goal);
 	}
 }

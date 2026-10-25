@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Predicate;
 
 import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -64,7 +65,7 @@ public class EssPowerImpl extends AbstractOpenemsComponent implements EssPower, 
 
 	private final Logger log = LoggerFactory.getLogger(EssPowerImpl.class);
 	private final List<ManagedSymmetricEss> esss = new CopyOnWriteArrayList<>();
-	private final Map<String, Filter> filters = new HashMap<>();
+	private final Map<FilterKey, Filter> filters = new HashMap<>();
 
 	@Reference
 	private ConfigurationAdmin cm;
@@ -182,8 +183,18 @@ public class EssPowerImpl extends AbstractOpenemsComponent implements EssPower, 
 	}
 
 	@Override
+	public int getMaxPower(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr, Predicate<Constraint> filter) {
+		return this.powerDistributionHandler.getPowerExtrema(ess, phase, pwr, GoalType.MAXIMIZE, filter);
+	}
+
+	@Override
 	public int getMinPower(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr) {
 		return this.powerDistributionHandler.getPowerExtrema(ess, phase, pwr, GoalType.MINIMIZE);
+	}
+
+	@Override
+	public int getMinPower(ManagedSymmetricEss ess, SingleOrAllPhase phase, Pwr pwr, Predicate<Constraint> filter) {
+		return this.powerDistributionHandler.getPowerExtrema(ess, phase, pwr, GoalType.MINIMIZE, filter);
 	}
 
 	@Override
@@ -213,10 +224,10 @@ public class EssPowerImpl extends AbstractOpenemsComponent implements EssPower, 
 	}
 
 	@Override
-	public Filter getFilter(String essId) {
+	public Filter getFilter(String essId, String controllerId, Relationship relationship) {
 		synchronized (this.filters) {
-			return this.filters.computeIfAbsent(essId, e -> {
-				if (this.config.enablePid()) {
+			return this.filters.computeIfAbsent(new FilterKey(essId, controllerId, relationship), key -> {
+				if (this.config.enablePid() && relationship.equals(Relationship.EQUALS)) {
 					// build a PidFilter instance with the configured P, I and D variables
 					return new PidFilter(this.config.p(), this.config.i(), this.config.d());
 
@@ -235,5 +246,8 @@ public class EssPowerImpl extends AbstractOpenemsComponent implements EssPower, 
 	@Override
 	public boolean isFilterEnabled() {
 		return this.config.enablePid() || this.config.enablePT1Filter();
+	}
+
+	private static record FilterKey(String essId, String controllerId, Relationship relationship) {
 	}
 }

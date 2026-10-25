@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -180,6 +181,18 @@ public class Data {
 	}
 
 	/**
+	 * Gets Constraints for all Inverters, with only those Constraints of the
+	 * current Cycle that pass the given filter.
+	 *
+	 * @param filter the filter for the Constraints of the current Cycle
+	 * @return List of Constraints
+	 * @throws OpenemsException on error
+	 */
+	public List<Constraint> getConstraintsForAllInverters(Predicate<Constraint> filter) throws OpenemsException {
+		return this.getConstraintsWithoutDisabledInverters(Collections.emptyList(), filter);
+	}
+
+	/**
 	 * Gets Constraints with the 'enabledInverters' only.
 	 *
 	 * @param enabledInverters Collection of enabled {@link Inverter}s
@@ -201,6 +214,11 @@ public class Data {
 	 */
 	public List<Constraint> getConstraintsWithoutDisabledInverters(Collection<Inverter> disabledInverters)
 			throws OpenemsException {
+		return this.getConstraintsWithoutDisabledInverters(disabledInverters, constraint -> true);
+	}
+
+	private List<Constraint> getConstraintsWithoutDisabledInverters(Collection<Inverter> disabledInverters,
+			Predicate<Constraint> filter) throws OpenemsException {
 		final var esss = this.esssSupplier.get();
 
 		return Streams.concat(//
@@ -213,6 +231,6 @@ public class Data {
 				ConstraintUtil.createSymmetricEssConstraints(this.coefficients, esss, this.symmetricMode).stream(), //
 				ConstraintUtil.createSinglePhaseEssConstraints(this.coefficients, this.inverters, this.symmetricMode)
 						.stream(), //
-				this.constraints.stream()).collect(Collectors.toList());
+				this.constraints.stream().filter(filter)).collect(Collectors.toList());
 	}
 }

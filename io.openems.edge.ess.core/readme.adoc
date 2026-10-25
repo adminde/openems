@@ -289,12 +289,13 @@ The filter type is selected in the configuration.
 
 PID Filter _(default)_::
   A Proportional-Integral-Derivative filter. Reacts quickly to large setpoint changes while dampening small oscillations.
-  This is the recommended setting for most installations. +
+  This is the recommended setting for most installations. It takes precedence over the PT1 filter. +
   Default gains: P = 0.3, I = 0.3, D = 0.
 
 PT1 Filter::
   A first-order lag filter. The output approaches the target exponentially with a configurable time constant.
   Simpler than PID and predictable in response speed. Suitable when a fixed ramp rate is preferred over adaptive control.
+  It is applied to the setpoint only while the PID filter is disabled, but it always applies to the constraints described below.
 
 Disabled::
   No filtering. The raw solver setpoint is written to the inverter each cycle.
@@ -317,8 +318,8 @@ NOTE: The filter operates per ESS. A system with three batteries uses three inde
 | `p` | `0.3` | PID proportional gain `[0..1]`
 | `i` | `0.3` | PID integral gain `[0..1]`
 | `d` | `0.0` | PID derivative gain `[0..1]`
-| `enablePT1Filter` | `false` | Enables PT1 filter (only effective when PID is disabled)
-| `pt1TimeConstant` | `30 000 ms` | PT1 time constant — time for the output to reach ~63 % of a step change
+| `enablePT1Filter` | `true` | Enables PT1 filter. For the setpoint it is only effective when PID is disabled, for constraints it is always effective
+| `pt1TimeConstant` | `800 ms` | PT1 time constant: the time for the output to reach ~63 % of a step change
 |===
 
 ---
