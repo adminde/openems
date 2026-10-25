@@ -38,7 +38,7 @@ export namespace SharedConsumption {
         return new NavigationTree(
             "consumption",
             { baseString: "common/consumption" },
-            { name: "oe-consumption", color: "warning" },
+            { name: "oe-consumption", color: "consumption" },
             translate.instant("GENERAL.CONSUMPTION"),
             "icon",
             [

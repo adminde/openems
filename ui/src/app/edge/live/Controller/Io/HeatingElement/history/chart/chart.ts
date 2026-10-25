@@ -97,7 +97,7 @@ export class ControllerIoHeatingElementChartComponent extends AbstractHistoryCha
                         nameSuffix: (energyValues: QueryHistoricTimeseriesEnergyResponse) =>
                             energyValues?.result.data[consumptionMeter.id + "/ActiveProductionEnergy"],
                         converter: () => data[consumptionMeter.id + "/ActivePower"] ?? null,
-                        color: ChartConstants.Colors.YELLOW,
+                        color: ChartConstants.Colors.CONSUMPTION,
                         stack: 1,
                         yAxisId: ChartAxis.RIGHT,
                     });

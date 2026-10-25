@@ -43,11 +43,11 @@ export class HeatPowerChartComponent extends ScheduleChartComponent {
         }
         return [
             {
-                color: ChartConstants.Colors.LIGHT_SKY_BLUE,
+                color: ChartConstants.Colors.HEAT,
                 data: historyData,
             },
             {
-                color: ChartConstants.Colors.LIGHT_SKY_BLUE,
+                color: ChartConstants.Colors.HEAT,
                 data: predictionData,
                 borderDash: ScheduleChartComponent.BORDER_DASHED,
                 opacity: ScheduleChartComponent.OPACITY_TRANSPARENT,

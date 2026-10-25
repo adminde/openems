@@ -29,7 +29,7 @@ export class ChartComponent extends AbstractHistoryChart {
                     {
                         name: translate.instant("GENERAL.POWER"),
                         converter: () => data["ActivePower"],
-                        color: ChartConstants.Colors.YELLOW,
+                        color: ChartConstants.Colors.EV_CHARGE,
                     },
                 ];
             },

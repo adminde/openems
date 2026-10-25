@@ -32,11 +32,11 @@ export class ConsumptionChartComponent extends ScheduleChartComponent {
 
         return [
             {
-                color: ChartConstants.Colors.YELLOW,
+                color: ChartConstants.Colors.CONSUMPTION,
                 data: data.history,
             },
             {
-                color: ChartConstants.Colors.YELLOW,
+                color: ChartConstants.Colors.CONSUMPTION,
                 data: data.prediction,
                 borderDash: ScheduleChartComponent.BORDER_DASHED,
                 opacity: ScheduleChartComponent.OPACITY_TRANSPARENT,

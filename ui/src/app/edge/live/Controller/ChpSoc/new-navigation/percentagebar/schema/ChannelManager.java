@@ -1,0 +1,303 @@
+package io.openems.shared.timescaledb.schema;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.openems.common.types.ChannelAddress;
+import io.openems.shared.timescaledb.Type;
+import io.openems.shared.timescaledb.data.DataPoint;
+
+/**
+ * Resolves OpenEMS channel addresses to database channel ids, backed by a
+ * {@link ChannelCache} so a resolved channel costs no further round-trip.
+ *
+ * <p>
+ * The only difference between the tenancy variants is the SQL: multi-tenant
+ * resolves through the {@code edge} dimension table (so one database can hold
+ * many edges) and binds the edge name as first parameter; single-tenant has no
+ * {@code edge} table and ignores the edge name. This is pure data variance, so
+ * it is handled here with a {@link Tenancy} field instead of subclasses.
+ */
+public class ChannelManager {
+
+	private final Logger log = LoggerFactory.getLogger(ChannelManager.class);
+
+	private final ChannelCache cache;
+
+	/** Components already reported as un-registerable, to log each one once. */
+	private final Set<String> unknownNatureWarned = ConcurrentHashMap.newKeySet();
+
+	private final Tenancy tenancy;
+	private final String warmupQuery;
+	private final String lookupQuery;
+	private final String resolveQuery;
+
+	public ChannelManager(Tenancy tenancy) {
+		this.tenancy = tenancy;
+		this.cache = new ChannelCache(tenancy);
+
+		StringBuilder warmupQuery = new StringBuilder().append("SELECT ");
+		if (tenancy == Tenancy.MULTI) {
+			warmupQuery.append("e.name AS edgeName, ");
+		}
+		warmupQuery.append("co.name AS componentName, cd.name AS channelName, ch.id, cd.type, ch.aggregate, cd.unit ")
+				.append("FROM channel ch ")
+				.append("JOIN component co ON co.id = ch.component_id ");
+		if (tenancy == Tenancy.MULTI) {
+			// `co` must be joined before the edge join may reference it
+			warmupQuery.append("JOIN edge e ON e.id = co.edge_id ");
+		}
+		warmupQuery.append("JOIN channel_def cd ON cd.id = ch.channel_def");
+
+		StringBuilder lookupQuery = new StringBuilder()
+				.append("SELECT ch.id, cd.type, ch.aggregate, cd.unit ")
+				.append("FROM channel ch ")
+				.append("JOIN component co ON co.id = ch.component_id ");
+		if (tenancy == Tenancy.MULTI) {
+			lookupQuery.append("JOIN edge e ON e.id = co.edge_id ");
+		}
+		lookupQuery.append("JOIN channel_def cd ON cd.id = ch.channel_def ");
+		if (tenancy == Tenancy.MULTI) {
+			lookupQuery.append("WHERE e.name = ? AND co.name = ? AND cd.name = ?");
+		} else {
+			lookupQuery.append("WHERE co.name = ? AND cd.name = ?");
+		}
+
+		String resolveQuery = "SELECT * FROM get_or_create_channel_id"
+				+ IntStream.range(0, tenancy == Tenancy.MULTI ? 7 : 6)
+						.mapToObj(i -> "?")
+						.collect(Collectors.joining(",", "(", ")"));
+
+		this.warmupQuery = warmupQuery.toString();
+		this.lookupQuery = lookupQuery.toString();
+		this.resolveQuery = resolveQuery;
+	}
+
+	/**
+	 * Preloads the whole channel cache with one bulk query, so the first writes
+	 * and reads after a restart skip their per-channel database round-trips.
+	 *
+	 * <p>
+	 * Cache keys are built exactly like {@link #lookupChannel} and
+	 * {@link #encodeChannelKey} build them. In single-tenant mode the edge name is
+	 * {@code null} there, so it is {@code null} here too.
+	 *
+	 * @param connection An open JDBC connection
+	 * @return the number of preloaded channels
+	 * @throws SQLException on database error
+	 */
+	public int warmUpCache(Connection connection) throws SQLException {
+		var count = 0;
+		try (var statement = connection.prepareStatement(this.warmupQuery);
+				var result = statement.executeQuery()) {
+			while (result.next()) {
+				String edgeName = this.tenancy == Tenancy.MULTI ? result.getString("edgeName") : null;
+				this.cache.putIfAbsent(edgeName, //
+						result.getString("componentName"), //
+						result.getString("channelName"), //
+						new ChannelInfo(
+								result.getObject("id", UUID.class),
+								Type.valueOf(result.getString("type")),
+								result.getBoolean("aggregate"),
+								result.getString("unit")
+						)
+				);
+				count++;
+			}
+		}
+		return count;
+	}
+
+	/**
+	 * Looks up the {@link ChannelInfo} (channel id, type, aggregate flag, unit)
+	 * for one channel address on a given edge.
+	 *
+	 * <p>
+	 * Tries the in-memory cache first (populated during writes). On miss, queries
+	 * the database. Returns {@code null} if the channel has never been written.
+	 *
+	 * @param connection An open JDBC connection
+	 * @param edgeName   The edge identifier, e.g. "edge0" (ignored in single-tenant mode)
+	 * @param channel    OpenEMS channel address (componentId/channelName)
+	 * @return The resolved channel info or {@code null} if unknown
+	 * @throws SQLException             on database error
+	 * @throws IllegalArgumentException in multi-tenant mode when edgeName is null
+	 */
+	public ChannelInfo lookupChannel(Connection connection, String edgeName, ChannelAddress channel)
+			throws SQLException {
+		this.assertEdgeName(edgeName, channel.toString());
+		var cached = this.cache.get(edgeName, channel.getComponentId(), channel.getChannelId());
+		if (cached != null) {
+			return cached;
+		}
+		var info = this.doLookupChannel(connection, edgeName, channel);
+		if (info != null) {
+			this.cache.put(edgeName, channel.getComponentId(), channel.getChannelId(), info);
+		}
+		return info;
+	}
+
+	private ChannelInfo doLookupChannel(Connection connection, String edgeName, ChannelAddress channel)
+			throws SQLException {
+
+		try (var statement = connection.prepareStatement(this.lookupQuery)) {
+			int i = 1;
+			if (this.tenancy == Tenancy.MULTI) {
+				statement.setString(i++, edgeName);
+			}
+			statement.setString(i++, channel.getComponentId());
+			statement.setString(i, channel.getChannelId());
+			try (var result = statement.executeQuery()) {
+				if (!result.next()) {
+					return null;
+				}
+				return new ChannelInfo(result.getObject(1, UUID.class), Type.valueOf(result.getString(2)),
+						result.getBoolean(3), result.getString(4));
+			}
+		}
+	}
+
+	/**
+	 * Resolves (creating if necessary) the {@link ChannelInfo} for a write.
+	 *
+	 * <p>
+	 * Tries the cache first; on a miss, or when a re-resolve is needed (aggregate
+	 * promotion or unit backfill), calls the {@code get_or_create_channel_id}
+	 * stored function.
+	 *
+	 * <p>
+	 * A point can only be registered when its component nature is known, because
+	 * that is what {@code channel_def} is scoped by. Registration is therefore
+	 * refused, and the point dropped, when {@link DataPoint#componentType()} is
+	 * {@code null}. This only ever affects a component nothing is known about
+	 * yet: once it is registered, every later point resolves from the cache or
+	 * the dimension tables and no longer needs the nature at all.
+	 *
+	 * @param connection An open JDBC connection
+	 * @param data       The DataPoint being written
+	 * @return the resolved {@link ChannelInfo}, or {@code null} if the point has
+	 *         to be dropped
+	 * @throws SQLException             on database error
+	 * @throws IllegalArgumentException in multi-tenant mode when the DataPoint
+	 *                                  carries no edge name
+	 */
+	public ChannelInfo resolveChannel(Connection connection, DataPoint data) throws SQLException {
+		this.assertEdgeName(data.edgeName(), data.componentName() + "/" + data.channelName());
+		var cached = this.cache.peek(data);
+		if (cached != null) {
+			return cached;
+		}
+		var info = this.doResolveChannel(connection, data);
+		if (info == null) {
+			var component = this.tenancy == Tenancy.SINGLE //
+					? data.componentName() //
+					: data.edgeName() + "/" + data.componentName();
+			if (this.unknownNatureWarned.add(component)) {
+				this.log.warn("Dropping points for [{}]: the component is not registered yet and its nature is "
+						+ "unknown, so it cannot be created", component);
+			}
+			return null;
+		}
+		this.cache.put(data.edgeName(), data.componentName(), data.channelName(), info);
+		return info;
+	}
+
+	private ChannelInfo doResolveChannel(Connection connection, DataPoint data) throws SQLException {
+		try (var statement = connection.prepareStatement(this.resolveQuery)) {
+			int i = 1;
+			if (this.tenancy == Tenancy.MULTI) {
+				statement.setString(i++, data.edgeName());
+			}
+			statement.setString(i++, data.componentName());
+			statement.setString(i++, data.componentType());
+			statement.setString(i++, data.channelName());
+			statement.setString(i++, data.type().name());
+			statement.setBoolean(i++, data.aggregate());
+			statement.setString(i, data.unit());
+			try (var rs = statement.executeQuery()) {
+				if (!rs.next()) {
+					// The conductor returns no row when the component could not be
+					// registered, i.e. it is new and the caller passed no nature.
+					return null;
+				}
+				return new ChannelInfo(rs.getObject(1, UUID.class), Type.valueOf(rs.getString(2)),
+						rs.getBoolean(3), data.unit());
+			}
+		}
+	}
+
+	/**
+	 * Cache-only resolution: returns the {@link ChannelInfo} for a point when
+	 * it is already cached and fully up to date, letting a batch writer skip
+	 * opening a Database connection entirely when every channel is already warm.
+	 *
+	 * @param data The DataPoint to resolve
+	 * @return The cached {@link ChannelInfo}, or {@code null} if a DB resolve
+	 *         is needed
+	 */
+	public ChannelInfo peekResolved(DataPoint data) {
+		return this.cache.peek(data);
+	}
+
+	/**
+	 * Cache-only lookup by address, for a producer that wants to know a channel's
+	 * value type and unit before building its {@link DataPoint} — and can skip
+	 * consulting its own metadata source when the channel is already registered.
+	 *
+	 * @param edgeName    the Edge identifier; ignored in single-tenant mode
+	 * @param componentId the Component-ID
+	 * @param channelId   the Channel-ID
+	 * @return the cached entry, or {@code null} if the channel is not cached
+	 */
+	public ChannelInfo peekChannel(String edgeName, String componentId, String channelId) {
+		return this.cache.get(edgeName, componentId, channelId);
+	}
+
+	/**
+	 * Drops every cached channel of one Edge. The next write re-resolves them, so
+	 * a changed unit or value type in the Edge's configuration takes effect.
+	 *
+	 * @param edgeName the Edge identifier
+	 */
+	public void invalidateEdge(String edgeName) {
+		this.cache.invalidateEdge(edgeName);
+	}
+
+	/**
+	 * Describes a channel for log messages: "[edgeName/]componentName/channelName".
+	 *
+	 * @param data The DataPoint
+	 * @return the channel description
+	 */
+	public String encodeChannelKey(DataPoint data) {
+		if (this.tenancy == Tenancy.SINGLE) {
+			return data.componentName() + "/" + data.channelName();
+		}
+		return data.edgeName() + "/" + data.componentName() + "/" + data.channelName();
+	}
+
+	/**
+	 * In multi-tenant mode every lookup/resolve must be scoped to an edge —
+	 * accepting null would silently mix data of different edges under a
+	 * "null/..." cache key and match no rows in the database.
+	 *
+	 * @param edgeName the edge identifier to validate
+	 * @param channel  channel description for the error message
+	 * @throws IllegalArgumentException in multi-tenant mode when edgeName is null
+	 */
+	private void assertEdgeName(String edgeName, String channel) {
+		if (this.tenancy == Tenancy.MULTI && edgeName == null) {
+			throw new IllegalArgumentException(
+					"Multi-tenant TimescaleDB requires an edge name; got null for Channel [" + channel + "]");
+		}
+	}
+
+}

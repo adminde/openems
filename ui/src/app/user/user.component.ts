@@ -45,15 +45,15 @@ export class UserComponent implements OnInit {
     protected userTheme: UserTheme;
     protected systemTheme: SystemTheme; // SystemTheme as of "FENECON","Heckert" or "OpenEMS" Themes.
 
-    protected readonly themes: KeyValue<string, string>[] = [
-        { key: "Light", value: "light" },
-        { key: "Dark", value: "dark" },
-        { key: "System", value: "system" },
+    protected readonly themes: KeyValue<string, UserTheme>[] = [
+        { key: this.translate.instant("GENERAL.LIGHT"), value: UserTheme.LIGHT },
+        { key: this.translate.instant("GENERAL.DARK"), value: UserTheme.DARK },
+        { key: this.translate.instant("GENERAL.SYSTEM_THEME"), value: UserTheme.SYSTEM },
     ];
     protected readonly environment = environment;
     protected readonly uiVersion = Changelog.UI_VERSION;
     protected readonly languages: Language[] = Language.ALL;
-    protected readonly isThemeSelectionAvailable = (["OpenEMS", "FENECON", "FENECONBeta"] as string[]).includes(environment.theme);
+    protected readonly isThemeSelectionAvailable = (["OpenEMS", "FENECON", "FENECONBeta", "TH-E Energy"] as string[]).includes(environment.theme);
     protected currentLanguage: Language;
     protected isEditModeDisabled: boolean = true;
     protected form: { formGroup: FormGroup; model: UserInformation | CompanyUserInformation };
@@ -107,7 +107,9 @@ export class UserComponent implements OnInit {
 
                 this.isAllowedToSeeUserDetails = this.isUserAllowedToSeeContactDetails(user.id);
                 this.showInformation = this.form != null;
-                this.userTheme = user.getThemeFromSettings() ?? UserComponent.DEFAULT_THEME;
+                this.userTheme = user.getThemeFromSettings()
+                    ?? (localStorage.getItem("THEME") as UserTheme)
+                    ?? UserComponent.DEFAULT_THEME;
                 this.useNewUi = user.getUseNewUIFromSettings();
 
                 if (this.service.currentEdge() != null) {
@@ -121,7 +123,7 @@ export class UserComponent implements OnInit {
     }
 
     public static get DEFAULT_THEME(): UserTheme {
-        return UserTheme.LIGHT;
+        return UserService.DEFAULT_THEME;
     } // Theme as of "Light","Dark" or "System" Themes.
 
     public static getNavigationTree(user: User): NavigationTree {
@@ -143,6 +145,7 @@ export class UserComponent implements OnInit {
     }
 
     public setTheme(theme: UserTheme): void {
+        this.userTheme = theme;
         this.userService.selectTheme(theme);
     }
 
@@ -292,6 +295,16 @@ export class UserComponent implements OnInit {
 
         this.currentLanguage = language;
         this.translate.use(language.key);
+    }
+
+    /**
+     * Shows the theme selection popover with previews of the available themes.
+     */
+    protected async showThemeSelection(): Promise<void> {
+        const selectedTheme = await this.userService.showThemeSelectionModal(this.userTheme);
+        if (selectedTheme != null) {
+            this.userTheme = selectedTheme;
+        }
     }
 
     private updateUserInformation(): Promise<void> {

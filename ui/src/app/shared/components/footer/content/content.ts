@@ -17,6 +17,7 @@ import { environment } from "src/environments";
     encapsulation: ViewEncapsulation.ShadowDom,
 })
 export class FooterContentComponent {
+    protected environment = environment;
     protected user: User | null = null;
     protected edge: Edge | null = null;
     protected displayValues: { comment: string; id: string; version: string } | null = null;

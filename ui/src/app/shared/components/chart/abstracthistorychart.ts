@@ -111,6 +111,7 @@ export abstract class AbstractHistoryChart implements OnInit, OnDestroy, AfterVi
     protected viewHeight: string | null = null;
     protected routeService: RouteService = inject(RouteService);
     private layoutRefresh = inject(LayoutRefreshService);
+    private heightOffset: number | null = null;
 
     constructor(
         public service: Service,
@@ -123,6 +124,12 @@ export abstract class AbstractHistoryChart implements OnInit, OnDestroy, AfterVi
         this.service.historyPeriod.subscribe(() => {
             this.updateChart();
         });
+    }
+
+    /** Optional height in px that is subtracted from the chart height, e.g. for the header of a surrounding widget. */
+    @Input() public set chartHeightOffset(value: number | null) {
+        this.heightOffset = value;
+        this.viewHeight = this.calculateViewHeight();
     }
 
     /**
@@ -1295,7 +1302,13 @@ export abstract class AbstractHistoryChart implements OnInit, OnDestroy, AfterVi
     }
 
     calculateViewHeight(): string {
-        return ViewUtils.getChartContentHeightInVh(this.navigationService.position()) + "dvh";
+        const height =
+            ViewUtils.getChartContentHeightInVh(this.navigationService.position(), this.customChartHeightPercentage) +
+            "dvh";
+        if (this.heightOffset == null) {
+            return height;
+        }
+        return `calc(${height} - ${this.heightOffset}px)`;
     }
 
     ngAfterContentInit() {

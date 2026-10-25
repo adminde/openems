@@ -49,7 +49,7 @@ export class ChartComponent extends AbstractHistoryChart {
                                 energyQueryResponse?.result.data[component.id + "/ActiveProductionEnergy"] ?? null,
                             converter: () => data["ActivePower"]?.map((value) => value),
                             yAxisId: ChartAxis.LEFT,
-                            color: ChartConstants.Colors.BLUE,
+                            color: ChartConstants.Colors.HEAT,
                             stack: 0,
                             order: 1,
                         });
@@ -74,7 +74,7 @@ export class ChartComponent extends AbstractHistoryChart {
                             nameSuffix: (energyQueryResponse: QueryHistoricTimeseriesEnergyResponse) =>
                                 energyQueryResponse?.result.data[component.id + "/ActiveProductionEnergy"] ?? null,
                             converter: () => data[component.id + "/ActiveProductionEnergy"].map((val) => val),
-                            color: ChartConstants.Colors.BLUE,
+                            color: ChartConstants.Colors.HEAT,
                             yAxisId: ChartAxis.LEFT,
                             stack: 0,
                         });

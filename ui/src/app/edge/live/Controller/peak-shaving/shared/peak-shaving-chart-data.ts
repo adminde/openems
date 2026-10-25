@@ -68,12 +68,12 @@ export class PeakShavingChartDataBuilder {
                     },
                     {
                         name: translate.instant("GENERAL.CHARGE"),
-                        color: ChartConstants.Colors.GREEN,
+                        color: ChartConstants.Colors.STORAGE_CHARGE,
                         converter: () => data["Charge"],
                     },
                     {
                         name: translate.instant("GENERAL.DISCHARGE"),
-                        color: ChartConstants.Colors.RED,
+                        color: ChartConstants.Colors.STORAGE_DISCHARGE,
                         converter: () => data["Discharge"],
                     },
                     {
@@ -143,7 +143,7 @@ export class PeakShavingChartDataBuilder {
         return [
             {
                 name: translate.instant("GENERAL.GRID_BUY_ADVANCED"),
-                color: ChartConstants.Colors.BLUE_GREY,
+                color: ChartConstants.Colors.GRID_BUY,
                 converter: () => data["ActivePower"],
             },
         ];

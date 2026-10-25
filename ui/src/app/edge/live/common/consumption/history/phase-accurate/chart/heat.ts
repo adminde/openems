@@ -35,7 +35,7 @@ export class HeatChartDetailComponent extends AbstractHistoryChart {
                     nameSuffix: (energyQueryResponse: QueryHistoricTimeseriesEnergyResponse) =>
                         energyQueryResponse.result.data[component.id + "/ActiveProductionEnergy"],
                     converter: () => data[component.id],
-                    color: ChartConstants.Colors.GREEN,
+                    color: ChartConstants.Colors.HEAT,
                     stack: 2,
                 },
             ],

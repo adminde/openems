@@ -11,7 +11,6 @@ export const theme: Omit<Environment, "url" | "backend" | "production" | "debugM
     headerLogo: "th-e-logo.svg",
     headerTitleShow: false,
     footerTextHtml: "TH-E EMS",
-    defaultLanguage: "en",
 
     docsUrlPrefix: "https://github.com/adminde/openems/blob/develop/",
     PRODUCT_TYPES: () => null,

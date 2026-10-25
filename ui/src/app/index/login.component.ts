@@ -21,7 +21,7 @@ import { States } from "../shared/states/states";
     standalone: false,
 })
 export class LoginComponent implements AfterContentChecked, OnDestroy {
-    private static readonly DEFAULT_THEME: UserTheme = UserTheme.LIGHT;
+    private static readonly DEFAULT_THEME: UserTheme = UserTheme.SYSTEM;
 
     public readonly environment = environment;
 

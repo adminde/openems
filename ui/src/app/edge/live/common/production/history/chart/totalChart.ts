@@ -86,7 +86,7 @@ export class TotalChartComponent extends AbstractHistoryChart {
                     converter: () => {
                         return data["ProductionActivePower"];
                     },
-                    color: ChartConstants.Colors.BLUE,
+                    color: ChartConstants.Colors.PRODUCTION,
                     stack: 2,
                 });
 

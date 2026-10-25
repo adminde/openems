@@ -35,21 +35,21 @@ export class ChargeDischargeChartComponent extends ScheduleChartComponent {
 
         return [
             {
-                color: ChartConstants.Colors.GREEN,
+                color: ChartConstants.Colors.STORAGE_CHARGE,
                 data: history.negative,
             },
             {
-                color: ChartConstants.Colors.RED,
+                color: ChartConstants.Colors.STORAGE_DISCHARGE,
                 data: history.positive,
             },
             {
-                color: ChartConstants.Colors.GREEN,
+                color: ChartConstants.Colors.STORAGE_CHARGE,
                 data: prediction.negative,
                 borderDash: ScheduleChartComponent.BORDER_DASHED,
                 opacity: ScheduleChartComponent.OPACITY_TRANSPARENT,
             },
             {
-                color: ChartConstants.Colors.RED,
+                color: ChartConstants.Colors.STORAGE_DISCHARGE,
                 data: prediction.positive,
                 borderDash: ScheduleChartComponent.BORDER_DASHED,
                 opacity: ScheduleChartComponent.OPACITY_TRANSPARENT,

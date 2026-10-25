@@ -35,7 +35,7 @@ export class ConsumptionSectionComponent extends AbstractSection implements OnIn
         super(
             "GENERAL.CONSUMPTION",
             "right",
-            "var(--ion-color-warning)",
+            "var(--ion-color-consumption)",
             translate,
             service,
             navigationService,
