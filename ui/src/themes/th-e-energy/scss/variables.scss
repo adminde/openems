@@ -206,6 +206,7 @@ $font-family: var(--ion-font-family);
     --ion-background-color: #faf6ee;
     --ion-background-color-rgb: 250, 250, 246;
     --ion-text-color: #2a2820;
+    --ion-color-svg: #576020;
 }
 
 :root[data-theme="dark"] img[src$="th-e-logo.svg"] {
@@ -325,6 +326,7 @@ $font-family: var(--ion-font-family);
     /** app background & text **/
     --ion-background-color: linear-gradient(to top left, #131611, #111310);
     --ion-text-color: #c0c2c8;
+    --ion-color-svg: var(--ion-text-color);
     --ion-title-color: var(--ion-color-toggle-background);
     --ion-color-toggle-checked-border: #dca015;
 }
