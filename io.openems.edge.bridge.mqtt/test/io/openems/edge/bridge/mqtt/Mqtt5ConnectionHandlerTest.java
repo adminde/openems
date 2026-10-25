@@ -32,7 +32,7 @@ public class Mqtt5ConnectionHandlerTest {
 				.setKeepAliveInterval(60) //
 				.build();
 
-		var handler = new Mqtt5ConnectionHandler(config, "localhost", 1883, "test-client", false);
+		var handler = new Mqtt5ConnectionHandler(config, "localhost", 1883, "test-client");
 
 		assertNotNull(handler);
 		assertFalse(handler.isConnected());
@@ -49,7 +49,7 @@ public class Mqtt5ConnectionHandlerTest {
 				.setClientId("test-client-ssl") //
 				.build();
 
-		var handler = new Mqtt5ConnectionHandler(config, "localhost", 8883, "test-client-ssl", true);
+		var handler = new Mqtt5ConnectionHandler(config, "localhost", 8883, "test-client-ssl");
 
 		assertNotNull(handler);
 		assertFalse(handler.isConnected());
@@ -58,7 +58,7 @@ public class Mqtt5ConnectionHandlerTest {
 	@Test
 	public void testIsConnectedWhenNotConnected() {
 		var config = MyConfig.create().build();
-		var handler = new Mqtt5ConnectionHandler(config, "localhost", 1883, "client", false);
+		var handler = new Mqtt5ConnectionHandler(config, "localhost", 1883, "client");
 
 		assertFalse(handler.isConnected());
 	}
@@ -66,7 +66,7 @@ public class Mqtt5ConnectionHandlerTest {
 	@Test
 	public void testPublishWhenNotConnected() throws Exception {
 		var config = MyConfig.create().build();
-		var handler = new Mqtt5ConnectionHandler(config, "localhost", 1883, "client", false);
+		var handler = new Mqtt5ConnectionHandler(config, "localhost", 1883, "client");
 
 		var future = handler.publish("test/topic", "payload".getBytes(), QoS.AT_LEAST_ONCE, false);
 
@@ -82,7 +82,7 @@ public class Mqtt5ConnectionHandlerTest {
 	@Test
 	public void testSubscribeWhenNotConnected() {
 		var config = MyConfig.create().build();
-		var handler = new Mqtt5ConnectionHandler(config, "localhost", 1883, "client", false);
+		var handler = new Mqtt5ConnectionHandler(config, "localhost", 1883, "client");
 
 		// Should not throw, just return early
 		handler.subscribe("test/topic", QoS.AT_LEAST_ONCE, msg -> {
@@ -94,7 +94,7 @@ public class Mqtt5ConnectionHandlerTest {
 	@Test
 	public void testUnsubscribeWhenNotConnected() throws Exception {
 		var config = MyConfig.create().build();
-		var handler = new Mqtt5ConnectionHandler(config, "localhost", 1883, "client", false);
+		var handler = new Mqtt5ConnectionHandler(config, "localhost", 1883, "client");
 
 		var future = handler.unsubscribe("test/topic");
 
@@ -106,7 +106,7 @@ public class Mqtt5ConnectionHandlerTest {
 	@Test
 	public void testDisconnectWhenNotConnected() {
 		var config = MyConfig.create().build();
-		var handler = new Mqtt5ConnectionHandler(config, "localhost", 1883, "client", false);
+		var handler = new Mqtt5ConnectionHandler(config, "localhost", 1883, "client");
 
 		// Should not throw
 		handler.disconnect();

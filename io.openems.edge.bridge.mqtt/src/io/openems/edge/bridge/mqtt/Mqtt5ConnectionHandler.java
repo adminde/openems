@@ -9,6 +9,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import javax.net.ssl.SSLSocketFactory;
+
 import org.eclipse.paho.mqttv5.client.IMqttToken;
 import org.eclipse.paho.mqttv5.client.MqttAsyncClient;
 import org.eclipse.paho.mqttv5.client.MqttCallback;
@@ -20,6 +22,7 @@ import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.openems.common.exceptions.OpenemsException;
 import io.openems.edge.bridge.mqtt.api.QoS;
 
 /**
@@ -46,11 +49,10 @@ public class Mqtt5ConnectionHandler implements MqttConnectionHandler, MqttCallba
 	 * @param host     the broker host
 	 * @param port     the broker port
 	 * @param clientId the client ID
-	 * @param useSsl   whether to use SSL
 	 */
-	public Mqtt5ConnectionHandler(Config config, String host, int port, String clientId, boolean useSsl) {
+	public Mqtt5ConnectionHandler(Config config, String host, int port, String clientId) {
 		this.config = config;
-		this.serverUri = (useSsl ? "ssl://" : "tcp://") + host + ":" + port;
+		this.serverUri = (config.secureConnect() ? "ssl://" : "tcp://") + host + ":" + port;
 		this.clientId = clientId;
 	}
 
@@ -58,6 +60,21 @@ public class Mqtt5ConnectionHandler implements MqttConnectionHandler, MqttCallba
 	public void connect(ConnectionCallback callback) {
 		this.connectionCallback = callback;
 		this.shouldReconnect = true;
+
+		// Certificate files are read on every connect so that rotated certificates
+		// take effect on the next reconnect.
+		SSLSocketFactory sslSocketFactory = null;
+		if (this.config.secureConnect()) {
+			try {
+				sslSocketFactory = MqttSslContextFactory.createSocketFactory(this.config);
+
+			} catch (OpenemsException e) {
+				this.log.error("TLS setup for {} failed: {}", this.serverUri, e.getMessage());
+				callback.onConnectionFailed(e.getMessage());
+				this.scheduleReconnect();
+				return;
+			}
+		}
 
 		try {
 			this.client = new MqttAsyncClient(this.serverUri, this.clientId);
@@ -68,6 +85,11 @@ public class Mqtt5ConnectionHandler implements MqttConnectionHandler, MqttCallba
 			options.setKeepAliveInterval(this.config.keepAliveInterval());
 			options.setAutomaticReconnect(false); // We handle reconnect ourselves
 			options.setConnectionTimeout(30);
+
+			// SSL Socket Factory
+			if (sslSocketFactory != null) {
+				options.setSocketFactory(sslSocketFactory);
+			}
 
 			// Authentication
 			if (!this.config.username().isEmpty()) {

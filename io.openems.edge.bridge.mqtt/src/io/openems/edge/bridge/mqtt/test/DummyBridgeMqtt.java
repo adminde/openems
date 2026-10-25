@@ -103,7 +103,17 @@ public class DummyBridgeMqtt extends AbstractDummyOpenemsComponent<DummyBridgeMq
 	 * @param payload the payload
 	 */
 	public void simulateMessage(String topic, String payload) {
-		var message = MqttMessage.of(topic, payload);
+		this.simulateMessage(topic, payload.getBytes());
+	}
+
+	/**
+	 * Simulates receiving a binary message on a topic.
+	 *
+	 * @param topic   the topic
+	 * @param payload the payload
+	 */
+	public void simulateMessage(String topic, byte[] payload) {
+		var message = new MqttMessage(topic, payload, QoS.AT_LEAST_ONCE, false);
 		this.subscriptions.forEach((filter, subscription) -> {
 			if (this.topicMatchesFilter(topic, filter)) {
 				subscription.callback.accept(message);

@@ -32,7 +32,7 @@ public class Mqtt3ConnectionHandlerTest {
 				.setKeepAliveInterval(60) //
 				.build();
 
-		var handler = new Mqtt3ConnectionHandler(config, "localhost", 1883, "test-client", false, MqttVersion.V3_1_1);
+		var handler = new Mqtt3ConnectionHandler(config, "localhost", 1883, "test-client", MqttVersion.V3_1_1);
 
 		assertNotNull(handler);
 		assertFalse(handler.isConnected());
@@ -49,7 +49,7 @@ public class Mqtt3ConnectionHandlerTest {
 				.setClientId("test-client-ssl") //
 				.build();
 
-		var handler = new Mqtt3ConnectionHandler(config, "localhost", 8883, "test-client-ssl", true, MqttVersion.V3_1);
+		var handler = new Mqtt3ConnectionHandler(config, "localhost", 8883, "test-client-ssl", MqttVersion.V3_1);
 
 		assertNotNull(handler);
 		assertFalse(handler.isConnected());
@@ -58,7 +58,7 @@ public class Mqtt3ConnectionHandlerTest {
 	@Test
 	public void testIsConnectedWhenNotConnected() {
 		var config = MyConfig.create().build();
-		var handler = new Mqtt3ConnectionHandler(config, "localhost", 1883, "client", false, MqttVersion.V3_1_1);
+		var handler = new Mqtt3ConnectionHandler(config, "localhost", 1883, "client", MqttVersion.V3_1_1);
 
 		assertFalse(handler.isConnected());
 	}
@@ -66,7 +66,7 @@ public class Mqtt3ConnectionHandlerTest {
 	@Test
 	public void testPublishWhenNotConnected() throws Exception {
 		var config = MyConfig.create().build();
-		var handler = new Mqtt3ConnectionHandler(config, "localhost", 1883, "client", false, MqttVersion.V3_1_1);
+		var handler = new Mqtt3ConnectionHandler(config, "localhost", 1883, "client", MqttVersion.V3_1_1);
 
 		var future = handler.publish("test/topic", "payload".getBytes(), QoS.AT_LEAST_ONCE, false);
 
@@ -82,7 +82,7 @@ public class Mqtt3ConnectionHandlerTest {
 	@Test
 	public void testSubscribeWhenNotConnected() {
 		var config = MyConfig.create().build();
-		var handler = new Mqtt3ConnectionHandler(config, "localhost", 1883, "client", false, MqttVersion.V3_1_1);
+		var handler = new Mqtt3ConnectionHandler(config, "localhost", 1883, "client", MqttVersion.V3_1_1);
 
 		// Should not throw, just return early
 		handler.subscribe("test/topic", QoS.AT_LEAST_ONCE, msg -> {
@@ -94,7 +94,7 @@ public class Mqtt3ConnectionHandlerTest {
 	@Test
 	public void testUnsubscribeWhenNotConnected() throws Exception {
 		var config = MyConfig.create().build();
-		var handler = new Mqtt3ConnectionHandler(config, "localhost", 1883, "client", false, MqttVersion.V3_1_1);
+		var handler = new Mqtt3ConnectionHandler(config, "localhost", 1883, "client", MqttVersion.V3_1_1);
 
 		var future = handler.unsubscribe("test/topic");
 
@@ -106,7 +106,7 @@ public class Mqtt3ConnectionHandlerTest {
 	@Test
 	public void testDisconnectWhenNotConnected() {
 		var config = MyConfig.create().build();
-		var handler = new Mqtt3ConnectionHandler(config, "localhost", 1883, "client", false, MqttVersion.V3_1_1);
+		var handler = new Mqtt3ConnectionHandler(config, "localhost", 1883, "client", MqttVersion.V3_1_1);
 
 		// Should not throw
 		handler.disconnect();

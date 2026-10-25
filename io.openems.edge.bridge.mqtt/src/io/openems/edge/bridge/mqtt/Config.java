@@ -72,17 +72,20 @@ public @interface Config {
 	@AttributeDefinition(name = "LWT Retained", description = "Whether the Last Will message should be retained")
 	boolean lwtRetained() default false;
 
-	@AttributeDefinition(name = "Trust Store Path", description = "Path to the trust store file for SSL/TLS (optional)")
-	String trustStorePath() default "";
+	@AttributeDefinition(name = "CA Certificate File", description = "PEM file or JKS/PKCS12 trust store with the CA certificates for verifying the broker (optional, default: JVM CAs)")
+	String caCertificateFile() default "";
 
-	@AttributeDefinition(name = "Trust Store Password", description = "Password for the trust store", type = AttributeType.PASSWORD)
-	String trustStorePassword() default "";
+	@AttributeDefinition(name = "CA Certificate Password", description = "Password of a PKCS12/JKS trust store, not used for PEM (optional)", type = AttributeType.PASSWORD)
+	String caCertificatePassword() default "";
 
-	@AttributeDefinition(name = "Key Store Path", description = "Path to the key store file for client certificates (optional)")
-	String keyStorePath() default "";
+	@AttributeDefinition(name = "Client Certificate File", description = "PEM file with the client certificate chain, or a PKCS12/JKS key store including the private key (optional)")
+	String clientCertificateFile() default "";
 
-	@AttributeDefinition(name = "Key Store Password", description = "Password for the key store", type = AttributeType.PASSWORD)
-	String keyStorePassword() default "";
+	@AttributeDefinition(name = "Client Key File", description = "PEM file with the client private key, not needed if the certificate file contains it (optional)")
+	String clientKeyFile() default "";
+
+	@AttributeDefinition(name = "Client Key Password", description = "Password of an encrypted PEM key or of a PKCS12/JKS key store (optional)", type = AttributeType.PASSWORD)
+	String clientKeyPassword() default "";
 
 	@AttributeDefinition(name = "Debug Mode", description = "Enable debug logging for MQTT communication")
 	boolean debugMode() default false;
