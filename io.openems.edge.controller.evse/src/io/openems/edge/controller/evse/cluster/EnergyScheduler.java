@@ -5,8 +5,8 @@ import static io.openems.common.utils.JsonUtils.buildJsonObject;
 import static io.openems.common.utils.JsonUtils.toJsonArray;
 import static io.openems.edge.controller.evse.cluster.EshUtils.generateModes;
 import static io.openems.edge.controller.evse.cluster.EshUtils.parseTasks;
-import static java.util.stream.Collectors.joining;
 
+import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.function.Supplier;
 
@@ -16,47 +16,23 @@ import com.google.common.collect.ImmutableTable;
 
 import io.openems.common.jsonrpc.serialization.JsonSerializer;
 import io.openems.common.jsonrpc.serialization.JsonSerializerUtil;
+import io.openems.edge.common.component.ClockProvider;
 import io.openems.edge.common.component.OpenemsComponent;
+import io.openems.edge.controller.evse.single.Mode;
 import io.openems.edge.controller.evse.single.Params;
 import io.openems.edge.controller.evse.single.Types.Payload;
-import io.openems.edge.energy.api.handler.DifferentModes.Modes;
+import io.openems.edge.energy.api.handler.DifferentModes.Modes.JointModes;
+import io.openems.edge.energy.api.handler.DifferentModes.Modes.JointModes.JointMode;
 import io.openems.edge.energy.api.handler.EnergyScheduleHandler;
 import io.openems.edge.energy.api.handler.EshWithDifferentModes;
-import io.openems.edge.evse.api.chargepoint.Mode;
 
 public class EnergyScheduler {
 
 	public static record OptimizationContext(//
 			ClusterEshConfig clusterConfig, //
-			Modes<SingleModes> modes, //
+			JointModes<Mode> modes, //
 			ImmutableTable<String, ZonedDateTime, Mode> manualModes, //
 			ImmutableTable<String, ZonedDateTime, Payload.Smart> smartPayloads) {
-	}
-
-	/**
-	 * Holds the combination of {@link Mode}s of multiple Evse.Controller.Single.
-	 */
-	public static record SingleModes(ImmutableMap<String, Mode> modes) {
-
-		protected static record SingleMode(String componentId, Mode mode) {
-		}
-
-		/**
-		 * Gets the {@link Mode} of the given Component.
-		 * 
-		 * @param componentId the Component-ID
-		 * @return the mode or null
-		 */
-		public Mode getMode(String componentId) {
-			return this.modes.get(componentId);
-		}
-
-		@Override
-		public final String toString() {
-			return this.modes.entrySet().stream() //
-					.map(e -> e.getKey() + ":" + e.getValue()) //
-					.collect(joining("+"));
-		}
 	}
 
 	public static record ClusterScheduleContext(ImmutableMap<String, SingleScheduleContext> singleCscs) {
@@ -101,14 +77,15 @@ public class EnergyScheduler {
 	 * test.
 	 * 
 	 * @param parent                the parent {@link OpenemsComponent}
+	 * @param clockProvider         a {@link ClockProvider}
 	 * @param clusterConfigSupplier supplier for {@link ClusterEshConfig}
 	 * @return a {@link EnergyScheduleHandler}
 	 */
-	public static EshWithDifferentModes<SingleModes, OptimizationContext, ClusterScheduleContext> buildEnergyScheduleHandler(
-			OpenemsComponent parent, Supplier<ClusterEshConfig> clusterConfigSupplier) {
+	public static EshWithDifferentModes<JointMode<Mode>, OptimizationContext, ClusterScheduleContext> buildEnergyScheduleHandler(
+			OpenemsComponent parent, ClockProvider clockProvider, Supplier<ClusterEshConfig> clusterConfigSupplier) {
 		return EnergyScheduleHandler.WithDifferentModes
-				.<SingleModes, OptimizationContext, ClusterScheduleContext>create(parent) //
-				.setSerializer(ClusterEshConfig.serializer(), clusterConfigSupplier) //
+				.<JointMode<Mode>, OptimizationContext, ClusterScheduleContext>create(parent) //
+				.setSerializer(ClusterEshConfig.serializer(clockProvider.getClock()), clusterConfigSupplier) //
 
 				.setOptimizationContext(goc -> {
 					final var clusterConfig = clusterConfigSupplier.get();
@@ -135,13 +112,16 @@ public class EnergyScheduler {
 
 				.setPreProcessor((period, csc, mode) -> {
 					// Find actual Mode per Single-Controller
-					final var singleModes = csc.clusterConfig.singleParams.values().stream() //
+					final var actualModesPerComponent = csc.clusterConfig.singleParams.values().stream() //
 							.collect(ImmutableMap.toImmutableMap(//
-									p -> p.componentId(), //
+									p -> p.ctrlSingleId(), //
 									p -> EshUtils.getSingleMode(period, csc, mode, p)));
-					return csc.modes.streamAll() //
-							.filter(m -> m.mode().modes.equals(singleModes)) //
-							.findFirst().map(m -> m.mode()).orElse(null);
+
+					return csc.modes().streamAll() //
+							// Find JointMode with all Modes same
+							.filter(jm -> jm.mode().mode().submodes().equals(actualModesPerComponent)) //
+							.findFirst().map(jm -> jm.mode().mode()) //
+							.orElse(null);
 				}) //
 
 				.setSimulator((id, period, gsc, coc, csc, ef, mode, fitness, isFinalRun) -> {
@@ -163,7 +143,7 @@ public class EnergyScheduler {
 				DistributionStrategy distributionStrategy, //
 				ImmutableList<Params> singleParams) {
 			return new ClusterEshConfig(distributionStrategy, singleParams.stream() //
-					.collect(toImmutableMap(p -> p.componentId(), p -> p)));
+					.collect(toImmutableMap(p -> p.ctrlSingleId(), p -> p)));
 		}
 
 		/**
@@ -179,19 +159,20 @@ public class EnergyScheduler {
 		/**
 		 * Returns a {@link JsonSerializer} for a {@link EshConfig}.
 		 *
+		 * @param clock the {@link Clock}
 		 * @return the created {@link JsonSerializer}
 		 */
-		public static JsonSerializer<ClusterEshConfig> serializer() {
+		public static JsonSerializer<ClusterEshConfig> serializer(Clock clock) {
 			return JsonSerializerUtil.jsonObjectSerializer(json -> {
 				return ClusterEshConfig.from(//
 						json.getEnum("distributionStrategy", DistributionStrategy.class), //
-						json.getImmutableList("params", Params.serializer()) //
+						json.getImmutableList("params", Params.serializer(clock)) //
 				);
 			}, obj -> {
 				return buildJsonObject() //
 						.addProperty("distributionStrategy", obj.distributionStrategy) //
 						.add("params", obj.singleParams.values().stream() //
-								.map(Params.serializer()::serialize) //
+								.map(Params.serializer(clock)::serialize) //
 								.collect(toJsonArray())) //
 						.build();
 			});

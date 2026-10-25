@@ -6,7 +6,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.ImmutableList;
 
@@ -58,7 +58,7 @@ public class ComponentDefConfigTest {
 		assertEquals(6, appManagerTestBundle.sut.componentManager.getAllComponents().size());
 
 		appManagerTestBundle.sut.handleUpdateAppConfigRequest(DUMMY_ADMIN,
-				new UpdateAppConfig.Request("test2", JsonUtils.buildJsonObject()//
+				new UpdateAppConfig.Request("test1", JsonUtils.buildJsonObject()//
 						.addProperty("minPowerSinglePhase", 1381)//
 						.build()));
 
@@ -72,7 +72,7 @@ public class ComponentDefConfigTest {
 		assertEquals(6, appManagerTestBundle.sut.componentManager.getAllComponents().size());
 
 		appManagerTestBundle.sut.handleUpdateAppConfigRequest(DUMMY_ADMIN,
-				new UpdateAppConfig.Request("test2", JsonUtils.buildJsonObject()//
+				new UpdateAppConfig.Request("test1", JsonUtils.buildJsonObject()//
 						.addProperty("minPowerSinglePhase", 1382)//
 						.build()));
 

@@ -1,16 +1,17 @@
 package io.openems.common.bridge.http.api;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.net.URI;
+import java.util.Map;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class UrlBuilderTest {
 
 	@Test
-	public void testInitialPort() {
+	void testInitialPort() {
 		final var urlWithPort = UrlBuilder.parse("https://openems.io:443");
 		assertEquals(443, urlWithPort.port().intValue());
 
@@ -19,21 +20,21 @@ public class UrlBuilderTest {
 	}
 
 	@Test
-	public void testParse() {
+	void testParse() {
 		final var rawUrl = "https://openems.io:443/path?key=value#fragment";
 		final var parsedUrl = UrlBuilder.parse(rawUrl);
 		assertEquals(rawUrl, parsedUrl.toEncodedString());
 	}
 
 	@Test
-	public void testParseNoQueryParams() {
+	void testParseNoQueryParams() {
 		final var rawUrl = "https://openems.io:443/path#fragment";
 		final var parsedUrl = UrlBuilder.parse(rawUrl);
 		assertEquals(rawUrl, parsedUrl.toEncodedString());
 	}
 
 	@Test
-	public void testScheme() {
+	void testScheme() {
 		final var url = UrlBuilder.create() //
 				.withScheme("https") //
 				.withHost("openems.io");
@@ -43,7 +44,7 @@ public class UrlBuilderTest {
 	}
 
 	@Test
-	public void testHost() {
+	void testHost() {
 		final var url = UrlBuilder.create() //
 				.withScheme("https") //
 				.withHost("openems.io");
@@ -53,7 +54,7 @@ public class UrlBuilderTest {
 	}
 
 	@Test
-	public void testPort() {
+	void testPort() {
 		final var url = UrlBuilder.create() //
 				.withScheme("https") //
 				.withHost("openems.io") //
@@ -64,7 +65,7 @@ public class UrlBuilderTest {
 	}
 
 	@Test
-	public void testPath() {
+	void testPath() {
 		final var url = UrlBuilder.create() //
 				.withScheme("https") //
 				.withHost("openems.io") //
@@ -76,7 +77,7 @@ public class UrlBuilderTest {
 	}
 
 	@Test
-	public void testQueryParameter() {
+	void testQueryParameter() {
 		final var url = UrlBuilder.create() //
 				.withScheme("https") //
 				.withHost("openems.io") //
@@ -87,7 +88,7 @@ public class UrlBuilderTest {
 	}
 
 	@Test
-	public void testFragment() {
+	void testFragment() {
 		final var url = UrlBuilder.create() //
 				.withScheme("https") //
 				.withHost("openems.io") //
@@ -99,7 +100,7 @@ public class UrlBuilderTest {
 	}
 
 	@Test
-	public void testToUri() {
+	void testToUri() {
 		final var url = UrlBuilder.create() //
 				.withScheme("https") //
 				.withHost("openems.io") //
@@ -112,7 +113,7 @@ public class UrlBuilderTest {
 	}
 
 	@Test
-	public void testToEncodedString() {
+	void testToEncodedString() {
 		final var url = UrlBuilder.create() //
 				.withScheme("https") //
 				.withHost("openems.io") //
@@ -124,4 +125,18 @@ public class UrlBuilderTest {
 		assertEquals("https://openems.io:443/path?key=va%20lu%2Be#fragment", url.toEncodedString());
 	}
 
+	@Test
+	void testEncodeFormUrlencodedBody() {
+		final var value = UrlBuilder.encodeFormUrlencodedBody(Map.of("key", "va lu+e"));
+
+		assertEquals("key=va%20lu%2Be", value);
+	}
+
+	@Test
+	void testDecodeFormUrlencodedBody() {
+		final var values = UrlBuilder.decodeFormUrlencodedBody("key=va%20lu%2Be");
+
+		assertEquals(1, values.size());
+		assertEquals("va lu+e", values.get("key"));
+	}
 }

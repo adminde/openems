@@ -1,7 +1,6 @@
 package io.openems.edge.predictor.production.linearmodel;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -15,12 +14,12 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Spy;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.openems.common.types.ChannelAddress;
 import io.openems.edge.common.sum.DummySum;
@@ -41,8 +40,8 @@ import io.openems.edge.predictor.production.linearmodel.prediction.SnowStateMach
 import io.openems.edge.timedata.test.DummyTimedata;
 import io.openems.edge.weather.api.Weather;
 
-@RunWith(MockitoJUnitRunner.class)
-public class PredictorProductionLinearModelImplTest {
+@ExtendWith(MockitoExtension.class)
+class PredictorProductionLinearModelImplTest {
 
 	private static final ChannelAddress PRODUCTION_CHANNEL_ADDRESS = new ChannelAddress("_sum", "ProductionChannel");
 
@@ -65,8 +64,12 @@ public class PredictorProductionLinearModelImplTest {
 
 	private DummyTimedata timedata;
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	void setUp() throws Exception {
+		this.setupComponent();
+	}
+
+	void setupComponent() throws Exception {
 		this.sut.setProductionChannelAddress(PRODUCTION_CHANNEL_ADDRESS);
 		this.sut.setSnowStateMachine(this.snowStateMachine);
 		this.sut.setPredictionPersistenceService(this.predictionPersistenceService);
@@ -85,8 +88,7 @@ public class PredictorProductionLinearModelImplTest {
 	}
 
 	@Test
-	public void testCreateNewPrediction_ShouldReturnEmptyPrediction_WhenSnowStateMachineThrowsException()
-			throws Exception {
+	void testCreateNewPrediction_ShouldReturnEmptyPrediction_WhenSnowStateMachineThrowsException() throws Exception {
 		doThrow(new PredictionException(PredictionError.NO_WEATHER_DATA, "No weather data"))//
 				.when(this.snowStateMachine)//
 				.run();
@@ -96,7 +98,7 @@ public class PredictorProductionLinearModelImplTest {
 	}
 
 	@Test
-	public void testCreateNewPrediction_ShouldReturnLongtermPrediction_WhenNoSnow() {
+	void testCreateNewPrediction_ShouldReturnLongtermPrediction_WhenNoSnow() {
 		var longtermPrediction = Prediction.from(this.now.toInstant(), 1, 2, 3);
 		when(this.sut.createLongTermPrediction(any())).thenReturn(longtermPrediction);
 		when(this.snowStateMachine.getCurrentState()).thenReturn(State.NORMAL);
@@ -109,7 +111,7 @@ public class PredictorProductionLinearModelImplTest {
 	}
 
 	@Test
-	public void testCreateNewPrediction_ShouldReturnPersistencePrediction_WhenSnow() {
+	void testCreateNewPrediction_ShouldReturnPersistencePrediction_WhenSnow() {
 		var persistencePrediction = Prediction.from(this.now.toInstant(), 4, 5, 6);
 		when(this.predictorPersistenceModel.getPrediction(any())).thenReturn(persistencePrediction);
 		when(this.snowStateMachine.getCurrentState()).thenReturn(State.SNOW);
@@ -123,7 +125,7 @@ public class PredictorProductionLinearModelImplTest {
 	}
 
 	@Test
-	public void testCreateNewPrediction_ShouldReturnLongtermPrediction_WhenSnowStartWithinLast24h() {
+	void testCreateNewPrediction_ShouldReturnLongtermPrediction_WhenSnowStartWithinLast24h() {
 		var longtermPrediction = Prediction.from(this.now.toInstant(), 1, 2, 3);
 		when(this.sut.createLongTermPrediction(any())).thenReturn(longtermPrediction);
 		when(this.snowStateMachine.getCurrentState()).thenReturn(State.SNOW);
@@ -137,15 +139,15 @@ public class PredictorProductionLinearModelImplTest {
 	}
 
 	@Test
-	public void testCreateNewPrediction_ShouldReturnLongtermPrediction_WhenSnowButPersistenceModelNotAvailable()
+	void testCreateNewPrediction_ShouldReturnLongtermPrediction_WhenSnowButPersistenceModelNotAvailable()
 			throws Exception {
+		this.predictorPersistenceModel = null;
+		this.setupComponent();
+
 		var longtermPrediction = Prediction.from(this.now.toInstant(), 1, 2, 3);
 		when(this.sut.createLongTermPrediction(any())).thenReturn(longtermPrediction);
 		when(this.snowStateMachine.getCurrentState()).thenReturn(State.SNOW);
 		when(this.snowStateMachine.getSnowStart()).thenReturn(this.now.minusHours(Integer.MAX_VALUE));
-
-		this.predictorPersistenceModel = null;
-		this.setUp();
 
 		var result = this.sut.createNewPrediction(PRODUCTION_CHANNEL_ADDRESS);
 
@@ -155,7 +157,7 @@ public class PredictorProductionLinearModelImplTest {
 	}
 
 	@Test
-	public void testCreateLongtermPrediction_ShouldReturnExpectedValues() throws Exception {
+	void testCreateLongtermPrediction_ShouldReturnExpectedValues() throws Exception {
 		when(this.predictionOrchestrator.runPrediction())//
 				.thenReturn(new Series<>(//
 						List.of(this.now, this.now.plusMinutes(15)), //
@@ -165,13 +167,20 @@ public class PredictorProductionLinearModelImplTest {
 		this.sut.setPredictionPersistenceService(mock(PredictionPersistenceService.class));
 
 		var result = this.sut.createLongTermPrediction(PRODUCTION_CHANNEL_ADDRESS);
+		var resultArray = result.asArray();
 
-		assertArrayEquals(new Integer[] { 0, 200 }, result.asArray());
+		assertEquals(42, resultArray[0]);
+		assertEquals(53, resultArray[1]);
+		assertEquals(42, resultArray[2]);
+		assertEquals(32, resultArray[3]);
+		assertEquals(21, resultArray[4]);
+		assertEquals(11, resultArray[5]);
+		assertEquals(0, resultArray[6]);
 		assertEquals(this.now.toInstant(), result.getFirstTime());
 	}
 
 	@Test
-	public void testCreateLongtermPrediction_ShouldReturnEmptyPrediction_WhenNoModel() throws Exception {
+	void testCreateLongtermPrediction_ShouldReturnEmptyPrediction_WhenNoModel() {
 		var result = this.sut.createLongTermPrediction(PRODUCTION_CHANNEL_ADDRESS);
 
 		verify(this.sut)._setPredictionState(eq(PredictionState.FAILED_NO_MODEL));
@@ -179,7 +188,7 @@ public class PredictorProductionLinearModelImplTest {
 	}
 
 	@Test
-	public void testCreateLongtermPrediction_ShouldReturnEmptyPrediction_WhenModelOutdated() throws Exception {
+	void testCreateLongtermPrediction_ShouldReturnEmptyPrediction_WhenModelOutdated() {
 		this.sut.onTrainingSuccess(new ModelBundle(//
 				mock(Regressor.class), //
 				this.now.minusDays(1).minusMinutes(1).toInstant()));
@@ -191,7 +200,7 @@ public class PredictorProductionLinearModelImplTest {
 	}
 
 	@Test
-	public void testComputeAndSetMaxProduction_ShouldSetCorrectPercentile() {
+	void testComputeAndSetMaxProduction_ShouldSetCorrectPercentile() {
 		for (int i = 1; i <= 100; i++) {
 			this.timedata.add(this.now.minusMinutes(i * 15), PRODUCTION_CHANNEL_ADDRESS, i);
 		}
@@ -220,7 +229,7 @@ public class PredictorProductionLinearModelImplTest {
 
 		@Override
 		public PredictionOrchestratorFactory predictionOrchestratorFactory() {
-			return (context) -> this.predictionOrchestrator;
+			return context -> this.predictionOrchestrator;
 		}
 	}
 }

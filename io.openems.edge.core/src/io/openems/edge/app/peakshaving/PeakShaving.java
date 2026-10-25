@@ -1,6 +1,7 @@
 package io.openems.edge.app.peakshaving;
 
 import static io.openems.edge.core.appmanager.validator.Checkables.checkAppsNotInstalled;
+import static io.openems.edge.core.appmanager.validator.Checkables.checkCommercial100;
 import static io.openems.edge.core.appmanager.validator.Checkables.checkCommercial50Gen3;
 import static io.openems.edge.core.appmanager.validator.Checkables.checkCommercial92;
 import static io.openems.edge.core.appmanager.validator.Checkables.checkIndustrial;
@@ -20,7 +21,6 @@ import com.google.gson.JsonElement;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.function.ThrowingTriFunction;
-import io.openems.common.oem.OpenemsEdgeOem;
 import io.openems.common.session.Language;
 import io.openems.edge.app.common.props.CommonProps;
 import io.openems.edge.app.common.props.ComponentProps;
@@ -43,6 +43,7 @@ import io.openems.edge.core.appmanager.Type.Parameter.BundleParameter;
 import io.openems.edge.core.appmanager.dependency.Tasks;
 import io.openems.edge.core.appmanager.dependency.aggregatetask.ComponentDef;
 import io.openems.edge.core.appmanager.dependency.aggregatetask.ComponentProperties;
+import io.openems.edge.core.appmanager.dependency.aggregatetask.SchedulerByCentralOrderConfiguration;
 import io.openems.edge.core.appmanager.validator.ValidatorConfig;
 
 /**
@@ -132,13 +133,6 @@ public class PeakShaving extends AbstractOpenemsAppWithProps<PeakShaving, Proper
 	}
 
 	@Override
-	public AppDescriptor getAppDescriptor(OpenemsEdgeOem oem) {
-		return AppDescriptor.create() //
-				.setWebsiteUrl(oem.getAppWebsiteUrl(this.getAppId())) //
-				.build();
-	}
-
-	@Override
 	public OpenemsAppCategory[] getCategories() {
 		return new OpenemsAppCategory[] { OpenemsAppCategory.PEAK_SHAVING };
 	}
@@ -181,6 +175,10 @@ public class PeakShaving extends AbstractOpenemsAppWithProps<PeakShaving, Proper
 
 			return AppConfiguration.create() //
 					.addTask(Tasks.componentFromComponentConfig(components)) //
+					.onlyIf(t != ConfigurationTarget.VALIDATE,
+							b -> b.addTask(Tasks.schedulerByCentralOrder(
+									new SchedulerByCentralOrderConfiguration.SchedulerComponent(ctrlPeakShavingId,
+											"Controller.Symmetric.PeakShaving", this.getAppId()))))
 					.build();
 		};
 	}
@@ -188,7 +186,10 @@ public class PeakShaving extends AbstractOpenemsAppWithProps<PeakShaving, Proper
 	@Override
 	protected ValidatorConfig.Builder getValidateBuilder() {
 		return ValidatorConfig.create() //
-				.setCompatibleCheckableConfigs(checkIndustrial().or(checkCommercial92()).or(checkCommercial50Gen3())) //
+				.setCompatibleCheckableConfigs(checkIndustrial() //
+						.or(checkCommercial92()) //
+						.or(checkCommercial50Gen3()) //
+						.or(checkCommercial100())) //
 				.setInstallableCheckableConfigs(checkAppsNotInstalled("App.PeakShaving.PhaseAccuratePeakShaving",
 						"App.PeakShaving.TimeSlotPeakShaving", "App.PvSelfConsumption.SelfConsumptionOptimization"));
 	}

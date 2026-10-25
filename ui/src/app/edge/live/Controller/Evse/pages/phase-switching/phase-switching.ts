@@ -1,38 +1,36 @@
-import { Component, inject } from "@angular/core";
+import { ChangeDetectionStrategy, Component } from "@angular/core";
 import { FormControl, FormGroup } from "@angular/forms";
 import { ActivatedRoute } from "@angular/router";
-import { ViewWillEnter } from "@ionic/angular";
 import { TranslateService } from "@ngx-translate/core";
 import { LiveDataService } from "src/app/edge/live/livedataservice";
-import { NavigationTree } from "src/app/shared/components/navigation/shared";
+import { ButtonLabel } from "src/app/shared/components/modal/modal-button/modal-button";
 import { DataService } from "src/app/shared/components/shared/dataservice";
 import { Name } from "src/app/shared/components/shared/name";
-import { AbstractFormlyComponent, OeFormlyField, OeFormlyView } from "src/app/shared/components/shared/oe-formly-component";
-import { RouteService } from "src/app/shared/service/route.service";
+import { AbstractFormlyComponent, OeFormlyField, OeFormlyView, ViewContext, } from "src/app/shared/components/shared/oe-formly-component";
 import { ChannelAddress, CurrentData, Edge, EdgeConfig, Service } from "src/app/shared/shared";
-import { Role } from "src/app/shared/type/role";
 import { AssertionUtils } from "src/app/shared/utils/assertions/assertions.utils";
+import { ControllerEvseSingleShared } from "../../shared/shared";
 
 @Component({
+    selector: "oe-controller-evse-pages-phase-switching",
     templateUrl: "../../../../../../shared/components/formly/formly-field-modal/template.html",
     standalone: false,
-    providers: [
-        { provide: DataService, useClass: LiveDataService },
-    ],
-    styles: [`
-        ::ng-deep formly-form{
-            height: 100% !important;
-        }`,
+    providers: [{ provide: DataService, useClass: LiveDataService }],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    styles: [
+        `
+            ::ng-deep formly-form {
+                height: 100% !important;
+            }
+        `,
     ],
 })
-
-export class EvsePhaseSwitchingComponent extends AbstractFormlyComponent implements ViewWillEnter {
+export class EvsePhaseSwitchingComponent extends AbstractFormlyComponent {
     public static formControlName: string = "phaseSwitching";
     protected override formlyWrapper: "formly-field-modal" | "formly-field-navigation" = "formly-field-navigation";
 
     private controller: EdgeConfig.Component | null = null;
     private phaseSwitchingChannel: ChannelAddress | null = null;
-    private routeService: RouteService = inject(RouteService);
     constructor(
         protected override service: Service,
         private route: ActivatedRoute,
@@ -40,10 +38,13 @@ export class EvsePhaseSwitchingComponent extends AbstractFormlyComponent impleme
         super();
     }
 
-    public static generateView(translate: TranslateService, component: EdgeConfig.Component | null, edge: Edge | null): OeFormlyView {
+    public static generateView(
+        translate: TranslateService,
+        component: EdgeConfig.Component | null,
+        edge: Edge | null,
+    ): OeFormlyView {
         AssertionUtils.assertIsDefined(component);
         AssertionUtils.assertIsDefined(edge);
-
         const lines: OeFormlyField[] = [
             {
                 type: "image-line",
@@ -60,31 +61,20 @@ export class EvsePhaseSwitchingComponent extends AbstractFormlyComponent impleme
             {
                 type: "info-line",
                 name: translate.instant("EDGE.INDEX.WIDGETS.EVCS.PHASE_SWITCHING_INFO"),
-                style: "font-weight: bold; text-align: center; font-size: 1rem; padding-bottom: calc(var(--ion-padding) * 4)",
+                style: {
+                    name: {
+                        fontWeight: "bold",
+                        textAlign: "center",
+                        fontSize: "1rem",
+                        paddingBottom: "var(--ion-padding)",
+                    },
+                },
             },
             {
                 type: "radio-buttons-from-form-control-line",
                 name: "phase-switching",
                 controlName: EvsePhaseSwitchingComponent.formControlName, // propertyname
-                buttons: [
-                    {
-                        name: translate.instant("EDGE.INDEX.WIDGETS.EVCS.FORCE_SINGLE_PHASE"),
-                        value: PhaseSwitching.FORCE_SINGLE_PHASE,
-                        style: {
-                            "color": "red",
-                            "fontWeight": "bold",
-                        },
-                    },
-                    {
-                        name: translate.instant("EDGE.INDEX.WIDGETS.EVCS.FORCE_THREE_PHASE"),
-                        value: PhaseSwitching.FORCE_THREE_PHASE,
-                    },
-                    /* {
-                        name: translate.instant("EDGE.INDEX.WIDGETS.EVCS.AUTOMATIC_SWITCHING"),
-                        value: PhaseSwitching.AUTOMATIC_SWITCHING, // not implemented yet
-                        disabled: true,
-                        },*/
-                ],
+                buttons: EvsePhaseSwitchingComponent.getPhaseSwitchingButtons(translate, edge),
             },
         ];
 
@@ -96,49 +86,51 @@ export class EvsePhaseSwitchingComponent extends AbstractFormlyComponent impleme
         };
     }
 
+    public static getPhaseSwitchingButtons = (translate: TranslateService, edge: Edge): ButtonLabel[] => {
+        const buttons: ButtonLabel[] = [
+            {
+                name: translate.instant("EDGE.INDEX.WIDGETS.EVCS.FORCE_SINGLE_PHASE"),
+                value: PhaseSwitching.FORCE_SINGLE_PHASE,
+                style: {
+                    color: "red",
+                    fontWeight: "bold",
+                },
+                icon: { name: "oe-phase-switching-1", color: "var(--ion-color-text)", size: "large" },
+            },
+            {
+                name: translate.instant("EDGE.INDEX.WIDGETS.EVCS.FORCE_THREE_PHASE"),
+                value: PhaseSwitching.FORCE_THREE_PHASE,
+                icon: { name: "oe-phase-switching-3", color: "var(--ion-color-text)", size: "large" },
+            },
+        ];
 
-    public ionViewWillEnter(): void {
-        const url = this.routeService.currentUrl();
-        if (url === null) {
-            return;
+        if (ControllerEvseSingleShared.hasAutomaticPhaseSwitching(edge)) {
+            buttons.push({
+                name: translate.instant("EDGE.INDEX.WIDGETS.EVCS.AUTOMATIC_SWITCHING"),
+                value: PhaseSwitching.AUTOMATIC_SWITCHING,
+                description: translate.instant("EDGE.INDEX.WIDGETS.EVCS.AUTOMATIC_SWITCHING_DESCRIPTION"),
+                icon: [
+                    { name: "oe-phase-switching-1", color: "var(--ion-color-text)", size: "large" },
+                    { name: "oe-phase-switching-3", color: "var(--ion-color-text)", size: "large" },
+                ],
+            });
         }
 
-        const componentId = this.routeService.getRouteParam("componentId");
-        // Create a new navigation tree node for the task
-        const newNavigationTree = new NavigationTree("phase-switching", { baseString: "phase-switching" }, { name: "menu-outline", color: "warning" }, this.translate.instant("EDGE.INDEX.WIDGETS.EVCS.PHASE_SWITCHING"), "label", [], null);
-
-        // Retrieve the existing navigation tree
-        const oldNavigationTree = this.navigationService.navigationTree();
-        if (oldNavigationTree == null) {
-            return;
-        }
-
-        // Find the parent node by its ID
-        const parentNode = oldNavigationTree.getChildren()?.find(child => child.id === componentId) ?? null;
-        if (parentNode == null) {
-            console.warn("Parent node not found for componentId:", componentId);
-            return;
-        }
-
-        // Set relationships between the nodes
-        newNavigationTree.parent = parentNode;
-        parentNode.setChild("phase-switching", newNavigationTree);
-        parentNode.parent = oldNavigationTree;
-
-        // Update the navigation system with the modified tree
-        this.navigationService.navigationTree.set(oldNavigationTree);
-        this.navigationService.currentNode.set(newNavigationTree);
-    }
-
+        return buttons;
+    };
 
     protected override onCurrentData(currentData: CurrentData): void {
-        this.setFormControlSafelyWithChannel<number>(this.form, EvsePhaseSwitchingComponent.formControlName, currentData, this.phaseSwitchingChannel);
+        this.setFormControlSafelyWithChannel<number>(
+            this.form(),
+            EvsePhaseSwitchingComponent.formControlName,
+            currentData,
+            this.phaseSwitchingChannel,
+        );
     }
 
-    protected override generateView(config: EdgeConfig, role: Role): OeFormlyView {
-        this.controller = config.getComponent(this.route.snapshot.params.componentId);
-        const edge = this.service.currentEdge();
-        return EvsePhaseSwitchingComponent.generateView(this.translate, this.controller, edge);
+    protected override generateView(viewContext: ViewContext): OeFormlyView {
+        this.controller = viewContext.config.getComponent(this.route.snapshot.params.componentId);
+        return EvsePhaseSwitchingComponent.generateView(this.translate, this.controller, viewContext.edge);
     }
 
     protected override getFormGroup(): FormGroup {
@@ -157,21 +149,14 @@ export class EvsePhaseSwitchingComponent extends AbstractFormlyComponent impleme
         return [this.phaseSwitchingChannel];
     }
 }
+
 export enum PhaseSwitching {
-    /**
-     * Phase-Switching is disabled.
-     */
+    /** Phase-Switching is disabled. */
     DISABLE = "DISABLE", //
-    /**
-     * Phase-Switching forced to SINGLE_PHASE.
-     */
+    /** Phase-Switching forced to SINGLE_PHASE. */
     FORCE_SINGLE_PHASE = "FORCE_SINGLE_PHASE", //
-    /**
-     * Phase-Switching force to THREE_PHASE.
-     */
+    /** Phase-Switching force to THREE_PHASE. */
     FORCE_THREE_PHASE = "FORCE_THREE_PHASE", //
-    /**
-     * Phase-Switching in AUTOMATIC mode. (not implemented!).
-     */
-    AUTOMATIC_SWITCHING = "AUTOMATIC_SWITCHING", //
+    /** Phase-Switching in AUTOMATIC mode. (not implemented!). */
+    AUTOMATIC_SWITCHING = "AUTOMATIC", //
 }

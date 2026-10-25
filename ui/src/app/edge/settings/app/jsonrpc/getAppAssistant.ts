@@ -101,7 +101,7 @@ export namespace GetAppAssistant {
         return appAssistant;
     }
 
-    export function setInitialModel(fields: FormlyFieldConfig[], model: {}, instanceId?: string): FormlyFieldConfig[] {
+    export function getInitialFields(fields: FormlyFieldConfig[], model: {}, instanceId?: string): FormlyFieldConfig[] {
         return fields.map(f => {
             function recursivIterate(field: FormlyFieldConfig) {
                 if (!field) {
@@ -236,7 +236,9 @@ function eachFieldRecursive(rootFields: FormlyFieldConfig[], field: FormlyFieldC
     // this is needed to still show the input as the default style defined by us
     if (field.wrappers?.includes("formly-wrapper-default-of-cases")
         || field.wrappers?.includes("formly-safe-input-wrapper")
-        || field.wrappers?.includes("input-with-unit")) {
+        || field.wrappers?.includes("input-with-unit")
+        || field.wrappers?.includes("checkbox-with-hint")
+        ) {
         field.wrappers?.push("form-field");
     }
 

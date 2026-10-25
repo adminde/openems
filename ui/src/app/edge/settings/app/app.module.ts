@@ -4,6 +4,9 @@ import { FormControl, ValidationErrors } from "@angular/forms";
 import { FORMLY_CONFIG, FormlyModule } from "@ngx-formly/core";
 import { TranslateService } from "@ngx-translate/core";
 import { SharedModule } from "src/app/shared/shared.module";
+import { FormlyAccordionGroupComponent } from "./formly/accordion/formly-accordion-group.component";
+import { FormlyAccordionComponent } from "./formly/accordion/formly-accordion.component";
+import { FormlyCheckboxWithHintWrapper } from "./formly/formly-hint";
 import { FormlyLinkComponent } from "./formly/formly-link";
 import { FormlyTextComponent } from "./formly/formly-text";
 import { FormlyInputWithUnitComponent } from "./formly/input-with-unit";
@@ -15,7 +18,7 @@ import { FormlySafeInputWrapperComponent } from "./formly/safe-input/formly-safe
 import { KeyModalComponent } from "./keypopup/modal.component";
 
 export function KeyValidator(control: FormControl): ValidationErrors {
-    return /^(.{4}-){3}.{4}$/.test(control.value) ? null : { "key": true };
+    return /^(.{4}-){3}.{4}$/.test(control.value) ? null : { key: true };
 }
 
 export function registerTranslateExtension(translate: TranslateService) {
@@ -38,12 +41,15 @@ export function registerTranslateExtension(translate: TranslateService) {
             wrappers: [
                 { name: "formly-safe-input-wrapper", component: FormlySafeInputWrapperComponent },
                 { name: "input-with-unit", component: FormlyInputWithUnitComponent },
+                { name: "checkbox-with-hint", component: FormlyCheckboxWithHintWrapper},
             ],
             types: [
                 { name: "text", component: FormlyTextComponent },
                 { name: "link", component: FormlyLinkComponent },
                 { name: "formly-option-group-picker", component: FormlyOptionGroupPickerComponent },
                 { name: "reorder-array", component: FormlyReorderArrayComponent },
+                { name: "accordion", component: FormlyAccordionComponent },
+                { name: "accordion-group", component: FormlyAccordionGroupComponent },
                 { name: "lazy-select", component: FormlyLazySelectComponent },
             ],
             validators: [
@@ -56,6 +62,8 @@ export function registerTranslateExtension(translate: TranslateService) {
     ],
     declarations: [
         KeyModalComponent,
+        FormlyAccordionComponent,
+        FormlyAccordionGroupComponent,
         FormlySafeInputModalComponent,
         FormlySafeInputWrapperComponent,
         FormlyLinkComponent,

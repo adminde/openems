@@ -1,9 +1,10 @@
 // @ts-strict-ignore
-import { Injectable } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 import { Router, RoutesRecognized } from "@angular/router";
 import { TranslateService } from "@ngx-translate/core";
 import { filter, map } from "rxjs/operators";
 
+import { PlatFormService } from "src/app/platform.service";
 import { environment } from "src/environments";
 import { Service } from "./service";
 
@@ -11,6 +12,8 @@ import { Service } from "./service";
     providedIn: "root",
 })
 export class GlobalRouteChangeHandler {
+
+    private platformService = inject(PlatFormService);
 
     constructor(
 
@@ -26,7 +29,7 @@ export class GlobalRouteChangeHandler {
                 let route = event["state"].root;
 
                 while (route) {
-                    data = route.data || data;
+                    data = (route.data && Object.keys(route.data).length > 0) ? route.data : data;
                     route = route.firstChild;
                 }
 
@@ -34,8 +37,12 @@ export class GlobalRouteChangeHandler {
             }),
         ).subscribe(async (e: { [key: string]: string }) => {
 
+            if (e == null) {
+                return;
+            }
+
             // Always use last entry of data object
-            const lastData = Object.entries(e).map(([k, v]) => ({ key: k, value: v })).reverse()[0] ?? null;
+            const lastData = Object?.entries(e ?? {})?.map(([k, v]) => ({ key: k, value: v }))?.reverse()?.[0] ?? null;
             if (lastData == null) {
                 return;
             }
@@ -46,7 +53,8 @@ export class GlobalRouteChangeHandler {
                 this.translate
             );
 
-            if (this.service.isSmartphoneResolution) {
+            const device = this.platformService.getDevice();
+            if (device?.isSmartphone()) {
                 this.service.currentPageTitle = environment.uiTitleShort;
             }
         });

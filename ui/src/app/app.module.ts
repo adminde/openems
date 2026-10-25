@@ -1,7 +1,7 @@
 import { registerLocaleData } from "@angular/common";
 import { HttpClientModule } from "@angular/common/http";
 import localDE from "@angular/common/locales/de";
-import { APP_INITIALIZER, ErrorHandler, LOCALE_ID, NgModule } from "@angular/core";
+import { ErrorHandler, inject, LOCALE_ID, NgModule, provideAppInitializer } from "@angular/core";
 import { BrowserModule } from "@angular/platform-browser";
 import { BrowserAnimationsModule } from "@angular/platform-browser/animations";
 import { RouteReuseStrategy } from "@angular/router";
@@ -16,30 +16,32 @@ import { AppRoutingModule } from "./app-routing.module";
 import { AppComponent } from "./app.component";
 import { CheckForUpdateService } from "./appupdateservice";
 import { EdgeModule } from "./edge/edge.module";
+import { SystemOutageInfoComponent } from "./edge/live/system-outage-info/oe-system-outage-info";
 import { SettingsModule as EdgeSettingsModule } from "./edge/settings/settings.module";
 import { IndexModule } from "./index/index.module";
 import { PlatFormService } from "./platform.service";
-import { NavigationComponent } from "./shared/components/navigation/navigation.component";
+import { FooterContentComponent } from "./shared/components/footer/content/content";
+import { NavigationBackButtonComponent } from "./shared/components/navigation/back-button/navigation-back-button";
+import { BottomNavigationBarComponent } from "./shared/components/navigation/bottom-bar/bottom-navigation-bar";
 import { NavigationService } from "./shared/components/navigation/service/navigation.service";
 import { ChartOptionsPopoverComponent } from "./shared/legacy/chartoptions/popover/popover.component";
-import { AppStateTracker } from "./shared/ngrx-store/states";
 import { AuthService } from "./shared/service/auth/auth.service";
 import { MyErrorHandler } from "./shared/service/myerrorhandler";
 import { Pagination } from "./shared/service/pagination";
-import { UserService } from "./shared/service/user.service";
 import { SharedModule } from "./shared/shared.module";
+import { AppStateTracker } from "./shared/states/app-state-tracker";
 import { registerTranslateExtension } from "./shared/translate.extension";
 import { Language, MyTranslateLoader } from "./shared/type/language";
 import { UserModule } from "./user/user.module";
 provideTranslateLoader(MyTranslateLoader);
 
 @NgModule({
-    declarations: [
-        AppComponent,
-        ChartOptionsPopoverComponent,
-        NavigationComponent,
-    ],
+    declarations: [AppComponent, ChartOptionsPopoverComponent],
     imports: [
+        BottomNavigationBarComponent,
+        NavigationBackButtonComponent,
+        FooterContentComponent,
+        SystemOutageInfoComponent,
         AngularMyDatePickerModule,
         AppRoutingModule,
         BrowserAnimationsModule,
@@ -50,30 +52,37 @@ provideTranslateLoader(MyTranslateLoader);
         IonicModule.forRoot({ innerHTMLTemplatesEnabled: true }),
         HttpClientModule,
         SharedModule,
-        TranslateModule.forRoot({ loader: { provide: TranslateLoader, useClass: MyTranslateLoader } }),
+        TranslateModule.forRoot({
+            loader: { provide: TranslateLoader, useClass: MyTranslateLoader },
+            fallbackLang: Language.EN.key,
+        }),
         UserModule,
     ],
     providers: [
         { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
         CookieService,
         { provide: ErrorHandler, useClass: MyErrorHandler },
-        { provide: LOCALE_ID, useFactory: () => (Language.getByKey(localStorage.LANGUAGE) ?? Language.getByBrowserLang(navigator.language) ?? Language.DEFAULT).key },
+        {
+            provide: LOCALE_ID,
+            useFactory: () => Language.getCurrentLanguage().key,
+        },
         // Use factory for formly. This allows us to use translations in validationMessages.
-        { provide: FORMLY_CONFIG, multi: true, useFactory: registerTranslateExtension, deps: [TranslateService] },
+        {
+            provide: FORMLY_CONFIG,
+            multi: true,
+            useFactory: registerTranslateExtension,
+            deps: [TranslateService],
+        },
         DeviceDetectorService,
         Pagination,
         CheckForUpdateService,
         PlatFormService,
         AppStateTracker,
-        UserService,
         NavigationService,
         AuthService,
-        {
-            provide: APP_INITIALIZER,
-            useFactory: initializeService,
-            deps: [UserService, NavigationService], // Dependencies for the factory function
-            multi: true, // Allows multiple initializers
-        },
+        provideAppInitializer(() => {
+            inject(NavigationService);
+        }),
         provideCharts(withDefaultRegisterables()),
     ],
     bootstrap: [AppComponent],
@@ -85,5 +94,5 @@ export class AppModule {
 }
 
 export function initializeService(): () => Promise<void> {
-    return async () => { };
+    return async () => {};
 }

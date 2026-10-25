@@ -12,18 +12,17 @@ import static io.openems.edge.ess.generic.common.GenericManagedEss.EFFICIENCY_FA
 import static io.openems.edge.ess.generic.common.RuntimeChannels.ChannelId.CUMULATED_TIME_INFO_STATE;
 import static io.openems.edge.ess.generic.common.RuntimeChannels.ChannelId.CUMULATED_TIME_OK_STATE;
 import static io.openems.edge.ess.generic.symmetric.EssGenericManagedSymmetric.ChannelId.STATE_MACHINE;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.osgi.service.event.Event;
 
 import io.openems.common.channel.Level;
-import io.openems.common.test.DummyConfigurationAdmin;
 import io.openems.common.test.TimeLeapClock;
 import io.openems.edge.battery.test.DummyBattery;
 import io.openems.edge.batteryinverter.test.DummyManagedSymmetricBatteryInverter;
@@ -34,6 +33,7 @@ import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.ComponentTest;
 import io.openems.edge.common.test.DummyComponentManager;
 import io.openems.edge.common.test.DummyCycle;
+import io.openems.edge.ess.generic.common.essprotection.EssProtection.EssProtectionConfig;
 import io.openems.edge.ess.generic.symmetric.statemachine.StateMachine.State;
 import io.openems.edge.ess.test.DummyPower;
 import io.openems.edge.ess.test.ManagedSymmetricEssTest;
@@ -45,7 +45,6 @@ public class EssGenericManagedSymmetricImplTest {
 	public void testStart() throws Exception {
 		final var clock = new TimeLeapClock(Instant.parse("2020-01-01T01:00:00.00Z"), ZoneOffset.UTC);
 		new ComponentTest(new EssGenericManagedSymmetricImpl()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("componentManager", new DummyComponentManager(clock)) //
 				.addReference("batteryInverter", new DummyManagedSymmetricBatteryInverter("batteryInverter0")) //
 				.addReference("battery", new DummyBattery("battery0")//
@@ -54,6 +53,7 @@ public class EssGenericManagedSymmetricImplTest {
 				.activate(MyConfig.create() //
 						.setId("ess0") //
 						.setStartStopConfig(StartStopConfig.START) //
+						.setEssProtection(EssProtectionConfig.VOLTAGE_REGULATION) //
 						.setBatteryInverterId("batteryInverter0") //
 						.setBatteryId("battery0") //
 						.build()) //
@@ -76,7 +76,6 @@ public class EssGenericManagedSymmetricImplTest {
 	public void testForceCharge() throws Exception {
 		new ManagedSymmetricEssTest(new EssGenericManagedSymmetricImpl()) //
 				.addReference("power", new DummyPower()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("componentManager", new DummyComponentManager()) //
 				.addReference("batteryInverter", new DummyManagedSymmetricBatteryInverter("batteryInverter0")) //
 				.addReference("battery", new DummyBattery("battery0") //
@@ -87,6 +86,7 @@ public class EssGenericManagedSymmetricImplTest {
 				.activate(MyConfig.create() //
 						.setId("ess0") //
 						.setStartStopConfig(StartStopConfig.START) //
+						.setEssProtection(EssProtectionConfig.VOLTAGE_REGULATION) //
 						.setBatteryInverterId("batteryInverter0") //
 						.setBatteryId("battery0") //
 						.build()) //
@@ -111,7 +111,6 @@ public class EssGenericManagedSymmetricImplTest {
 		var sut = new EssGenericManagedSymmetricImpl();
 		new ManagedSymmetricEssTest(sut) //
 				.addReference("power", new DummyPower()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("componentManager", new DummyComponentManager(clock)) //
 				.addReference("batteryInverter", new DummyManagedSymmetricBatteryInverter("batteryInverter0") //
 						.withStartStop(StartStop.START) //
@@ -125,6 +124,7 @@ public class EssGenericManagedSymmetricImplTest {
 				.activate(MyConfig.create() //
 						.setId("ess0") //
 						.setStartStopConfig(StartStopConfig.START) //
+						.setEssProtection(EssProtectionConfig.VOLTAGE_REGULATION) //
 						.setBatteryInverterId("batteryInverter0") //
 						.setBatteryId("battery0") //
 						.build()) //
@@ -135,15 +135,16 @@ public class EssGenericManagedSymmetricImplTest {
 
 	@Test
 	public void testTimeout() throws Exception {
+		var sut = new EssGenericManagedSymmetricImpl(); //
 		final var clock = new TimeLeapClock(Instant.parse("2020-01-01T01:00:00.00Z"), ZoneOffset.UTC);
-		new ComponentTest(new EssGenericManagedSymmetricImpl()) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
+		new ComponentTest(sut) //
 				.addReference("componentManager", new DummyComponentManager(clock)) //
 				.addReference("batteryInverter", new DummyManagedSymmetricBatteryInverter("batteryInverter0")) //
 				.addReference("battery", new DummyBattery("battery0")) //
 				.activate(MyConfig.create() //
 						.setId("ess0") //
 						.setStartStopConfig(StartStopConfig.START) //
+						.setEssProtection(EssProtectionConfig.VOLTAGE_REGULATION) //
 						.setBatteryInverterId("batteryInverter0") //
 						.setBatteryId("battery0") //
 						.build()) //
@@ -160,6 +161,8 @@ public class EssGenericManagedSymmetricImplTest {
 						.timeleap(clock, 350, ChronoUnit.SECONDS)) //
 				.next(new TestCase() //
 						.output(STATE_MACHINE, State.ERROR)) //
+				.next(new TestCase("Waiting for channel update")//
+						.onAfterProcessImage(sut::handleStateMachine)) //
 				.next(new TestCase() //
 						.output(STATE_MACHINE, State.ERROR)) //
 		;
@@ -172,7 +175,6 @@ public class EssGenericManagedSymmetricImplTest {
 		final var timedata = new DummyTimedata("timedata");
 		final var event = new Event(EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE, Map.of());
 		new ComponentTest(sut) //
-				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("componentManager", new DummyComponentManager(clock)) //
 				.addReference("batteryInverter", new DummyManagedSymmetricBatteryInverter("batteryInverter0")) //
 				.addReference("battery", new DummyBattery("battery0")) //
@@ -181,6 +183,7 @@ public class EssGenericManagedSymmetricImplTest {
 				.activate(MyConfig.create() //
 						.setId("ess0") //
 						.setStartStopConfig(StartStopConfig.START) //
+						.setEssProtection(EssProtectionConfig.VOLTAGE_REGULATION) //
 						.setBatteryInverterId("batteryInverter0") //
 						.setBatteryId("battery0") //
 						.build()) //

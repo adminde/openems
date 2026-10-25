@@ -20,6 +20,7 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -43,7 +44,6 @@ import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -57,18 +57,21 @@ import io.openems.backend.common.alerting.SumStateAlertingSetting;
 import io.openems.backend.common.alerting.UserAlertingSettings;
 import io.openems.backend.common.debugcycle.DebugLoggable;
 import io.openems.backend.common.edge.jsonrpc.UpdateMetadataCache;
+import io.openems.backend.common.mail.MailContext;
+import io.openems.backend.common.mail.Mailer;
+import io.openems.backend.common.mail.SendMailException;
 import io.openems.backend.common.metadata.AbstractMetadata;
 import io.openems.backend.common.metadata.AppCenterMetadata;
 import io.openems.backend.common.metadata.Edge;
 import io.openems.backend.common.metadata.EdgeHandler;
-import io.openems.backend.common.metadata.Mailer;
 import io.openems.backend.common.metadata.Metadata;
 import io.openems.backend.common.metadata.User;
 import io.openems.backend.metadata.odoo.odoo.FieldValue;
 import io.openems.backend.metadata.odoo.odoo.OdooHandler;
 import io.openems.backend.metadata.odoo.odoo.OdooUserRole;
-import io.openems.backend.metadata.odoo.odoo.OdooUtils.DateTime;
+import io.openems.backend.metadata.odoo.odoo.OdooUtils;
 import io.openems.backend.metadata.odoo.postgres.PostgresHandler;
+import io.openems.backend.metrics.prometheus.DebugExecutor;
 import io.openems.common.channel.Level;
 import io.openems.common.event.EventBuilder;
 import io.openems.common.event.EventReader;
@@ -90,7 +93,8 @@ import io.openems.common.utils.JsonUtils;
 		name = "Metadata.Odoo", //
 		configurationPolicy = ConfigurationPolicy.REQUIRE, //
 		service = { AppCenterMetadata.class, AppCenterMetadata.EdgeData.class, AppCenterMetadata.UiData.class,
-				Metadata.class, Mailer.class, EventHandler.class, DebugLoggable.class }, immediate = true //
+				Metadata.class, Mailer.class, EventHandler.class, DebugLoggable.class }, //
+		immediate = true //
 )
 @EventTopics({ //
 		Edge.Events.ALL_EVENTS //
@@ -104,7 +108,7 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 	public static final String ODOO_EDGE_NAME = "edge";
 	public static final String ODOO_SETUP_PROTOCOL_EDGE_FIELD = "device_id";
 	public static final int EXPECTED_NUMBER_OF_EDGES = 1_000;
-	
+
 	private final Logger log = LoggerFactory.getLogger(MetadataOdoo.class);
 	private final EdgeCache edgeCache;
 	private final OdooEdgeHandler edgeHandler = new OdooEdgeHandler(this);
@@ -152,16 +156,24 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 
 		this.debugMode = config.debugMode();
 		this.authOAuthProviderName = config.authOAuthProviderName();
+		this.eventExecutor = new DebugExecutor(MetadataOdoo.ID, //
+				(ThreadPoolExecutor) Executors.newFixedThreadPool(//
+						config.eventPoolSize(), //
+						new ThreadFactoryBuilder() //
+								.setNameFormat("Metadata.Odoo.Event-%d")//
+								.build()));
+		this.requestExecutor = new DebugExecutor(MetadataOdoo.ID, //
+				(ThreadPoolExecutor) Executors.newFixedThreadPool(//
+						config.requestPoolSize(), //
+						Thread.ofVirtual().name("Metadata.Odoo.Request-", 0).factory()));
+		this.refreshTokenExecutor = new DebugExecutor(MetadataOdoo.ID, //
+				(ThreadPoolExecutor) Executors.newFixedThreadPool(//
+						1, // Not configurable
+						Thread.ofVirtual().name("Metadata.Odoo.RequestRefresh-", 0).factory()));
 
-		this.eventExecutor = new DebugExecutor((ThreadPoolExecutor) Executors.newFixedThreadPool(config.eventPoolSize(),
-				new ThreadFactoryBuilder().setNameFormat("Metadata.Odoo.Event-%d").build()));
-		this.requestExecutor = new DebugExecutor((ThreadPoolExecutor) Executors.newFixedThreadPool(
-				config.requestPoolSize(), Thread.ofVirtual().name("Metadata.Odoo.Request-", 0).factory()));
-		this.refreshTokenExecutor = new DebugExecutor((ThreadPoolExecutor) Executors.newFixedThreadPool(1,
-				Thread.ofVirtual().name("Metadata.Odoo.RequestRefresh-", 0).factory()));
+		this.odooHandler = new OdooHandler(this, this.edgeCache, config, //
+				this.refreshTokenExecutor, this.requestExecutor);
 
-		this.odooHandler = new OdooHandler(this, this.edgeCache, config, this.refreshTokenExecutor,
-				this.requestExecutor);
 		this.postgresHandler = new PostgresHandler(this, this.edgeCache, config, () -> {
 			this.setInitialized();
 		});
@@ -545,12 +557,33 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 	}
 
 	@Override
-	public void sendMail(ZonedDateTime sendAt, String template, JsonElement params) {
-		this.odooHandler.sendNotificationMailAsync(sendAt, template, params).whenComplete((result, throwable) -> {
-			if (throwable != null) {
-				this.log.error("sendMail failed: {}", throwable.getMessage(), throwable);
-			}
-		});
+	public CompletableFuture<Integer> sendMail(ZonedDateTime sendAt, String template, List<MailContext> context) {
+		final var params = JsonUtils.generateJsonArray(context, MailContext::toJson);
+		return this.odooHandler.sendNotificationMailAsync(sendAt, template, params) //
+				.thenApply(response -> {
+					final var result = response.result;
+					final var status = JsonUtils.getAsStringOrElse(result, "status", "none");
+
+					return switch (status) {
+					case "success" -> {
+						final var sentMails = JsonUtils.getAsOptionalInt(result, "mails_sent").orElse(0);
+						if (sentMails == 0) {
+							this.log.warn("[sendMail] No mails sent for template [{}] and context [{}]", template,
+									context);
+						}
+						yield sentMails;
+					}
+					case "error" -> {
+						final var errorMessage = JsonUtils.getAsStringOrElse(result, "message", "Failed to send mail!");
+						throw new SendMailException("Failed to send mail for template [" + template + "] and context ["
+								+ context + "]: " + errorMessage);
+					}
+					default -> { // backwards compatibility, if no "status" field is provided, we assume success
+						this.log.debug("[sendMail] No status provided for sendMail response. Assuming success.");
+						yield context.size();
+					}
+					};
+				});
 	}
 
 	@Override
@@ -627,26 +660,27 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 					return this.oem.getAppCenterMasterKey();
 				}
 				// TODO better only for certain employees/admins
-				this.assertUserRole(user, edgeId, Role.INSTALLER, "PredefinedKey");
+				this.assertRoleIsAtLeast(user, edgeId, Role.INSTALLER, "PredefinedKey");
 				return this.oem.getAppCenterMasterKey();
 			});
 		});
 	}
+
+	private static final Set<String> freeApps = Set.of(//
+			"App.Hardware.KMtronic8Channel", //
+			"App.Cloud.Clever-PV", //
+			"App.Prediction.Weather", //
+			"App.Meter.Shelly", //
+			"App.Evse.ElectricVehicle.Generic", //
+			"App.Tariff.Manual.EEG2025.GridSell" //
+	);
 
 	@Override
 	public CompletableFuture<Boolean> isAppFree(//
 			final User user, //
 			final String appId //
 	) {
-		return this.requestExecutor.submit("isAppFree", () -> {
-			return Sets.newHashSet(//
-					"App.Hardware.KMtronic8Channel", //
-					"App.Cloud.Clever-PV", //
-					"App.Prediction.Weather", //
-					"App.Meter.Shelly", //
-					"App.Evse.ElectricVehicle.Generic" //
-			).contains(appId);
-		});
+		return this.requestExecutor.submit("isAppFree", () -> freeApps.contains(appId));
 	}
 
 	@Override
@@ -718,9 +752,7 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 
 	@Override
 	public Role getUserRole(User user, String edgeId) {
-		final var userRoles = this.userRoles.computeIfAbsent(user.getId(), (userId) -> {
-			return new ConcurrentHashMap<String, Role>();
-		});
+		final var userRoles = this.userRoles.computeIfAbsent(user.getId(), (userId) -> new ConcurrentHashMap<>());
 
 		return userRoles.computeIfAbsent(edgeId, t -> {
 			try {
@@ -734,9 +766,7 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 	}
 
 	private void setRole(User user, String edgeId, Role role) {
-		final var userRoles = this.userRoles.computeIfAbsent(user.getId(), (userId) -> {
-			return new ConcurrentHashMap<String, Role>();
-		});
+		final var userRoles = this.userRoles.computeIfAbsent(user.getId(), (userId) -> new ConcurrentHashMap<>());
 
 		userRoles.put(edgeId, role);
 	}
@@ -781,10 +811,10 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 
 		final var producttype = getAsOptionalString(jDevice, "producttype").orElse("");
 		final var firstSetupProtocol = getAsOptionalString(jDevice, "first_setup_protocol_date")
-				.map(DateTime::stringToDateTime) //
+				.map(OdooUtils.DateTime::stringToDateTime) //
 				.orElse(null);
 		final var lastmessage = getAsOptionalString(jDevice, "lastmessage") //
-				.map(DateTime::stringToDateTime) //
+				.map(OdooUtils.DateTime::stringToDateTime) //
 				.orElse(null);
 
 		final var settings = getAsOptionalJsonObject(jDevice, "settings").orElse(null);
@@ -818,6 +848,11 @@ public class MetadataOdoo extends AbstractMetadata implements AppCenterMetadata,
 	@Override
 	public void updateUserSettings(User user, JsonObject settings) throws OpenemsNamedException {
 		this.odooHandler.updateUserSettings(user, settings);
+	}
+
+	@Override
+	public CompletableFuture<Void> updateEdgeSettings(String edgeId, JsonObject settings) {
+		return this.odooHandler.updateEdgeSettings(edgeId, settings);
 	}
 
 	@Override

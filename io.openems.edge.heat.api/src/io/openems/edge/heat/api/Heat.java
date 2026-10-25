@@ -25,8 +25,8 @@ public interface Heat extends OpenemsComponent {
 		 * <li>Type: Status
 		 * </ul>
 		 */
-		STATUS(Doc.of(Status.values()) //
-				.persistencePriority(PersistencePriority.LOW) //
+		STATUS(Doc.of(Status.values())//
+				.persistencePriority(PersistencePriority.HIGH)//
 				.accessMode(AccessMode.READ_ONLY)), //
 
 		/**
@@ -37,9 +37,33 @@ public interface Heat extends OpenemsComponent {
 		 * <li>Type: Integer
 		 * </ul>
 		 */
-		TEMPERATURE(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.DEZIDEGREE_CELSIUS) //
-				.persistencePriority(PersistencePriority.HIGH) //
+		TEMPERATURE(Doc.of(OpenemsType.INTEGER)//
+				.unit(Unit.DEZIDEGREE_CELSIUS)//
+				.persistencePriority(PersistencePriority.HIGH)//
+				.accessMode(AccessMode.READ_ONLY)), //
+
+		/**
+		 * Target temperature.
+		 * <ul>
+		 * <li>Interface: Heat
+		 * <li>Type: Integer
+		 * </ul>
+		 */
+		TARGET_TEMPERATURE(Doc.of(OpenemsType.INTEGER)//
+				.unit(Unit.DEZIDEGREE_CELSIUS)//
+				.persistencePriority(PersistencePriority.HIGH)//
+				.accessMode(AccessMode.READ_ONLY)), //
+
+		/**
+		 * Currently calculated thermal energy required to reach the target temperature.
+		 *
+		 * <ul>
+		 * <li>Interface: Heat
+		 * <li>Type: Integer
+		 * </ul>
+		 */
+		REMAINING_HEAT_ENERGY(Doc.of(OpenemsType.INTEGER)//
+				.unit(Unit.WATT_HOURS)//
 				.accessMode(AccessMode.READ_ONLY)), //
 
 		;
@@ -65,7 +89,25 @@ public interface Heat extends OpenemsComponent {
 	public default IntegerReadChannel getTemperatureChannel() {
 		return this.channel(ChannelId.TEMPERATURE);
 	}
-	
+
+	/**
+	 * Gets the Channel for {@link ChannelId#TARGET_TEMPERATURE}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getTargetTemperatureChannel() {
+		return this.channel(ChannelId.TARGET_TEMPERATURE);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#REMAINING_HEAT_ENERGY}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getRemainingHeatEnergyChannel() {
+		return this.channel(ChannelId.REMAINING_HEAT_ENERGY);
+	}
+
 	/**
 	 * Gets the Channel for {@link ChannelId#STATUS}.
 	 *
@@ -74,7 +116,7 @@ public interface Heat extends OpenemsComponent {
 	public default Channel<Status> getStatusChannel() {
 		return this.channel(ChannelId.STATUS);
 	}
-	
+
 	/**
 	 * Gets the Status of the Heat element. See {@link ChannelId#STATUS}.
 	 *

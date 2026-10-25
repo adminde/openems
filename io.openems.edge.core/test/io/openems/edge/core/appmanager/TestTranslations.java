@@ -1,22 +1,27 @@
 package io.openems.edge.core.appmanager;
 
 import static io.openems.edge.common.test.DummyUser.DUMMY_ADMIN;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.oem.DummyOpenemsEdgeOem;
 import io.openems.common.session.Language;
+import io.openems.common.types.CurrencyConfig;
 import io.openems.common.utils.JsonUtils;
+import io.openems.edge.app.core.GridFeedInLimitationType;
+import io.openems.edge.app.enums.Phase;
 import io.openems.edge.app.hardware.GpioHardwareType;
+import io.openems.edge.app.integratedsystem.GoodWeGridMeterCategory;
 import io.openems.edge.app.integratedsystem.TestFeneconHome10;
 import io.openems.edge.app.integratedsystem.TestFeneconHome10Gen2;
 import io.openems.edge.app.integratedsystem.TestFeneconHome15;
@@ -25,9 +30,11 @@ import io.openems.edge.app.integratedsystem.TestFeneconHome30;
 import io.openems.edge.app.integratedsystem.TestFeneconHome6;
 import io.openems.edge.app.integratedsystem.TestFeneconIndustrialS;
 import io.openems.edge.app.timeofusetariff.AncillaryCostsProps.GermanDSO;
+import io.openems.edge.common.meta.ThirdPartyUsageAcceptance;
+import io.openems.edge.common.meta.types.SubdivisionCode;
 import io.openems.edge.core.appmanager.jsonrpc.AddAppInstance;
 
-public class TestTranslations {
+class TestTranslations {
 
 	private record TestTranslation(OpenemsApp app, boolean validateAppAssistant, JsonObject config) {
 
@@ -36,8 +43,8 @@ public class TestTranslations {
 	private AppManagerTestBundle testBundle;
 	private List<TestTranslation> apps;
 
-	@Before
-	public void beforeEach() throws Exception {
+	@BeforeEach
+	void beforeEach() throws Exception {
 		this.apps = new ArrayList<>();
 		this.testBundle = new AppManagerTestBundle(null, null, t -> {
 			this.apps.add(new TestTranslation(Apps.feneconHome10(t), true, TestFeneconHome10.fullSettings()));
@@ -77,6 +84,20 @@ public class TestTranslations {
 			this.apps.add(new TestTranslation(Apps.feneconProHybrid10(t), true, JsonUtils.buildJsonObject() //
 					.addProperty("USER_KEY", "xxx") //
 					.build()));
+			this.apps.add(new TestTranslation(Apps.feneconProHybridGW(t), true, JsonUtils.buildJsonObject() //
+					.addProperty("HAS_DC_PV1", "true") //
+					.addProperty("DC_PV1_ALIAS", "charger0") //
+					.addProperty("HAS_DC_PV1", "false") //
+					.addProperty("DC_PV1_ALIAS", "charger1") //
+					.build()));
+			this.apps.add(new TestTranslation(Apps.feneconMiniEs33(t), true, JsonUtils.buildJsonObject() //
+					.addProperty("ESS_PHASE", Phase.L1) //
+					.addProperty("ESS_READ_ONLY", true) //
+					.build()));
+			this.apps.add(new TestTranslation(Apps.feneconMiniEs36(t), true, JsonUtils.buildJsonObject() //
+					.addProperty("ESS_PHASE", Phase.L1) //
+					.addProperty("ESS_READ_ONLY", true) //
+					.build()));
 			this.apps.add(new TestTranslation(Apps.ancillaryCosts(t), true, JsonUtils.buildJsonObject() //
 					.addProperty("FIXED_ELECTRICITY_TARIFF", 0.0) //
 					.addProperty("GERMAN_DSO", GermanDSO.BAYERNWERK) //
@@ -98,7 +119,6 @@ public class TestTranslations {
 					.addProperty("LOW_PRICE", 14.8) //
 					.build()));
 			this.apps.add(new TestTranslation(Apps.rabotCharge(t), true, JsonUtils.buildJsonObject() //
-					.addProperty("ZIP_CODE", "123456789") //
 					.build()));
 			this.apps.add(new TestTranslation(Apps.stadtwerkHassfurt(t), true, JsonUtils.buildJsonObject() //
 					.build()));
@@ -118,11 +138,16 @@ public class TestTranslations {
 			this.apps.add(new TestTranslation(Apps.techbaseCm4Max(t), true, new JsonObject()));
 			this.apps.add(new TestTranslation(Apps.techbaseCm4s(t), true, new JsonObject()));
 			this.apps.add(new TestTranslation(Apps.techbaseCm4sGen2(t), true, new JsonObject()));
+			this.apps.add(new TestTranslation(Apps.techbaseCm4sGen3(t), true, new JsonObject()));
 			this.apps.add(new TestTranslation(Apps.enerixControl(t), true, JsonUtils.buildJsonObject()//
-					.addProperty("URL", "url")//
+					.addProperty("URL",
+							"https://push.clever-pv.com/api/v1/first-id/electricMeters/fenecon/"
+									+ "second-id?code=code") //
 					.build()));
 			this.apps.add(new TestTranslation(Apps.cleverPv(t), true, JsonUtils.buildJsonObject()//
-					.addProperty("URL", "url")//
+					.addProperty("URL",
+							"https://push.clever-pv.com/api/v1/first-id/electricMeters/fenecon/"
+									+ "second-id?code=code") //
 					.build()));
 			this.apps.add(new TestTranslation(Apps.modbusTcpApiReadOnly(t), true, new JsonObject()));
 			this.apps.add(new TestTranslation(Apps.modbusTcpApiReadWrite(t), true, JsonUtils.buildJsonObject() //
@@ -137,6 +162,21 @@ public class TestTranslations {
 					.addProperty("API_KEY", "123456789") //
 					.addProperty("BUCKET", "bucket")//
 					.build()));
+			this.apps.add(new TestTranslation(Apps.meta(t), true, JsonUtils.buildJsonObject() //
+					.addProperty("CURRENCY", CurrencyConfig.EUR) //
+					.addProperty("IS_ESS_CHARGE_FROM_GRID_ALLOWED", false) //
+					.addProperty("IS_ESS_DISCHARGE_TO_GRID_ALLOWED", false) //
+					.addProperty("GRID_CONNECTION_POINT_FUSE_LIMIT", 32) //
+					.addProperty("SUBDIVISION_CODE", SubdivisionCode.DE_BY) //
+					.addProperty("PLACE_NAME", "") //
+					.addProperty("GRID_FEED_IN_LIMITATION_TYPE", GridFeedInLimitationType.NO_LIMITATION) //
+					.addProperty("MAXIMUM_GRID_FEED_IN_LIMIT", 0) //
+					.addProperty("POSTCODE", "12345") //
+					.addProperty("LATITUDE", -1) //
+					.addProperty("LONGITUDE", -1) //
+					.addProperty("TIMEZONE", "Europe/Berlin") //
+					.addProperty("THIRD_PARTY_USAGE_ACCEPTANCE", ThirdPartyUsageAcceptance.UNDECIDED) //
+					.build()));
 			this.apps.add(new TestTranslation(Apps.ablEvcs(t), true, new JsonObject()));
 			this.apps.add(new TestTranslation(Apps.alpitronicEvcs(t), true, new JsonObject()));
 			this.apps.add(new TestTranslation(Apps.hardyBarthEvcs(t), true, new JsonObject()));
@@ -150,14 +190,14 @@ public class TestTranslations {
 			this.apps.add(new TestTranslation(Apps.webastoNext(t), true, new JsonObject()));
 			this.apps.add(new TestTranslation(Apps.webastoUnite(t), true, new JsonObject()));
 			this.apps.add(new TestTranslation(Apps.evcsCluster(t), true, new JsonObject()));
-			this.apps.add(new TestTranslation(Apps.kebaEvse(t), true, JsonUtils.buildJsonObject() //
-					.addProperty("ELECTRIC_VEHICLE_ID", UUID.randomUUID().toString()) //
-					.build()));
 			this.apps.add(new TestTranslation(Apps.clusterEvse(t), true, new JsonObject()));
 			this.apps.add(new TestTranslation(Apps.genericVehicle(t), true, new JsonObject()));
 			this.apps.add(new TestTranslation(Apps.kmtronic8Channel(t), true, new JsonObject()));
 			this.apps.add(new TestTranslation(Apps.ioGpio(t), true, JsonUtils.buildJsonObject() //
 					.addProperty("HARDWARE_TYPE", GpioHardwareType.MODBERRY_X500_M40804_WB) //
+					.build()));
+			this.apps.add(new TestTranslation(Apps.masterBox2v0(t), true, JsonUtils.buildJsonObject() //
+					.addProperty("HARDWARE_TYPE", GpioHardwareType.MODBERRY_X500_M4S_GEN3) //
 					.build()));
 			this.apps.add(new TestTranslation(Apps.heatPump(t), true, JsonUtils.buildJsonObject() //
 					.addProperty("OUTPUT_CHANNEL_1", "io0/Relay1") //
@@ -183,10 +223,16 @@ public class TestTranslations {
 			this.apps.add(new TestTranslation(Apps.thresholdControl(t), true, JsonUtils.buildJsonObject() //
 					.add("OUTPUT_CHANNELS", JsonUtils.buildJsonArray().add("io0/Relay1").build()) //
 					.build()));
-			this.apps.add(new TestTranslation(Apps.shellyMeter(t), true, JsonUtils.buildJsonObject() //
+			this.apps.add(new TestTranslation(Apps.shellyMeterDiy(t), true, JsonUtils.buildJsonObject() //
 					.add("DEVICE", JsonUtils.buildJsonObject() //
 							.addProperty("name", "dummyName") //
 							.addProperty("type", "PLUS_PLUG_S") //
+							.build()) //
+					.build()));
+			this.apps.add(new TestTranslation(Apps.shellyMeterPaid(t), true, JsonUtils.buildJsonObject() //
+					.add("DEVICE", JsonUtils.buildJsonObject() //
+							.addProperty("name", "dummyNamePro") //
+							.addProperty("type", "PRO_3EM") //
 							.build()) //
 					.build()));
 			this.apps.add(new TestTranslation(Apps.discovergyMeter(t), false, JsonUtils.buildJsonObject() //
@@ -194,6 +240,9 @@ public class TestTranslations {
 					.addProperty("PASSWORD", "xxxx") //
 					.build()));
 			this.apps.add(new TestTranslation(Apps.socomecMeter(t), true, JsonUtils.buildJsonObject() //
+					.addProperty("MODBUS_ID", "modbus0") //
+					.build()));
+			this.apps.add(new TestTranslation(Apps.siemensMeter(t), true, JsonUtils.buildJsonObject() //
 					.addProperty("MODBUS_ID", "modbus0") //
 					.build()));
 			this.apps.add(new TestTranslation(Apps.carloGavazziMeter(t), true, JsonUtils.buildJsonObject() //
@@ -211,6 +260,14 @@ public class TestTranslations {
 					.build()));
 			this.apps.add(new TestTranslation(Apps.kdkMeter(t), true, JsonUtils.buildJsonObject() //
 					.addProperty("MODBUS_ID", "modbus0") //
+					.build()));
+			this.apps.add(new TestTranslation(Apps.kdkGridMeter(t), true, JsonUtils.buildJsonObject() //
+					.addProperty("MODBUS_ID", "modbus0") //
+					.addProperty("MODBUS_UNIT_ID", 1) //
+					.build()));
+			this.apps.add(new TestTranslation(Apps.goodWeGridMeter(t), true, JsonUtils.buildJsonObject() //
+					.addProperty("GRID_METER_CATEGORY", GoodWeGridMeterCategory.COMMERCIAL_METER) //
+					.addProperty("CT_RATIO_FIRST", 200) //
 					.build()));
 			this.apps.add(new TestTranslation(Apps.pqPlusMeter(t), false, new JsonObject()));
 			this.apps.add(new TestTranslation(Apps.phoenixContactMeter(t), true, new JsonObject()));
@@ -250,6 +307,9 @@ public class TestTranslations {
 			this.apps.add(new TestTranslation(Apps.fixActivePower(t), true, JsonUtils.buildJsonObject() //
 					.addProperty("ESS_ID", "ess0") //
 					.build()));
+			this.apps.add(new TestTranslation(Apps.fixReactivePower(t), true, JsonUtils.buildJsonObject() //
+					.addProperty("ESS_ID", "ess0") //
+					.build()));
 			this.apps.add(new TestTranslation(Apps.fixStateOfCharge(t), true, JsonUtils.buildJsonObject() //
 					.addProperty("ESS_ID", "ess0") //
 					.build()));
@@ -259,34 +319,74 @@ public class TestTranslations {
 					.addProperty("ESS_ID", "ess0") //
 					.addProperty("INPUT_CHANNEL_ADDRESS", "io0/Relay1") //
 					.build()));
+			this.apps.add(new TestTranslation(Apps.heatMyPv(t), true, JsonUtils.buildJsonObject() //
+					.addProperty("IP", "192.168.178.152") //
+					.addProperty("STORAGE_VOLUME", 333) //
+					.addProperty("HEATED_SHARE", 50) //
+					.addProperty("MAX_HEAT_POWER", 3000) //
+					.build()));
 			this.apps.add(new TestTranslation(Apps.heatMyPvReadOnly(t), true, new JsonObject()));
-			this.apps.add(new TestTranslation(Apps.heatAskoma(t), true, new JsonObject()));
+			this.apps.add(new TestTranslation(Apps.heatAskoma(t), true, JsonUtils.buildJsonObject() //
+					.addProperty("IP", "192.168.178.152") //
+					.addProperty("STORAGE_VOLUME", 333) //
+					.addProperty("HEATED_SHARE", 50) //
+					.addProperty("MAX_HEAT_POWER", 3000) //
+					.build()));
+			this.apps.add(new TestTranslation(Apps.heatAskomaReadOnly(t), true, new JsonObject()));
 			this.apps.add(new TestTranslation(Apps.predictionUnmanagedConsumption(t), true, new JsonObject()));
-			return this.apps.stream().map(TestTranslation::app).toList();
+			this.apps.add(new TestTranslation(Apps.appSohCycle(t), true, JsonUtils.buildJsonObject() //
+					.addProperty("ESS_ID", "ess0") //
+					.build()));
+			this.apps.add(new TestTranslation(Apps.feneconProHybrid910(t), true, JsonUtils.buildJsonObject() //
+					.addProperty("HAS_DC_PV1", "true") //
+					.addProperty("DC_PV1_ALIAS", "charger0") //
+					.addProperty("HAS_DC_PV1", "false") //
+					.addProperty("DC_PV1_ALIAS", "charger1") //
+					.build()));
+			var availableApps = new ArrayList<>(this.apps.stream().map(TestTranslation::app).toList());
+			availableApps.add(Apps.mennekesEvse(t));
+			availableApps.add(Apps.kebaEvse(t));
+			return availableApps;
 		}, null, new AppManagerTestBundle.PseudoComponentManagerFactory());
 	}
 
 	@Test
-	public void testGermanTranslation() throws Exception {
+	void testGermanTranslation() throws Exception {
 		this.testTranslations(Language.DE);
 	}
 
 	@Test
-	public void testEnglishTranslation() throws Exception {
+	void testEnglishTranslation() throws Exception {
 		this.testTranslations(Language.EN);
 	}
 
 	@Test
 	// TODO this is certainly not the best place for this test, but it holds the
 	// most testable Apps.
-	public void testOemWebsiteUrl() throws Exception {
+	void testOemWebsiteUrl() throws Exception {
 		var dummyOem = new DummyOpenemsEdgeOem();
+		this.addEvseApps();
 		var missing = this.apps.stream() //
 				.map(TestTranslation::app) //
 				.map(OpenemsApp::getAppId) //
-				.filter(appId -> dummyOem.getAppWebsiteUrl(appId) == null) //
+				.filter(appId -> dummyOem.getAppWebsiteUrl(appId, Language.DE) == null) //
 				.toList();
-		assertTrue("Missing Website-URLs in Edge-OEM for [" + String.join(", ", missing) + "]", missing.isEmpty());
+		assertTrue(missing.isEmpty(), "Missing Website-URLs in Edge-OEM for [" + String.join(", ", missing) + "]");
+	}
+
+	private void addEvseApps() throws OpenemsNamedException {
+		UUID vehicleInstanceId;
+
+		var vehicleApp = this.testBundle.sut.handleAddAppInstanceRequest(DUMMY_ADMIN,
+				new AddAppInstance.Request("App.Evse.ElectricVehicle.Generic", "key", "", new JsonObject()));
+		vehicleInstanceId = vehicleApp.instance().instanceId;
+
+		this.apps.add(new TestTranslation(Apps.mennekesEvse(this.testBundle), true, JsonUtils.buildJsonObject() //
+				.addProperty("ELECTRIC_VEHICLE_ID", vehicleInstanceId.toString()) //
+				.build()));
+		this.apps.add(new TestTranslation(Apps.kebaEvse(this.testBundle), true, JsonUtils.buildJsonObject() //
+				.addProperty("ELECTRIC_VEHICLE_ID", vehicleInstanceId.toString()) //
+				.build()));
 	}
 
 	private void testTranslations(Language l) throws Exception {
@@ -294,6 +394,8 @@ public class TestTranslations {
 
 		this.testBundle.sut.handleAddAppInstanceRequest(DUMMY_ADMIN,
 				new AddAppInstance.Request("App.OpenemsHardware.CM4S.Gen2", "key", "", new JsonObject()));
+
+		this.addEvseApps();
 
 		for (var entry : this.apps) {
 			final var app = entry.app();
@@ -309,10 +411,8 @@ public class TestTranslations {
 			}
 		}
 
-		assertTrue(
-				"Missing Translation Keys for Language " + l + " ["
-						+ String.join(", ", debugTranslator.getMissingKeys()) + "]",
-				debugTranslator.getMissingKeys().isEmpty());
+		assertTrue(debugTranslator.getMissingKeys().isEmpty(), "Missing Translation Keys for Language " + l + " ["
+				+ String.join(", ", debugTranslator.getMissingKeys()) + "]");
 	}
 
 }

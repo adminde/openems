@@ -27,6 +27,7 @@ import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.function.ThrowingBiFunction;
 import io.openems.common.function.ThrowingFunction;
 import io.openems.common.function.ThrowingTriFunction;
+import io.openems.common.oem.OpenemsEdgeOem;
 import io.openems.common.session.Language;
 import io.openems.common.types.EdgeConfig.Component;
 import io.openems.common.utils.JsonUtils;
@@ -389,22 +390,15 @@ public abstract class AbstractOpenemsApp<PROPERTY extends Nameable> //
 	 * @return the {@link ResourceBundle}
 	 */
 	public static ResourceBundle getTranslationBundle(Language language) {
-		if (language == null) {
-			language = Language.DEFAULT;
-		}
-		// TODO add language support
-		switch (language) {
-		case CZ:
-		case ES:
-		case FR:
-		case NL:
-			language = Language.EN;
-			break;
-		case DE:
-		case EN:
-			break;
-		}
-		return ResourceBundle.getBundle("io.openems.edge.core.appmanager.translation", language.getLocal());
+		final var availableLanguage = switch (language) {
+		// Language was not set -> fall back to default (currently GERMAN)
+		case null -> Language.DEFAULT;
+		// Translations are not available -> fall back to ENGLISH
+		case CS, ES, FR, NL, JA -> Language.EN;
+		case DE, EN -> language;
+		};
+
+		return ResourceBundle.getBundle("io.openems.edge.core.appmanager.translation", availableLanguage.getLocal());
 	}
 
 	/**
@@ -443,6 +437,13 @@ public abstract class AbstractOpenemsApp<PROPERTY extends Nameable> //
 	@Override
 	public boolean assertCanEdit(String prop, User user) {
 		return true;
+	}
+
+	@Override
+	public AppDescriptor getAppDescriptor(OpenemsEdgeOem oem, Language language) {
+		return AppDescriptor.create() //
+				.setWebsiteUrl(oem.getAppWebsiteUrl(this.getAppId(), language)) //
+				.build();
 	}
 
 	@Override

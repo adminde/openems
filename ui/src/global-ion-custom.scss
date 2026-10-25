@@ -1,7 +1,5 @@
 @use "variables";
-// @use "./global.scss";
 
-/** Grid **/
 /** Padding **/
 .ion-no-padding-left-right {
     padding-left: 0;
@@ -20,6 +18,26 @@
     padding-top: 0;
 }
 
+.ion-no-padding-right {
+    padding-right: 0;
+}
+
+.ion-padding-half {
+    padding: calc(var(--ion-padding) / 2);
+}
+
+.ion-padding-top-half {
+    padding-top: calc(var(--ion-padding) / 2);
+}
+
+.ion-padding-right-half {
+    padding-right: calc(var(--ion-padding) / 2);
+}
+
+.ion-padding-top-double {
+    padding-top: calc(var(--ion-padding) * 2);
+}
+
 .ion-padding-top-triple {
     padding-top: calc(var(--ion-padding) * 3);
 }
@@ -32,6 +50,10 @@
     padding-left: var(--ion-padding);
 }
 
+.ion-padding-right {
+    padding-right: var(--ion-padding);
+}
+
 /** Font */
 .ion-font-size-medium {
     font-size: medium !important;
@@ -39,6 +61,14 @@
 
 .ion-font-size-large {
     font-size: large !important;
+}
+
+.ion-font-size-xxx-large {
+    font-size: xxx-large !important;
+}
+
+.ion-font-size-xx-large {
+    font-size: xx-large !important;
 }
 
 .ion-font-size-smaller {
@@ -80,6 +110,10 @@
 
 .ion-text-align-right {
     text-align: right;
+}
+
+.ion-text-align-left {
+    text-align: left;
 }
 
 /** Others */
@@ -125,7 +159,6 @@
 }
 
 .ion-white-space-pre-wrap {
-
     &::part(label) {
         white-space: pre-wrap;
     }
@@ -184,4 +217,26 @@
     ::shadow ion-title::shadow .toolbar-title {
         white-space: initial !important;
     }
+}
+
+.ion-justify-self-end {
+    justify-self: end;
+}
+
+.ion-justify-content-space-between {
+    justify-content: space-between !important;
+}
+.ion-justify-content-end {
+    justify-content: end !important;
+}
+
+.ion-margin-right {
+    margin-right: var(--ion-margin);
+}
+
+.ion-no-margin-right {
+    margin-right: 0;
+}
+.ion-no-margin-left {
+    margin-left: 0;
 }

@@ -10,8 +10,8 @@ import static io.openems.common.types.OpenemsType.SHORT;
 import static io.openems.common.types.OpenemsType.STRING;
 import static io.openems.edge.common.type.TypeUtils.getAsJson;
 import static io.openems.edge.common.type.TypeUtils.sum;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.Optional;
 
@@ -75,19 +75,10 @@ public class TypeUtilsTest {
 
 	@Test
 	public void testFitWithin() {
-		assertEquals(10, TypeUtils.fitWithin(5, 15, 10));
 		assertEquals(5.0, TypeUtils.fitWithin(2.5, 7.5, 5.0), 0.0);
 		assertEquals(0F, TypeUtils.fitWithin(0F, 100F, -99.005F), 0F);
 		assertEquals(100F, TypeUtils.fitWithin(0F, 100F, 100.005F), 0F);
 		assertEquals(50F, TypeUtils.fitWithin(0F, 100F, 50F), 0F);
-	}
-
-	@Test
-	public void testMin() {
-		assertEquals(25, (int) TypeUtils.min(null, 25, null, 40, null));
-		assertEquals(null, TypeUtils.min((Double) null, null, null));
-		assertEquals(17, (int) TypeUtils.min(null, 17, 25, 40));
-		assertEquals(34, (int) TypeUtils.min(null, 34, 40));
 	}
 
 	@Test
@@ -294,13 +285,6 @@ public class TypeUtilsTest {
 	}
 
 	@Test
-	public void sumInteger() {
-		assertEquals(6, sum(1, 2, 3).intValue());
-		assertNull(sum((Integer) null));
-		assertEquals(6, sum(1, null, 2, 3).intValue());
-	}
-
-	@Test
 	public void sumFloat() {
 		assertEquals(6F, sum(1F, 2F, 3F).floatValue(), 0.001F);
 		assertNull(sum((Float) null));
@@ -324,7 +308,7 @@ public class TypeUtilsTest {
 	private static void assertException(ThrowingRunnable<Exception> runnable) {
 		try {
 			runnable.run();
-			assertEquals("Expecting an Exception!", true, false);
+			assertEquals(true, false, "Expecting an Exception!");
 		} catch (Exception e) {
 			// ok
 		}

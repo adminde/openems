@@ -1,9 +1,10 @@
+import { States } from "../../states/states";
 import { JsonrpcRequest } from "../base";
 
 /**
  * Represents a JSON-RPC Request to create a configuration for an OpenEMS Edge Component.
  *
- * <pre>
+ * ```json
  * {
  *   "jsonrpc": "2.0",
  *   "id": UUID,
@@ -16,22 +17,21 @@ import { JsonrpcRequest } from "../base";
  *     ]
  *   }
  * }
- * </pre>
+ * ```
  */
 export class CreateComponentConfigRequest extends JsonrpcRequest {
-
     private static METHOD: string = "createComponentConfig";
+    protected override requiredState: States = States.EDGE_SELECTED;
 
     public constructor(
         public override readonly params: {
-            factoryPid: string,
+            factoryPid: string;
             properties: {
-                name: string,
-                value: any
-            }[]
+                name: string;
+                value: any;
+            }[];
         },
     ) {
         super(CreateComponentConfigRequest.METHOD, params);
     }
-
 }

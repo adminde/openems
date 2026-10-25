@@ -6,15 +6,10 @@ export interface GetOneTasksResponse {
     };
 }
 
-export interface OneTask {
-    "uid": string;
-    "start": string;
-    "end": string;
-    "duration": string;
-    "payload": Payload;
-}
-
-export interface Payload {
-    class: string,
-    mode: string,
+export interface OneTask<Payload extends Record<string, unknown> = {}> {
+    uid: string;
+    start: string;
+    end: string;
+    duration: string;
+    payload: Payload;
 }

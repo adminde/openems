@@ -1,58 +1,107 @@
-import { computed, Directive, effect, signal, WritableSignal } from "@angular/core";
+import { computed, Directive, effect, inject, runInInjectionContext, signal, untracked, WritableSignal, } from "@angular/core";
 import { Router } from "@angular/router";
 import { CookieService } from "ngx-cookie-service";
-import { DeviceDetectorService } from "ngx-device-detector";
-import { PlatFormService } from "src/app/platform.service";
-import { States } from "../../ngrx-store/states";
-import { RouteService } from "../route.service";
+import { environment } from "src/environments";
+import { States } from "../../states/states";
+import { ObjectUtils } from "../../utils/object/object-utils";
 import { Service } from "../service";
-import { UserService } from "../user.service";
-import { OAuthService } from "./oauth.service";
+import { Websocket } from "../websocket";
+import { AUTHENTICATION_STATE, OAuthService } from "./oauth.service";
+import { OAuthCallBackComponent } from "./oauthcallback.component";
 
 @Directive()
 export class AuthService {
-
     public static readonly TOKEN: string = "token";
 
     public redirectURI$ = computed(() => this.redirectURI());
     private authenticationAlreadyCompleted: boolean = false;
     private redirectURI: WritableSignal<string | null> = signal(null);
+    private cookieService = inject(CookieService);
+    private oAuthService = inject(OAuthService);
+    private service = inject(Service);
+    private router = inject(Router);
 
-    constructor(
-        public service: Service,
-        private cookieService: CookieService,
-        private userService: UserService,
-        private router: Router,
-        private deviceService: DeviceDetectorService,
-        private platformService: PlatFormService,
-        private routeService: RouteService,
-        private oAuthService: OAuthService,
-    ) {
-
+    constructor() {
         const context = effect(() => {
             const websocketStatus = this.service.websocket.state();
+            const oauthredirectstate = this.cookieService.get("oauthredirectstate");
+            const oauthRedirectStateHref =
+                ObjectUtils.parseFromString<{ href: string }>(oauthredirectstate)?.href ?? null;
 
-            if (States.isAtLeast(websocketStatus, States.WEBSOCKET_CONNECTED) && OAuthService.isOAuth(this.cookieService)) {
-                oAuthService.startOAuth();
+            if (oauthRedirectStateHref != null && oauthRedirectStateHref != OAuthCallBackComponent.ID) {
+                this.router.navigateByUrl(oauthRedirectStateHref);
+                return;
+            }
+
+            if (
+                States.isAtLeast(websocketStatus, States.WEBSOCKET_CONNECTED) &&
+                OAuthService.isOAuth(this.cookieService)
+            ) {
+                this.oAuthService.startOAuth();
                 context.destroy();
             }
 
-            if (websocketStatus === States.NOT_AUTHENTICATED && this.cookieService.check(AuthService.TOKEN) && this.cookieService.check(OAuthService.REFRESH_TOKEN)) {
+            if (
+                OAuthService.isOAuth(this.cookieService) &&
+                environment.backend === "OpenEMS Edge" &&
+                this.cookieService.check(AuthService.TOKEN) === false
+            ) {
                 this.service.websocket.logout();
             }
-        });
 
-        effect(() => {
-            const isApp = platformService.getIsApp();
-            if (isApp) {
-                this.router.navigate(["/oauthcallback"], { queryParams: { code: this.redirectURI() } });
+            if (
+                websocketStatus === States.NOT_AUTHENTICATED &&
+                this.cookieService.check(AuthService.TOKEN) &&
+                this.cookieService.check(OAuthService.REFRESH_TOKEN)
+            ) {
+                this.service.websocket.logout();
             }
         });
     }
 
-    /**
-     * Handles authentication failed
-     */
+    public async authenticate(websocket: Websocket) {
+        return new Promise<void>((resolve) => {
+            if (States.isAtLeast(websocket.state(), States.AUTHENTICATED)) {
+                resolve();
+                return;
+            }
+
+            const dispose = runInInjectionContext(websocket.injector, () => {
+                return untracked(() => {
+                    return effect(async () => {
+                        const state = websocket.state();
+
+                        if (
+                            States.isAtLeast(state, States.WEBSOCKET_CONNECTED) &&
+                            this.oAuthService.getCurrentState() != AUTHENTICATION_STATE.AUTHENTICATING &&
+                            !States.isAtLeast(state, States.AUTHENTICATED) &&
+                            OAuthService.isOAuth(this.cookieService)
+                        ) {
+                            await this.oAuthService.startOAuth();
+                            resolve();
+                            dispose.destroy();
+                        }
+
+                        if (
+                            state === States.NOT_AUTHENTICATED &&
+                            this.cookieService.check(AuthService.TOKEN) &&
+                            this.cookieService.check(OAuthService.REFRESH_TOKEN)
+                        ) {
+                            this.service.websocket.logout();
+                            resolve();
+                        }
+
+                        if (States.isAtLeast(state, States.AUTHENTICATED)) {
+                            resolve();
+                            dispose.destroy();
+                        }
+                    });
+                });
+            });
+        });
+    }
+
+    /** Handles authentication failed */
     public async handleAuthenticationFailed() {
         if (this.authenticationAlreadyCompleted == false) {
             if (OAuthService.isOAuth(this.cookieService)) {
@@ -72,7 +121,7 @@ export class AuthService {
     /** Acts on logout */
     public logout() {
         this.cookieService.delete(AuthService.TOKEN, "/");
-        this.cookieService.delete(OAuthService.REFRESH_TOKEN);
+        this.cookieService.delete(OAuthService.REFRESH_TOKEN, "/");
         this.cookieService.delete("oauthredirectstate");
     }
 

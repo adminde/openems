@@ -1,5 +1,7 @@
 package io.openems.edge.app.timeofusetariff;
 
+import static io.openems.edge.app.common.props.CommonProps.defaultDef;
+
 import java.util.Map;
 import java.util.function.Function;
 
@@ -14,7 +16,6 @@ import com.google.gson.JsonElement;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.function.ThrowingTriFunction;
-import io.openems.common.oem.OpenemsEdgeOem;
 import io.openems.common.session.Language;
 import io.openems.common.types.EdgeConfig;
 import io.openems.common.utils.JsonUtils;
@@ -68,7 +69,8 @@ public class RabotCharge extends AbstractOpenemsAppWithProps<RabotCharge, Proper
 
 		// Properties
 		ALIAS(CommonProps.alias()), //
-		ZIP_CODE(TimeOfUseProps.zipCode()), //
+		@Deprecated
+		ZIP_CODE(defaultDef()), //
 		MAX_CHARGE_FROM_GRID(TimeOfUseProps.maxChargeFromGrid(CTRL_ESS_TIME_OF_USE_TARIFF_ID)), //
 		;
 
@@ -107,7 +109,6 @@ public class RabotCharge extends AbstractOpenemsAppWithProps<RabotCharge, Proper
 			final var timeOfUseTariffProviderId = this.getId(t, p, Property.TIME_OF_USE_TARIFF_PROVIDER_ID);
 
 			final var alias = this.getString(p, l, Property.ALIAS);
-			final var zipCode = this.getString(p, Property.ZIP_CODE);
 			final var maxChargeFromGrid = this.getInt(p, Property.MAX_CHARGE_FROM_GRID);
 
 			final var components = Lists.newArrayList(//
@@ -118,7 +119,6 @@ public class RabotCharge extends AbstractOpenemsAppWithProps<RabotCharge, Proper
 									.build()), //
 					new EdgeConfig.Component(timeOfUseTariffProviderId, this.getName(l), "TimeOfUseTariff.RabotCharge",
 							JsonUtils.buildJsonObject() //
-									.addProperty("zipcode", zipCode) //
 									.build())//
 			);
 
@@ -129,13 +129,6 @@ public class RabotCharge extends AbstractOpenemsAppWithProps<RabotCharge, Proper
 					.addTask(Tasks.persistencePredictor("_sum/UnmanagedConsumptionActivePower")) //
 					.build();
 		};
-	}
-
-	@Override
-	public AppDescriptor getAppDescriptor(OpenemsEdgeOem oem) {
-		return AppDescriptor.create() //
-				.setWebsiteUrl(oem.getAppWebsiteUrl(this.getAppId())) //
-				.build();
 	}
 
 	@Override

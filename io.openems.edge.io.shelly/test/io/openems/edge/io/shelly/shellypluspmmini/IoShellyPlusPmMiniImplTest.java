@@ -1,15 +1,15 @@
 package io.openems.edge.io.shelly.shellypluspmmini;
 
 import static io.openems.common.types.MeterType.CONSUMPTION_METERED;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import io.openems.edge.bridge.http.cycle.HttpBridgeCycleServiceDefinition;
-import io.openems.edge.bridge.http.cycle.dummy.DummyCycleSubscriber;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import io.openems.common.bridge.http.api.HttpError;
 import io.openems.common.bridge.http.api.HttpResponse;
 import io.openems.common.bridge.http.dummy.DummyBridgeHttpBundle;
+import io.openems.edge.bridge.http.cycle.HttpBridgeCycleServiceDefinition;
+import io.openems.edge.bridge.http.cycle.dummy.DummyCycleSubscriber;
 import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.ComponentTest;
 import io.openems.edge.common.type.Phase.SinglePhase;
@@ -21,7 +21,7 @@ public class IoShellyPlusPmMiniImplTest {
 	@Test
 	public void test() throws Exception {
 		final var sut = new IoShellyPlusPmMiniImpl();
-		final var httpTestBundle = new DummyBridgeHttpBundle();
+		final var httpTestBundle = DummyBridgeHttpBundle.of();
 		final var dummyCycleSubscriber = new DummyCycleSubscriber();
 		new ComponentTest(sut) //
 				.addReference("httpBridgeFactory", httpTestBundle.factory()) //
@@ -99,7 +99,7 @@ public class IoShellyPlusPmMiniImplTest {
 	@Test
 	public void testInvert() throws Exception {
 		final var sut = new IoShellyPlusPmMiniImpl();
-		final var httpTestBundle = new DummyBridgeHttpBundle();
+		final var httpTestBundle = DummyBridgeHttpBundle.of();
 		final var dummyCycleSubscriber = new DummyCycleSubscriber();
 		new ComponentTest(sut) //
 				.addReference("httpBridgeFactory", httpTestBundle.factory()) //

@@ -26,6 +26,9 @@ public class DummyMeta extends AbstractDummyOpenemsComponent<DummyMeta> implemen
 	private String postcode;
 	private Coordinates coordinates;
 	private ZoneId timezone;
+	private int gridSellHardLimit;
+	private int gridSellHardLimitWithBuffer;
+	private int gridBuyHardLimit;
 	private JSCalendar.Tasks<GridBuySoftLimit> gridBuySoftLimit = JSCalendar.Tasks.empty();
 	private ThirdPartyUsageAcceptance thirdPartyUsageAcceptance;
 
@@ -76,19 +79,31 @@ public class DummyMeta extends AbstractDummyOpenemsComponent<DummyMeta> implemen
 	}
 
 	@Override
+	public int getGridSellHardLimit() {
+		return this.gridSellHardLimit;
+	}
+
+	@Override
+	public int getGridSellHardLimitWithBuffer() {
+		return this.gridSellHardLimitWithBuffer;
+	}
+
+	@Override
+	public int getGridBuyHardLimit() {
+		return this.gridBuyHardLimit;
+	}
+
+	@Override
 	public Tasks<GridBuySoftLimit> getGridBuySoftLimit() {
 		return this.gridBuySoftLimit;
 	}
 
-	/**
-	 * Set {@link Meta.ChannelId#MAXIMUM_GRID_FEED_IN_LIMIT}.
-	 *
-	 * @param value the value
-	 * @return myself
-	 */
-	public DummyMeta withMaximumGridFeedInLimit(int value) {
-		TestUtils.withValue(this, Meta.ChannelId.MAXIMUM_GRID_FEED_IN_LIMIT, value);
-		return this.self();
+	@Override
+	public int getEssDischargeToGridLimit() {
+		if (this.getIsEssDischargeToGridAllowed()) {
+			return this.gridSellHardLimit;
+		}
+		return 0;
 	}
 
 	/**
@@ -181,6 +196,53 @@ public class DummyMeta extends AbstractDummyOpenemsComponent<DummyMeta> implemen
 	 */
 	public DummyMeta withTimezone(ZoneId timezone) {
 		this.timezone = timezone;
+		return this.self();
+	}
+
+	/**
+	 * Sets the Grid-Sell Hard-Limit for this {@link DummyMeta} instance and returns
+	 * the instance itself.
+	 *
+	 * @param gridSellHardLimit the value
+	 * @return myself
+	 */
+	public DummyMeta withGridSellHardLimit(int gridSellHardLimit) {
+		this.gridSellHardLimit = gridSellHardLimit;
+		return this.self();
+	}
+
+	/**
+	 * Sets the Grid-Sell Hard-Limit with safety buffer for this {@link DummyMeta}
+	 * instance and returns the instance itself.
+	 *
+	 * @param gridSellHardLimitWithBuffer the value
+	 * @return myself
+	 */
+	public DummyMeta withGridSellHardLimitWithBuffer(int gridSellHardLimitWithBuffer) {
+		this.gridSellHardLimitWithBuffer = gridSellHardLimitWithBuffer;
+		return this.self();
+	}
+
+	/**
+	 * Sets the Grid-Buy Hard-Limit for this {@link DummyMeta} instance and returns
+	 * the instance itself.
+	 *
+	 * @param gridBuyHardLimit the value
+	 * @return myself
+	 */
+	public DummyMeta withGridBuyHardLimit(int gridBuyHardLimit) {
+		this.gridBuyHardLimit = gridBuyHardLimit;
+		return this.self();
+	}
+
+	/**
+	 * Set {@link Meta.ChannelId#IS_ESS_DISCHARGE_TO_GRID_ALLOWED}.
+	 *
+	 * @param value the value
+	 * @return myself
+	 */
+	public DummyMeta withIsEssDischargeToGridAllowed(boolean value) {
+		TestUtils.withValue(this, Meta.ChannelId.IS_ESS_DISCHARGE_TO_GRID_ALLOWED, value);
 		return this.self();
 	}
 

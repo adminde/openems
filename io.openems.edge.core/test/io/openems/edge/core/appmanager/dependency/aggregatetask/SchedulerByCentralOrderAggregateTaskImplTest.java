@@ -9,8 +9,8 @@ import static org.junit.Assert.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.ImmutableList;
 
@@ -36,7 +36,7 @@ public class SchedulerByCentralOrderAggregateTaskImplTest {
 	private DummyPseudoComponentManager componentManager;
 	private ComponentAggregateTask componentTask;
 
-	@Before
+	@BeforeEach
 	public void setUp() throws Exception {
 		final var componentManagerFactory = new PseudoComponentManagerFactory();
 		this.testBundle = new AppManagerTestBundle(null, null, tb -> {
@@ -75,6 +75,27 @@ public class SchedulerByCentralOrderAggregateTaskImplTest {
 		);
 		this.task.reset();
 		this.testBundle.appHelper.addAggregateTask(this.task);
+	}
+
+	@Test
+	public void testCreatedByAppIdNull() throws Exception {
+		this.componentManager.addComponent(
+				new EdgeConfig.Component("id0", "alias", "factoryId1", JsonUtils.buildJsonObject().build()));
+		this.componentManager.addComponent(
+				new EdgeConfig.Component("id1", "alias", "factoryId2", JsonUtils.buildJsonObject().build()));
+		this.componentManager.addComponent(
+				new EdgeConfig.Component("id2", "alias", "factoryId3", JsonUtils.buildJsonObject().build()));
+
+		final var config = new SchedulerByCentralOrderConfiguration(//
+				new SchedulerComponent("id0", "factoryId1", "appId"), //
+				new SchedulerComponent("id2", "factoryId3", null), //
+				new SchedulerComponent("id1", "factoryId2", "appId") //
+		);
+
+		this.task.aggregate(config, null);
+		this.task.create(DUMMY_ADMIN, emptyList());
+
+		this.testBundle.scheduler.assertExactSchedulerOrder("Ids got not added in Scheduler", "id0", "id1", "id2");
 	}
 
 	@Test

@@ -1,5 +1,9 @@
 package io.openems.edge.controller.ess.sohcycle;
 
+import static org.osgi.service.component.annotations.ReferenceCardinality.MANDATORY;
+import static org.osgi.service.component.annotations.ReferencePolicy.STATIC;
+import static org.osgi.service.component.annotations.ReferencePolicyOption.GREEDY;
+
 import java.io.IOException;
 
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -10,7 +14,6 @@ import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
-import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import io.openems.edge.common.channel.ChannelUtils;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
 import io.openems.edge.common.component.ComponentManager;
@@ -29,13 +33,15 @@ import io.openems.edge.controller.ess.sohcycle.statemachine.Context;
 import io.openems.edge.controller.ess.sohcycle.statemachine.StateMachine;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 
-@Designate(ocd = Config.class)
+@Designate(ocd = Config.class, factory = true)
 @Component(//
 		name = "Controller.Ess.SoH.Cycle", //
 		immediate = true, //
 		configurationPolicy = ConfigurationPolicy.REQUIRE //
 )
-public class ControllerEssSohCycleImpl extends AbstractOpenemsComponent implements ControllerEssSohCycle, Controller, OpenemsComponent {
+@GenerateTargetsFromReferences("ess")
+public class ControllerEssSohCycleImpl extends AbstractOpenemsComponent
+		implements ControllerEssSohCycle, Controller, OpenemsComponent {
 
 	private static final Logger log = LoggerFactory.getLogger(ControllerEssSohCycleImpl.class);
 	protected static final int ZERO_WATT_POWER = 0; // [0 W]
@@ -50,7 +56,8 @@ public class ControllerEssSohCycleImpl extends AbstractOpenemsComponent implemen
 	@Reference
 	private ComponentManager componentManager;
 
-	@Reference(policyOption = ReferencePolicyOption.GREEDY)
+	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY, //
+			target = "(&(id=${config.ess_id})(enabled=true))")
 	private ManagedSymmetricEss ess;
 
 	@Reference
@@ -63,9 +70,15 @@ public class ControllerEssSohCycleImpl extends AbstractOpenemsComponent implemen
 	private Integer measurementChargingMinVoltage;
 
 	/**
-	 * Measurement baseline energy in Wh captured at the beginning of the measurement
-	 * cycle. This is internal controller state and is intentionally not exposed via
-	 * channels to keep handlers stateless and thread-safe.
+	 * Maximum observed MAX_CELL_VOLTAGE during the measurement charging phase.
+	 * Stored here to persist across handler invocations.
+	 */
+	private Integer measurementChargingMaxVoltage;
+
+	/**
+	 * Measurement baseline energy in Wh captured at the beginning of the
+	 * measurement cycle. This is internal controller state and is intentionally not
+	 * exposed via channels to keep handlers stateless and thread-safe.
 	 */
 	private Long measurementStartEnergyWh;
 
@@ -109,13 +122,23 @@ public class ControllerEssSohCycleImpl extends AbstractOpenemsComponent implemen
 	@Override
 	public void run() throws OpenemsNamedException {
 		ChannelUtils.setValue(this, ControllerEssSohCycle.ChannelId.STATE_MACHINE, this.stateMachine.getCurrentState());
-		switch (this.config.mode()) {
-		case MANUAL_ON -> this.runManualOn();
-		case MANUAL_OFF -> this.logIfEnabled("Controller Ess SoH Cycle: manual off");
+		if (this.config.isRunning()) {
+			this.runSohMeasurement();
+		} else {
+			this.handleNotRunning();
 		}
 	}
 
-	private void runManualOn() throws OpenemsNamedException {
+	private void handleNotRunning() throws OpenemsNamedException {
+		this.logIfEnabled("Controller Ess SoH Cycle: not running");
+		this.stateMachine.forceNextState(StateMachine.State.IDLE);
+		this.stateMachine.run(new Context(this, //
+				this.config, //
+				this.componentManager.getClock(), //
+				this.ess));
+	}
+
+	private void runSohMeasurement() throws OpenemsNamedException {
 		var context = new Context(this, //
 				this.config, //
 				this.componentManager.getClock(), //
@@ -134,18 +157,11 @@ public class ControllerEssSohCycleImpl extends AbstractOpenemsComponent implemen
 			activePower = this.rampFilter.getFilteredValueAsInteger(targetPower, rampPower);
 		}
 		var limitedActivePower = this.calculateAcLimit(activePower == null ? ZERO_WATT_POWER : activePower);
-		this.ess.setActivePowerEquals(limitedActivePower);
+		this.ess.setActivePowerEqualsWithoutFilter(limitedActivePower);
 	}
 
 	private void applyConfig(Config config) {
 		this.config = config;
-		// Validate ess_id
-		if (config.ess_id() == null || config.ess_id().isBlank()) {
-			logError(log, "Ess-ID is not configured!");
-			return;
-		}
-
-		OpenemsComponent.updateReferenceFilter(this.cm, this.servicePid(), "ess", config.ess_id());
 	}
 
 	/**
@@ -167,6 +183,14 @@ public class ControllerEssSohCycleImpl extends AbstractOpenemsComponent implemen
 		this.measurementChargingMinVoltage = value;
 	}
 
+	public Integer getMeasurementChargingMaxVoltage() {
+		return this.measurementChargingMaxVoltage;
+	}
+
+	public void setMeasurementChargingMaxVoltage(Integer value) {
+		this.measurementChargingMaxVoltage = value;
+	}
+
 	/**
 	 * Measurement baseline getter.
 	 *
@@ -186,16 +210,18 @@ public class ControllerEssSohCycleImpl extends AbstractOpenemsComponent implemen
 	}
 
 	/**
-	 * Prevents next the SoH cycle by changing the mode configuration to MANUAL_OFF.
+	 * Prevents next the SoH cycle by changing the "isRunning" configuration to
+	 * false. This is used to stop the cycle in case of errors or when the cycle is
+	 * completed.
 	 */
-	public void updateConfigToManualOff() {
+	public void updateConfigToNotRunning() {
 		try {
 			var configuration = this.cm.getConfiguration(this.servicePid(), "?");
 			var properties = configuration.getProperties();
-			properties.put("mode", Mode.MANUAL_OFF.name());
+			properties.put("isRunning", false);
 			configuration.update(properties);
 		} catch (IOException e) {
-			log.error("Failed to update mode configuration to MANUAL_OFF", e);
+			log.error("Failed to update isRunning configuration to false", e);
 		}
 	}
 

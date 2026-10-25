@@ -2,22 +2,24 @@ package io.openems.edge.kostal.plenticore.ess;
 
 import static io.openems.edge.bridge.modbus.api.ElementToChannelConverter.SCALE_FACTOR_3;
 import static io.openems.edge.bridge.modbus.api.element.WordOrder.LSWMSW;
+import static io.openems.edge.common.channel.ChannelUtils.setValue;
 import static io.openems.edge.common.event.EdgeEventConstants.TOPIC_CYCLE_BEFORE_CONTROLLERS;
 import static io.openems.edge.common.event.EdgeEventConstants.TOPIC_CYCLE_BEFORE_PROCESS_IMAGE;
+import static org.osgi.service.component.annotations.ReferenceCardinality.MANDATORY;
+import static org.osgi.service.component.annotations.ReferenceCardinality.OPTIONAL;
+import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
+import static org.osgi.service.component.annotations.ReferencePolicy.STATIC;
+import static org.osgi.service.component.annotations.ReferencePolicyOption.GREEDY;
 
 import java.time.Duration;
 import java.time.Instant;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
-import org.osgi.service.component.annotations.ReferenceCardinality;
-import org.osgi.service.component.annotations.ReferencePolicy;
-import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventHandler;
 import org.osgi.service.event.propertytypes.EventTopics;
@@ -26,7 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
-import io.openems.common.exceptions.OpenemsException;
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
 import io.openems.edge.bridge.modbus.api.BridgeModbus;
 import io.openems.edge.bridge.modbus.api.ModbusComponent;
@@ -60,16 +62,14 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 		TOPIC_CYCLE_BEFORE_PROCESS_IMAGE, //
 		TOPIC_CYCLE_BEFORE_CONTROLLERS //
 })
+@GenerateTargetsFromReferences("Modbus")
 public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent implements KostalManagedEss,
 		ManagedSymmetricEss, SymmetricEss, ModbusComponent, TimedataProvider, EventHandler, OpenemsComponent {
 
-	private static final Logger log = LoggerFactory.getLogger(KostalManagedEss.class);
+	private static final Logger log = LoggerFactory.getLogger(KostalManagedEssImpl.class);
 
 	@Reference
 	private Power power;
-
-	@Reference
-	private ConfigurationAdmin cm;
 
 	/**
 	 * Sets the Modbus bridge service reference. This method is used to reference
@@ -78,7 +78,8 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent impleme
 	 * @param modbus the Modbus bridge instance
 	 */
 	@Override
-	@Reference(policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.MANDATORY)
+	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY, //
+			target = "(&(id=${config.modbus_id})(enabled=true))")
 	protected void setModbus(BridgeModbus modbus) {
 		super.setModbus(modbus);
 	}
@@ -88,7 +89,7 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent impleme
 	private Instant lastApplyPower = Instant.MIN;
 	private Integer lastSetPower = 0;
 
-	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
+	@Reference(policy = DYNAMIC, policyOption = GREEDY, cardinality = OPTIONAL)
 	private volatile Timedata timeData;
 
 	private ControlMode controlMode;
@@ -118,18 +119,14 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent impleme
 	 *
 	 * @param context the component context
 	 * @param config  the configuration settings
-	 * @throws OpenemsException if there are activation issues
 	 */
 	@Activate
-	private void activate(ComponentContext context, Config config) throws OpenemsException {
+	private void activate(ComponentContext context, Config config) {
 		this.config = config;
 
-		if (super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId(), this.cm,
-				"Modbus", config.modbus_id())) {
-			return;
-		}
+		super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId());
 
-		this._setGridMode(GridMode.ON_GRID);
+		setValue(this, SymmetricEss.ChannelId.GRID_MODE, GridMode.ON_GRID);
 		this._setCapacity(config.capacity());
 		this.controlMode = config.controlMode();
 		this.minsoc = config.minsoc();
@@ -182,8 +179,8 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent impleme
 					// Skip if change from last written value is within tolerance
 					if (Math.abs(powerToWrite - this.lastSetPower) <= this.tolerance) {
 						shouldSkip = true;
-						log.debug("skipped - change within tolerance (" + this.tolerance + "W): "
-								+ this.lastSetPower + "W -> " + powerToWrite + "W");
+						log.debug("skipped - change within tolerance (" + this.tolerance + "W): " + this.lastSetPower
+								+ "W -> " + powerToWrite + "W");
 					} else if (activePower == this.getMaxChargePower().get()
 							|| Math.abs(activePower) == this.getMaxDischargePower().get()) {
 						shouldSkip = true;
@@ -196,7 +193,8 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent impleme
 				}
 			}
 
-			// Write to channel: first write, value changed significantly, or watchdog expired
+			// Write to channel: first write, value changed significantly, or watchdog
+			// expired
 			if (this.lastSetPower == null || powerToWrite != this.lastSetPower
 					|| Duration.between(this.lastApplyPower, now).getSeconds() >= this.watchdog) {
 
@@ -357,19 +355,17 @@ public class KostalManagedEssImpl extends AbstractOpenemsModbusComponent impleme
 		int maxDischargePower = getMaxDischargePower().orElse(0);
 		int maxChargePower = getMaxChargePower().orElse(0) * -1;
 
-		this._setAllowedDischargePower(maxDischargePower);
-		this._setAllowedChargePower(maxChargePower);
+		setValue(this, ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER, maxDischargePower);
+		setValue(this, ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER, maxChargePower);
 
-		try {
-			int soc = getSoc().get();
+		var soc = getSoc().orElse(null);
+		if (soc != null) {
 			if (soc == 100) {
-				this._setAllowedChargePower(0);
+				setValue(this, ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER, 0);
 			}
 			if (soc <= this.minsoc) {
-				this._setAllowedDischargePower(0);
+				setValue(this, ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER, 0);
 			}
-		} catch (NullPointerException e) {
-			// Handle potential null values gracefully
 		}
 		log.debug("--> set limits: " + maxDischargePower + " / " + maxChargePower);
 	}

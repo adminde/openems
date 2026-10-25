@@ -1,112 +1,308 @@
 import { inject, NgModule } from "@angular/core";
 import { NoPreloading, RedirectFunction, RouterModule, Routes } from "@angular/router";
 import { CookieService } from "ngx-cookie-service";
+import { EmptyPageComponent } from "src/app/shared/components/navigation/empty-page/empty-page";
 import { environment } from "src/environments";
 import { EdgeComponent } from "./edge/edge.component";
-import { DetailsOverviewComponent } from "./edge/history/common/production/details/details.overview";
-import { OverviewComponent as ProductionChartOverviewComponent } from "./edge/history/common/production/overview/overview";
-import { OverviewComponent as ChannelthresholdChartOverviewComponent } from "./edge/history/Controller/ChannelThreshold/overview/overview";
-import { OverviewComponent as EnerixOverviewComponent } from "./edge/history/Controller/EnerixControl/overview/overview";
-import { OverviewComponent as GridOptimizedChargeChartOverviewComponent } from "./edge/history/Controller/Ess/GridoptimizedCharge/overview/overview";
-import { OverviewComponent as TimeOfUseTariffOverviewComponent } from "./edge/history/Controller/Ess/TimeOfUseTariff/overview/overview";
-import { OverviewComponent as HeatchartOverviewComponent, OverviewComponent as HeatmypvchartOverviewComponent } from "./edge/history/Controller/Heat/overview/overview";
-import { DetailsOverviewComponent as DigitalOutputDetailsOverviewComponent } from "./edge/history/Controller/Io/DigitalOutput/details/details.overview";
-import { OverviewComponent as DigitalOutputChartOverviewComponent } from "./edge/history/Controller/Io/DigitalOutput/overview/overview";
-import { OverviewComponent as HeatingelementChartOverviewComponent } from "./edge/history/Controller/Io/heatingelement/overview/overview";
-import { OverviewComponent as ModbusTcpApiOverviewComponent } from "./edge/history/Controller/ModbusTcpApi/overview/overview";
-import { OverviewComponent as AsymmetricPeakshavingChartOverviewComponent } from "./edge/history/Controller/peak-shaving/asymmetric/overview/overview";
-import { OverviewComponent as SymmetricPeakshavingChartOverviewComponent } from "./edge/history/Controller/peak-shaving/symmetric/overview/overview";
-import { OverviewComponent as TimeslotPeakshavingChartOverviewComponent } from "./edge/history/Controller/peak-shaving/timeslot/overview/overview";
 import { DelayedSellToGridChartOverviewComponent } from "./edge/history/delayedselltogrid/symmetricpeakshavingchartoverview/delayedselltogridchartoverview.component";
 import { HistoryComponent as EdgeHistoryComponent } from "./edge/history/history.component";
 import { HistoryDataService } from "./edge/history/historydataservice";
 import { HistoryParentComponent } from "./edge/history/historyparent.component";
-import { OverviewComponent as CommonAutarchyHistoryOverviewComponent } from "./edge/live/common/autarchy/history/overview/overview";
+import { CommonAutarchyOverviewComponent as CommonAutarchyHistoryOverviewComponent } from "./edge/live/common/autarchy/history/overview/overview";
 import { CommonConsumptionHistoryOverviewComponent } from "./edge/live/common/consumption/history/overview/overview";
 import { CommonConsumptionDetailsOverviewComponent } from "./edge/live/common/consumption/history/phase-accurate/overview/overview";
 import { CommonGridDetailsExternalLimitationOverviewComponent } from "./edge/live/common/grid/history/details/external-limitation/overview/details.overview";
 import { CommonGridDetailsPhaseAccurateOverviewComponent } from "./edge/live/common/grid/history/details/phase-accurate/overview/details.overview";
 import { CommonGridOverviewComponent } from "./edge/live/common/grid/history/overview/overview";
-import { OverviewComponent as SelfconsumptionChartOverviewComponent } from "./edge/live/common/selfconsumption/history/overview/overview";
+import { CommonProductionHistoryOverviewComponent } from "./edge/live/common/production/history/overview/overview";
+import { CommonProductionDetailsOverviewComponent } from "./edge/live/common/production/history/phase-accurate/overview/overview";
+import { CommonSelfconsumptionOverviewComponent as SelfconsumptionChartOverviewComponent } from "./edge/live/common/selfconsumption/history/overview/overview";
+import { ControllerChannelThresholdOverviewComponent as ChannelthresholdChartOverviewComponent } from "./edge/live/Controller/Channelthreshold/history/overview/overview";
+import { ControllerChpOverviewComponent } from "./edge/live/Controller/ChpSoc/history/overview/overview";
+import { ControllerEnerixOverviewComponent } from "./edge/live/Controller/EnerixControl/history/overview/overview";
+import { ControllerEssGridOptimizedChargeOverviewComponent } from "./edge/live/Controller/Ess/GridOptimizedCharge/history/overview/overview";
+import { ControllerEssTimeOfUseTariffOverviewComponent } from "./edge/live/Controller/Ess/TimeOfUseTariff/history/overview/overview";
+import { ControllerHeatOverviewComponent } from "./edge/live/Controller/Heat/history/overview/overview";
+import { ControllerIoChannelSingleThresholdOverviewComponent } from "./edge/live/Controller/Io/ChannelSingleThreshold/history/overview/overview";
+import { ControllerIoFixDigitalOutputDetailsOverviewComponent } from "./edge/live/Controller/Io/FixDigitalOutput/history/details/details.overview";
+import { ControllerIoDigitalOutputOverviewComponent } from "./edge/live/Controller/Io/FixDigitalOutput/history/overview/overview";
+import { ControllerIoHeatingElementOverviewComponent } from "./edge/live/Controller/Io/HeatingElement/history/overview/overview";
+import { ControllerModbusTcpApiOverviewComponent as ModbusTcpApiOverviewComponent } from "./edge/live/Controller/ModbusTcpApi/history/overview/overview";
+import { ControllerPeakShavingAsymmetricOverviewComponent as AsymmetricPeakshavingChartOverviewComponent } from "./edge/live/Controller/peak-shaving/Asymmetric/history/overview/overview";
+import { ControllerPeakShavingSymmetricOverviewComponent as SymmetricPeakshavingChartOverviewComponent } from "./edge/live/Controller/peak-shaving/symmetric/history/overview/overview";
+import { ControllerPeakShavingTimeslotOverviewComponent as TimeslotPeakshavingChartOverviewComponent } from "./edge/live/Controller/peak-shaving/Symmetric_TimeSlot/history/overview/overview";
 import { LiveDataService } from "./edge/live/livedataservice";
 import { LoginComponent } from "./index/login.component";
 import { OverViewComponent } from "./index/overview/overview.component";
-import { LoadingScreenComponent } from "./index/shared/loading-screen";
 import { CurrentAndVoltageOverviewComponent } from "./shared/components/edge/meter/currentVoltage/overview/currentVoltage.overview";
 import { DataService } from "./shared/components/shared/dataservice";
 import { suffixMatcher } from "./shared/guards/url-matcher";
 import { OAuthCallBackComponent } from "./shared/service/auth/oauthcallback.component";
 import { UserComponent } from "./user/user.component";
 
-export const history: (/** Determines if titles in headers can be set */ customHeaders: boolean) => Routes = (customHeaders) => [{
-    path: "history", providers: [{
-        useClass: HistoryDataService,
-        provide: DataService,
-    }],
-    component: HistoryParentComponent, children: [
-        { path: "", component: EdgeHistoryComponent, data: { ...(customHeaders ? { navbarTitleToBeTranslated: "GENERAL.HISTORY" } : {}) } },
-        // History Chart Pages
-        { path: ":componentId/asymmetricpeakshavingchart", component: AsymmetricPeakshavingChartOverviewComponent },
-        { path: ":componentId/delayedselltogridchart", component: DelayedSellToGridChartOverviewComponent },
-        { path: ":componentId/gridOptimizedChargeChart", component: GridOptimizedChargeChartOverviewComponent },
-        { path: ":componentId/heatingelementchart", component: HeatingelementChartOverviewComponent },
-        { path: ":componentId/heatmypvchart", component: HeatmypvchartOverviewComponent },
-        { path: ":componentId/heatchart", component: HeatchartOverviewComponent },
-        { path: ":componentId/enerixchart", component: EnerixOverviewComponent },
-        { path: ":componentId/heatpumpchart", loadChildren: () => import("./edge/history/Controller/Io/heatpump/heat-pump.module").then(m => m.HeatPumpModule) },
-        { path: ":componentId/modbusTcpApi", component: ModbusTcpApiOverviewComponent },
-        { path: ":componentId/scheduleChart", component: TimeOfUseTariffOverviewComponent },
-        { path: ":componentId/symmetricpeakshavingchart", component: SymmetricPeakshavingChartOverviewComponent },
-        { path: ":componentId/timeslotpeakshavingchart", component: TimeslotPeakshavingChartOverviewComponent },
-        { path: "autarchychart", component: CommonAutarchyHistoryOverviewComponent },
-        { path: "consumptionchart", component: CommonConsumptionHistoryOverviewComponent },
-        { path: "consumptionchart/:componentId", component: CommonConsumptionDetailsOverviewComponent },
-        { path: "consumptionchart/:componentId/currentVoltage", component: CurrentAndVoltageOverviewComponent },
-        { path: "gridchart", component: CommonGridOverviewComponent },
-        { path: "gridchart/externalLimitation", component: CommonGridDetailsExternalLimitationOverviewComponent },
-        { path: "gridchart/:componentId", component: CommonGridDetailsPhaseAccurateOverviewComponent },
-        { path: "gridchart/:componentId/currentVoltage", component: CurrentAndVoltageOverviewComponent },
-        { path: "productionchart", component: ProductionChartOverviewComponent },
-        { path: "productionchart/:componentId", component: DetailsOverviewComponent },
-        { path: "productionchart/:componentId/currentVoltage", component: CurrentAndVoltageOverviewComponent },
-        { path: "selfconsumptionchart", component: SelfconsumptionChartOverviewComponent },
-        { path: "storagechart", loadChildren: () => import("./edge/history/common/storage/storage").then(m => m.CommonStorage) },
+export const history: (/** Determines if titles in headers can be set */ customHeaders: boolean) => Routes = (
+    customHeaders,
+) => [
+    {
+        path: "history",
+        providers: [
+            {
+                useClass: HistoryDataService,
+                provide: DataService,
+            },
+        ],
+        component: HistoryParentComponent,
+        children: [
+            {
+                path: "",
+                component: EdgeHistoryComponent,
+                data: {
+                    ...(customHeaders ? { navbarTitleToBeTranslated: "GENERAL.HISTORY" } : {}),
+                },
+            },
+            // History Chart Pages
+            {
+                path: ":componentId/asymmetricpeakshavingchart",
+                component: AsymmetricPeakshavingChartOverviewComponent,
+            },
+            {
+                path: ":componentId/delayedselltogridchart",
+                component: DelayedSellToGridChartOverviewComponent,
+            },
+            {
+                path: ":componentId/gridOptimizedChargeChart",
+                component: ControllerEssGridOptimizedChargeOverviewComponent,
+            },
+            {
+                path: ":componentId/heatingelementchart",
+                component: ControllerIoHeatingElementOverviewComponent,
+            },
+            {
+                path: ":componentId/chpchart",
+                component: ControllerChpOverviewComponent,
+            },
+            {
+                path: ":componentId/heatmypvchart",
+                component: ControllerHeatOverviewComponent,
+            },
+            {
+                path: ":componentId/heatchart",
+                component: ControllerHeatOverviewComponent,
+            },
+            {
+                path: ":componentId/enerixchart",
+                component: ControllerEnerixOverviewComponent,
+            },
+            {
+                path: ":componentId/heatpumpchart",
+                loadChildren: () =>
+                    import("./edge/live/Controller/Io/Heatpump/history/controller-io-heatpump-history").then(
+                        (m) => m.HeatPumpHistory,
+                    ),
+            },
+            {
+                path: ":componentId/modbusTcpApi",
+                component: ModbusTcpApiOverviewComponent,
+            },
+            {
+                path: ":componentId/time-of-use",
+                component: ControllerEssTimeOfUseTariffOverviewComponent,
+            },
+            {
+                path: ":componentId/symmetricpeakshavingchart",
+                component: SymmetricPeakshavingChartOverviewComponent,
+            },
+            {
+                path: ":componentId/timeslotpeakshavingchart",
+                component: TimeslotPeakshavingChartOverviewComponent,
+            },
+            {
+                path: "autarchychart",
+                component: CommonAutarchyHistoryOverviewComponent,
+            },
+            {
+                path: "consumptionchart",
+                component: CommonConsumptionHistoryOverviewComponent,
+            },
+            {
+                path: "consumptionchart/:componentId",
+                component: CommonConsumptionDetailsOverviewComponent,
+            },
+            {
+                path: "consumptionchart/:componentId/currentVoltage",
+                component: CurrentAndVoltageOverviewComponent,
+            },
+            { path: "gridchart", component: CommonGridOverviewComponent },
+            {
+                path: "gridchart/externalLimitation",
+                component: CommonGridDetailsExternalLimitationOverviewComponent,
+            },
+            {
+                path: "gridchart/:componentId",
+                component: CommonGridDetailsPhaseAccurateOverviewComponent,
+            },
+            {
+                path: "gridchart/:componentId/currentVoltage",
+                component: CurrentAndVoltageOverviewComponent,
+            },
+            {
+                path: "productionchart",
+                component: CommonProductionHistoryOverviewComponent,
+            },
+            {
+                path: "productionchart/:componentId",
+                component: CommonProductionDetailsOverviewComponent,
+            },
+            {
+                path: "productionchart/:componentId/currentVoltage",
+                component: CurrentAndVoltageOverviewComponent,
+            },
+            {
+                path: "selfconsumptionchart",
+                component: SelfconsumptionChartOverviewComponent,
+            },
+            {
+                path: "storagechart",
+                loadComponent: () =>
+                    import("./edge/live/common/storage/history/overview/overview").then(
+                        (m) => m.CommonStorageOverviewComponent,
+                    ),
+            },
 
-        // Controllers
-        { path: "channelthresholdchart", component: ChannelthresholdChartOverviewComponent },
-        { path: "digitaloutputchart", component: DigitalOutputChartOverviewComponent },
-        { path: "digitaloutputchart/:componentId", component: DigitalOutputDetailsOverviewComponent },
-    ],
-}];
+            // Controllers
+            {
+                path: "channelthresholdchart",
+                component: ChannelthresholdChartOverviewComponent,
+            },
+            {
+                path: "channelsinglethresholdchart",
+                component: ControllerIoChannelSingleThresholdOverviewComponent,
+            },
+            {
+                path: "digitaloutputchart",
+                component: ControllerIoDigitalOutputOverviewComponent,
+            },
+            {
+                path: "digitaloutputchart/:componentId",
+                component: ControllerIoFixDigitalOutputDetailsOverviewComponent,
+            },
+        ],
+    },
+];
 
 export const routes: Routes = [
-
     // TODO should be removed in the future
-    { path: "", redirectTo: oauthRedirectFunction("index"), pathMatch: "full" },
-    { path: "oauthcallback", component: OAuthCallBackComponent },
-    { path: "index", component: LoadingScreenComponent },
-    { path: "login", component: LoginComponent, data: { navbarTitle: environment.uiTitle } },
+    { path: "", redirectTo: oauthRedirectFunction("login"), pathMatch: "full" },
+    { path: OAuthCallBackComponent.ID, component: OAuthCallBackComponent },
+    {
+        path: "login",
+        component: LoginComponent,
+        data: { navbarTitle: environment.uiTitle },
+    },
 
     { path: "overview", component: OverViewComponent },
 
     // Edge Pages
     {
-        path: "device/:edgeId", component: EdgeComponent, children: [
+        path: "device/:edgeId",
+        component: EdgeComponent,
+        children: [
             { path: "", redirectTo: "live", pathMatch: "full" },
+            ...history(false), // Needs to be set here, because following path "is overwriting history routes"
             {
-                path: "live", data: { navbarTitle: environment.uiTitle }, providers: [{
-                    useClass: LiveDataService,
-                    provide: DataService,
-                }], loadChildren: () => import("./shared/components/navigation/navigation-routing.module").then(m => m.NavigationRoutingModule),
+                path: "",
+                loadChildren: () =>
+                    import("./shared/components/navigation/navigation-routing.module").then(
+                        (m) => m.NavigationRoutingModule,
+                    ),
             },
-            ...history(false),
-            { path: "settings", loadChildren: () => import("./edge/settings/settings-routing.module").then(m => m.SettingsRoutingModule) },
+            {
+                path: "live",
+                data: { navbarTitle: environment.uiTitle },
+                providers: [
+                    {
+                        useClass: LiveDataService,
+                        provide: DataService,
+                    },
+                ],
+                loadChildren: () =>
+                    import("./shared/components/navigation/navigation-routing.module").then(
+                        (m) => m.NavigationRoutingModule,
+                    ),
+            },
+            {
+                path: "settings",
+                loadChildren: () =>
+                    import("./edge/settings/settings-routing.module").then((m) => m.SettingsRoutingModule),
+            },
+            {
+                path: "energy-journey",
+                loadChildren: () =>
+                    import("./edge/settings/energy-journey/energy-journey-routing.module").then(
+                        (m) => m.EnergyJourneyRoutingModule,
+                    ),
+            },
+            {
+                path: "energy-journey/index",
+                data: {
+                    navbarTitleToBeTranslated: "SETTINGS.ENERGY_JOURNEY.ANALYSE_BATTERY_EXTENSION_TITLE",
+                },
+                children: [],
+            },
+            {
+                path: "favorites",
+                children: [
+                    {
+                        path: "",
+                        loadComponent: () =>
+                            import("./shared/components/navigation/favorite/page/favorite-page").then(
+                                (m) => m.FavoritePageComponent,
+                            ),
+                        pathMatch: "full",
+                    },
+                    {
+                        path: "",
+                        loadChildren: () =>
+                            import("./shared/components/navigation/navigation-routing.module").then(
+                                (m) => m.NavigationRoutingModule,
+                            ),
+                    },
+                ],
+            },
+            {
+                path: "profile",
+                children: [
+                    { path: "", component: EmptyPageComponent, pathMatch: "full" },
+                    {
+                        path: "settings",
+                        loadChildren: () =>
+                            import("./edge/settings/settings-routing.module").then((m) => m.SettingsRoutingModule),
+                    },
+                    {
+                        path: "user",
+                        component: UserComponent,
+                        data: { navbarTitleToBeTranslated: "MENU.USER" },
+                    },
+                ],
+            },
+            {
+                path: "schedule",
+                children: [{ path: "", component: EmptyPageComponent, pathMatch: "full" }],
+            },
         ],
     },
 
     { path: "demo", component: LoginComponent },
-    { matcher: suffixMatcher("user"), component: UserComponent, data: { navbarTitleToBeTranslated: "MENU.USER" } },
-    { matcher: suffixMatcher("changelog"), loadChildren: () => import("./changelog/changelog.module").then(m => m.ChangelogModule), data: { navbarTitleToBeTranslated: "MENU.CHANGELOG" } },
+    {
+        matcher: suffixMatcher("user"),
+        component: UserComponent,
+        data: { navbarTitleToBeTranslated: "MENU.USER" },
+    },
+    {
+        matcher: suffixMatcher("changelog"),
+        loadChildren: () => import("./changelog/changelog.module").then((m) => m.ChangelogModule),
+        data: { navbarTitleToBeTranslated: "MENU.CHANGELOG" },
+    },
     // Fallback
     { path: "**", pathMatch: "full", redirectTo: "index" },
 ];
@@ -115,22 +311,24 @@ export const appRoutingProviders: any[] = [];
 
 @NgModule({
     imports: [
-        RouterModule.forRoot(routes, { preloadingStrategy: NoPreloading, paramsInheritanceStrategy: "always" }),
+        RouterModule.forRoot(routes, {
+            preloadingStrategy: NoPreloading,
+            paramsInheritanceStrategy: "always",
+        }),
     ],
     exports: [RouterModule],
 })
-export class AppRoutingModule { }
+export class AppRoutingModule {}
 
 /**
- * Creates a RedirectFunction, which checks for a state parameter
- * in the query parameters and also the active oauth state if both
- * are present navigates to the active oauth state.
+ * Creates a RedirectFunction, which checks for a state parameter in the query parameters and also the active oauth
+ * state if both are present navigates to the active oauth state.
  *
- * @param defaultRoute the default route to navigate to if no oauth state is present
- * @returns the created RedirectFunction
+ * @param defaultRoute The default route to navigate to if no oauth state is present
+ * @returns The created RedirectFunction
  */
 function oauthRedirectFunction(defaultRoute: string): RedirectFunction {
-    return redirectData => {
+    return (redirectData) => {
         const state = redirectData.queryParams["state"] as string | undefined;
         if (!state) {
             return defaultRoute;
@@ -143,9 +341,12 @@ function oauthRedirectFunction(defaultRoute: string): RedirectFunction {
         }
 
         const queryParamsString = Object.entries(redirectData.queryParams)
-            .map(([key, value]) => key + "=" + value).join("&");
+            .map(([key, value]) => key + "=" + value)
+            .join("&");
 
-        const oauthRedirectState = JSON.parse(oauthRedirectStateRaw) as { href: string };
+        const oauthRedirectState = JSON.parse(oauthRedirectStateRaw) as {
+            href: string;
+        };
         return oauthRedirectState.href + "?" + queryParamsString;
     };
 }

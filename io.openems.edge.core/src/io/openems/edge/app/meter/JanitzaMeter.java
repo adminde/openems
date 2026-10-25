@@ -17,7 +17,6 @@ import com.google.gson.JsonElement;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.function.ThrowingTriFunction;
-import io.openems.common.oem.OpenemsEdgeOem;
 import io.openems.common.session.Language;
 import io.openems.common.types.EdgeConfig;
 import io.openems.common.utils.JsonUtils;
@@ -212,13 +211,6 @@ public class JanitzaMeter extends AbstractOpenemsAppWithProps<JanitzaMeter, Prop
 	}
 
 	@Override
-	public AppDescriptor getAppDescriptor(OpenemsEdgeOem oem) {
-		return AppDescriptor.create() //
-				.setWebsiteUrl(oem.getAppWebsiteUrl(this.getAppId())) //
-				.build();
-	}
-
-	@Override
 	public OpenemsAppCardinality getCardinality() {
 		return OpenemsAppCardinality.MULTIPLE;
 	}
@@ -239,7 +231,8 @@ public class JanitzaMeter extends AbstractOpenemsAppWithProps<JanitzaMeter, Prop
 	}
 
 	public enum JanitzaModel implements TranslatableEnum {
-		UMG_96_RME("Meter.Janitza.UMG96RME", "Janitza Netzanalysator UMG 96RM-E"), //
+		UMG_96_PQL("Meter.Janitza.UMG96PQL", "Janitza Netzanalysator UMG 96-PQ-L"), //
+		UMG_96_RME("Meter.Janitza.UMG96RME", "Janitza Netzanalysator UMG 96-RM-E"), //
 		UMG_604("Meter.Janitza.UMG604", "Janitza Netzanalysator UMG 604-PRO"), //
 		UMG_511("Meter.Janitza.UMG511", "Janitza Netzqualitätsanalysator UMG 511"), //
 		;

@@ -5,7 +5,6 @@ import static org.junit.Assert.assertNull;
 
 import org.junit.Test;
 
-import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.goodwe.batteryinverter.GoodWeBatteryInverterImpl.BatteryData;
 
 public class TestStatic {
@@ -38,7 +37,7 @@ public class TestStatic {
 
 		// Force-Discharge is active
 		assertNull(GoodWeBatteryInverterImpl.calculateSurplusPower(new BatteryData(-2, 466), 5000, MAX_DC_CURRENT));
-		
+
 		// Surplus Power is Production Power minus Max Charge Power
 		assertEquals(5680, (int) GoodWeBatteryInverterImpl.calculateSurplusPower(new BatteryData(20, 466) /* 9320 */,
 				15000, MAX_DC_CURRENT));
@@ -47,16 +46,10 @@ public class TestStatic {
 	@Test
 	public void testPreprocessAmpereValue47900() {
 
-		assertEquals(MAX_DC_CURRENT,
-				GoodWeBatteryInverterImpl.preprocessAmpereValue47900(new Value<Integer>(null, 1234), MAX_DC_CURRENT));
+		assertEquals(MAX_DC_CURRENT, GoodWeBatteryInverterImpl.preprocessAmpereValue47900(1234, MAX_DC_CURRENT));
 
-		assertEquals(0,
-				GoodWeBatteryInverterImpl.preprocessAmpereValue47900(new Value<Integer>(null, -25), MAX_DC_CURRENT));
+		assertEquals(0, GoodWeBatteryInverterImpl.preprocessAmpereValue47900(-25, MAX_DC_CURRENT));
 
-		assertEquals(12,
-				GoodWeBatteryInverterImpl.preprocessAmpereValue47900(new Value<Integer>(null, 12), MAX_DC_CURRENT));
-
-		assertEquals(0,
-				GoodWeBatteryInverterImpl.preprocessAmpereValue47900(new Value<Integer>(null, null), MAX_DC_CURRENT));
+		assertEquals(12, GoodWeBatteryInverterImpl.preprocessAmpereValue47900(12, MAX_DC_CURRENT));
 	}
 }

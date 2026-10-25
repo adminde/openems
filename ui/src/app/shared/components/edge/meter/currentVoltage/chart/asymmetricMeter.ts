@@ -1,18 +1,31 @@
-import { Component } from "@angular/core";
+import { Component, ChangeDetectionStrategy } from "@angular/core";
+import { ReactiveFormsModule } from "@angular/forms";
+import { BaseChartDirective } from "ng2-charts";
+import { NgxSpinnerModule } from "ngx-spinner";
+import { CommonUiModule } from "src/app/shared/common-ui.module";
 import { AbstractHistoryChart } from "src/app/shared/components/chart/abstracthistorychart";
+import { ChartComponentsModule } from "src/app/shared/components/chart/chart.module";
+import { HistoryDataErrorModule } from "src/app/shared/components/history-data-error/history-data-error.module";
 import { Phase } from "src/app/shared/components/shared/phase";
 import { ChannelAddress } from "src/app/shared/shared";
 import { ChartAxis, HistoryUtils, YAxisType } from "src/app/shared/utils/utils";
 
 @Component({
-    selector: "currentVoltageAsymmetricChart",
+    selector: "oe-current-voltage-asymmetric-chart",
     templateUrl: "../../../../../components/chart/abstracthistorychart.html",
-    standalone: false,
+    standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [
+        CommonUiModule,
+        BaseChartDirective,
+        ReactiveFormsModule,
+        ChartComponentsModule,
+        HistoryDataErrorModule,
+        NgxSpinnerModule,
+    ],
 })
 export class CurrentVoltageAsymmetricChartComponent extends AbstractHistoryChart {
-
     protected override getChartData(): HistoryUtils.ChartData {
-
         const component = this.config.getComponent(this.route.snapshot.params.componentId);
         const currentPhasesColors: string[] = ["rgb(246, 180, 137)", "rgb(238, 120, 42)", "rgb(118, 52, 9)"];
         const voltagePhasesColors: string[] = ["rgb(255, 0, 0)", "rgb(133, 0, 0)", "rgb(71, 0, 0)"];
@@ -51,20 +64,21 @@ export class CurrentVoltageAsymmetricChartComponent extends AbstractHistoryChart
                 formatNumber: "1.1-2",
                 afterTitle: this.translate.instant("GENERAL.TOTAL"),
             },
-            yAxes: [{
-                unit: YAxisType.VOLTAGE,
-                position: "right",
-                yAxisId: ChartAxis.RIGHT,
-                displayGrid: false,
-                scale: {
-                    dynamicScale: true,
+            yAxes: [
+                {
+                    unit: YAxisType.VOLTAGE,
+                    position: "right",
+                    yAxisId: ChartAxis.RIGHT,
+                    displayGrid: false,
+                    scale: {
+                        dynamicScale: true,
+                    },
                 },
-            },
-            {
-                unit: YAxisType.CURRENT,
-                position: "left",
-                yAxisId: ChartAxis.LEFT,
-            },
+                {
+                    unit: YAxisType.CURRENT,
+                    position: "left",
+                    yAxisId: ChartAxis.LEFT,
+                },
             ],
         };
 

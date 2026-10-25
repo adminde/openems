@@ -4,21 +4,26 @@ import { TZDate } from "@date-fns/tz";
 import { differenceInMilliseconds, format, isMatch, isSameYear, startOfMonth, startOfYear } from "date-fns";
 import { de } from "date-fns/locale";
 import { ChronoUnit } from "src/app/edge/history/shared";
+import { Language } from "src/app/shared/type/language";
 import { QueryHistoricTimeseriesDataResponse } from "../../jsonrpc/response/queryHistoricTimeseriesDataResponse";
 import { QueryHistoricTimeseriesEnergyPerPeriodResponse } from "../../jsonrpc/response/queryHistoricTimeseriesEnergyPerPeriodResponse";
-import { Language } from "../../type/language";
 import { DateUtils } from "../date/dateutils";
 
 export const DATE_TIME_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2}$/;
 
 /** IONIC implemented DateTime formats */
-export enum DateTimeFormats {
+export enum DateTimeFormats { /* https://date-fns.org/v4.1.0/docs/format */
     YEAR = "yyyy",
     YEAR_MONTH_DAY = "yyyy-MM-dd",
     YEAR_MONTH_DAY_TIME = "yyyy-MM-dd'T'HH:mm",
     YEAR_MONTH_DAY_TIME_WITH_SECONDS = "yyyy-MM-dd'T'HH:mm:ss",
     YEAR_MONTH_DAY_TIME_UTC_TIMEZONE = "yyyy-MM-dd'T'HH:mm:ss'Z'",
     HOUR_MINUTE = "HH:mm",
+    HOUR_MINUTE_SECONDS = "HH:mm:ss",
+    ONE_TO_24_HOUR_MINUTE_SECONDS = "kk:mm:ss",
+    DAY_MONTH_YEAR = "dd.MM.yyyy",
+    WEEKDAY = "E", // Mon, Tue, Wed, ..., Sun
+    YEAR_MONTH_DAY_TIME_WITH_TZ = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
 }
 
 export class DateTimeUtils {
@@ -60,8 +65,8 @@ export class DateTimeUtils {
 
                 // show 12 stacks, even if no data and timestamps
                 const newTimestamps: string[] = [];
-                const firstTimestamp = DateUtils.stringToDate(energyPerPeriodResponse.result.timestamps[0]);
-                const lastTimestamp = DateUtils.stringToDate(energyPerPeriodResponse.result.timestamps[energyPerPeriodResponse.result.timestamps.length - 1]);
+                const firstTimestamp = DateUtils.stringToDate(energyPerPeriodResponse.result.timestamps.at(0));
+                const lastTimestamp = DateUtils.stringToDate(energyPerPeriodResponse.result.timestamps.at(-1));
 
                 if (firstTimestamp.getMonth() !== 0 && isSameYear(lastTimestamp, firstTimestamp)) {
                     for (let i = 0; i <= (firstTimestamp.getMonth() - 1); i++) {
@@ -104,7 +109,11 @@ export class DateTimeUtils {
    * @param datetime the datetime string
    * @returns the datetime string as ISO8601 'YYYY-MM-DDTHH:mm:ss.SSS' format
    */
-    public static formatToISOZonedDateTime(datetime: string | null, timeZone: string = DateTimeUtils.getLocaleTimeZone()): string {
+    public static formatToISOZonedDateTime(datetime: string | null, timeZone: string = DateTimeUtils.getLocaleTimeZone()): string | null {
+        if (datetime == null) {
+            return null;
+        }
+
         if (!DateTimeUtils.isOfValidDateTimeFormat(datetime)) {
             throw new Error(DateTimeUtils.INVALID_DATE_TIME_STRING);
         }
@@ -124,5 +133,20 @@ export class DateTimeUtils {
         return new Intl.DateTimeFormat(language.i18nLocaleKey, {
             hour: "numeric",
         }).format(date);
+    }
+
+    public static format(date: Date | null, dateFormat: DateTimeFormats): string | null {
+        if (date == null) {
+            return null;
+        }
+        return format(date, dateFormat);
+    }
+
+    public static formatWithLocale(date: Date | null, dateFormat: DateTimeFormats): string | null {
+        if (date == null) {
+            return null;
+        }
+        const locale = Language.getCurrentLanguage().dateFnsLocale;
+        return format(date, dateFormat, { locale });
     }
 }
