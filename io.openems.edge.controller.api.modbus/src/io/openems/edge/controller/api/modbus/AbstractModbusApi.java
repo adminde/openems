@@ -372,7 +372,8 @@ public abstract class AbstractModbusApi extends AbstractOpenemsComponent
 		// Handle writes to the Channel; limited to ModbusRecordChannels
 		if (record instanceof ModbusRecordChannel r) {
 			r.onWriteValue(value -> {
-				var readChannel = component.channel(r.getChannelId());
+				var owner = r.getSource() != null ? r.getSource() : component;
+				var readChannel = owner.channel(r.getChannelId());
 				if (!(readChannel instanceof WriteChannel wc)) {
 					this.logWarn(this.log, "Unable to write to Read-Only-Channel [" + readChannel.address() + "]");
 					return;
@@ -487,7 +488,8 @@ public abstract class AbstractModbusApi extends AbstractOpenemsComponent
 		builder.handleRequest(GetModbusProtocolExportXlsxRequest.METHOD, def -> {
 			def.setGuards(this.componentMissingGuard(), this.componentNoModbusApiGuard());
 		}, call -> {
-			return new GetModbusProtocolExportXlsxResponse(call.getRequest().getId(), this.components, this.records);
+			return new GetModbusProtocolExportXlsxResponse(call.getRequest().getId(), this.config,
+					this.getAccessMode(), this.components, this.records);
 		});
 	}
 
@@ -561,6 +563,7 @@ public abstract class AbstractModbusApi extends AbstractOpenemsComponent
 	}
 
 	private void resetModbusTable() {
+		this.components.clear();
 		this.records.clear();
 		// Add generic header
 		this.records.put(0, new ModbusRecordUint16Hash(0, "OpenEMS"));

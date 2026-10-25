@@ -25,6 +25,7 @@ import io.openems.edge.common.modbusslave.ModbusRecord;
  *       "name": string,
  *       "value": string, // value description
  *       "unit": string,
+ *       "gain": number,
  *       "type" string
  *     }]
  *   }
@@ -50,6 +51,7 @@ public class GetModbusProtocolResponse extends JsonrpcResponseSuccess {
 					.addProperty("name", record.getName()) //
 					.addProperty("value", record.getValueDescription()) //
 					.addProperty("unit", record.getUnit() == Unit.NONE ? "" : record.getUnit().toString()) //
+					.addProperty("gain", record.getGain()) //
 					.addProperty("type", record.getType().toString()) //
 					.addProperty("access", record.getAccessMode().getAbbreviation()) //
 					.build());

@@ -39,16 +39,35 @@ public final class ModbusSlaveNatureTable {
 		}
 
 		/**
-		 * Add a Channel to the {@link Builder}.
+		 * Add a Channel to the {@link Builder} that is transmitted in the given
+		 * {@link Unit}, multiplied by the given gain.
 		 *
-		 * @param offset    the register address offset
-		 * @param channelId the {@link ChannelId}
-		 * @param type      the {@link ModbusType}
-		 * @param mapValue  an optional mapping function to map the Channel value to a
-		 *                  Number
+		 * <p>
+		 * The register value is the Channel value converted to the given Unit and
+		 * multiplied by the gain, e.g. a Channel in [W] with Unit [kW] and gain 100
+		 * transmits 12345 W as 1235. Written values are converted back accordingly.
+		 * The optional mapping function is applied to read values before the
+		 * conversion. The Channel belongs to the optional source Component, e.g. the
+		 * Sum, or to the Component of this table.
+		 *
+		 * @param offset      the register address offset
+		 * @param name        an optional name of the register, replacing the Channel
+		 *                    address
+		 * @param description an optional description of the register, replacing the
+		 *                    text of the Channel
+		 * @param source      the Component of the Channel, or null for the Component
+		 *                    of this table
+		 * @param channelId   the {@link ChannelId}
+		 * @param type        the {@link ModbusType}
+		 * @param unit        the {@link Unit} of the register, sharing the base Unit of
+		 *                    the Channel, or null to transmit the Channel value as it is
+		 * @param gain        the positive gain of the register
+		 * @param mapValue    an optional mapping function to map the Channel value to a
+		 *                    Number
 		 * @return myself
 		 */
-		public Builder channel(int offset, ChannelId channelId, ModbusType type, UnaryOperator<Number> mapValue) {
+		public Builder channel(int offset, String name, String description, OpenemsComponent source,
+				ChannelId channelId, ModbusType type, Unit unit, int gain, UnaryOperator<Number> mapValue) {
 			var filter = this.accessModeFilter;
 			var channel = channelId.doc().getAccessMode();
 			if (
@@ -61,21 +80,85 @@ public final class ModbusSlaveNatureTable {
 					// Filter for WRITE_ONLY channels
 					filter == AccessMode.WRITE_ONLY
 							&& (channel == AccessMode.WRITE_ONLY || channel == AccessMode.READ_WRITE)) {
-				this.add(new ModbusRecordChannel(offset, type, channelId, filter, mapValue));
+				this.add(new ModbusRecordChannel(offset, name, description, type, channelId, filter, source, mapValue,
+						unit, gain));
 
 			} else {
 				// Channel did not pass filter -> show as Reserved
 				switch (type) {
+				case ENUM16, UINT16 -> this.uint16Reserved(offset);
+				case UINT32 -> this.uint32Reserved(offset);
+				case UINT64 -> this.uint64Reserved(offset);
+				case INT16 -> this.int16Reserved(offset);
+				case INT32 -> this.int32Reserved(offset);
+				case INT64 -> this.int64Reserved(offset);
 				case FLOAT32 -> this.float32Reserved(offset);
 				case FLOAT64 -> this.float64Reserved(offset);
 				case STRING16 -> this.string16Reserved(offset);
-				case ENUM16, UINT16 -> this.uint16Reserved(offset);
-				case INT16 -> this.int16Reserved(offset);
-				case UINT32 -> this.uint32Reserved(offset);
-				case UINT64 -> this.uint64Reserved(offset);
 				}
 			}
 			return this;
+		}
+
+		/**
+		 * Add a Channel to the {@link Builder}.
+		 *
+		 * @param offset    the register address offset
+		 * @param name      an optional name of the register, replacing the Channel
+		 *                  address
+		 * @param channelId the {@link ChannelId}
+		 * @param type      the {@link ModbusType}
+		 * @param mapValue  an optional mapping function to map the Channel value to a
+		 *                  Number
+		 * @return myself
+		 */
+		public Builder channel(int offset, String name, ChannelId channelId, ModbusType type,
+				UnaryOperator<Number> mapValue) {
+			return this.channel(offset, name, null, null, channelId, type, null, 1, mapValue);
+		}
+
+		/**
+		 * Add a Channel with a name to the {@link Builder} that is transmitted in the
+		 * given {@link Unit}, multiplied by the given gain. See
+		 * {@link #channel(int, String, String, OpenemsComponent, ChannelId, ModbusType, Unit, int, UnaryOperator)}.
+		 *
+		 * @param offset    the register address offset
+		 * @param name      the name of the register, replacing the Channel address
+		 * @param channelId the {@link ChannelId}
+		 * @param type      the {@link ModbusType}
+		 * @param unit      the {@link Unit} of the register
+		 * @param gain      the positive gain of the register
+		 * @return myself
+		 */
+		public Builder channel(int offset, String name, ChannelId channelId, ModbusType type, Unit unit, int gain) {
+			return this.channel(offset, name, null, null, channelId, type, unit, gain, null);
+		}
+
+		/**
+		 * Add a Channel to the {@link Builder}.
+		 *
+		 * @param offset    the register address offset
+		 * @param channelId the {@link ChannelId}
+		 * @param type      the {@link ModbusType}
+		 * @param mapValue  an optional mapping function to map the Channel value to a
+		 *                  Number
+		 * @return myself
+		 */
+		public Builder channel(int offset, ChannelId channelId, ModbusType type, UnaryOperator<Number> mapValue) {
+			return this.channel(offset, null, channelId, type, mapValue);
+		}
+
+		/**
+		 * Add a Channel with a name to the {@link Builder}.
+		 *
+		 * @param offset    the register address offset
+		 * @param name      the name of the register, replacing the Channel address
+		 * @param channelId the {@link ChannelId}
+		 * @param type      the {@link ModbusType}
+		 * @return myself
+		 */
+		public Builder channel(int offset, String name, ChannelId channelId, ModbusType type) {
+			return this.channel(offset, name, channelId, type, null);
 		}
 
 		/**
@@ -87,7 +170,7 @@ public final class ModbusSlaveNatureTable {
 		 * @return myself
 		 */
 		public Builder channel(int offset, ChannelId channelId, ModbusType type) {
-			return this.channel(offset, channelId, type, null);
+			return this.channel(offset, null, channelId, type, null);
 		}
 
 		/**
@@ -153,14 +236,17 @@ public final class ModbusSlaveNatureTable {
 		}
 
 		/**
-		 * Add a Signed Int 16 Reserved value to the {@link ModbusSlaveNatureTable}
+		 * Add Unsigned Int 16 Reserved values to the {@link ModbusSlaveNatureTable}
 		 * {@link Builder}.
 		 *
-		 * @param offset the address offset
+		 * @param start the address offset start
+		 * @param end   the address offset end
 		 * @return myself
 		 */
-		public Builder int16Reserved(int offset) {
-			this.add(new ModbusRecordInt16Reserved(offset));
+		public Builder uint16Reserved(int start, int end) {
+			for (int i = start; i <= end; i++) {
+				this.add(new ModbusRecordUint16Reserved(i));
+			}
 			return this;
 		}
 
@@ -177,6 +263,21 @@ public final class ModbusSlaveNatureTable {
 		}
 
 		/**
+		 * Add Unsigned Int 32 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder uint32Reserved(int start, int end) {
+			for (int i = start; i <= end; i = i + 2) {
+				this.add(new ModbusRecordUint32Reserved(i));
+			}
+			return this;
+		}
+
+		/**
 		 * Add a Unsigned Int 64 Reserved value to the {@link ModbusSlaveNatureTable}
 		 * {@link Builder}.
 		 *
@@ -185,6 +286,144 @@ public final class ModbusSlaveNatureTable {
 		 */
 		public Builder uint64Reserved(int offset) {
 			this.add(new ModbusRecordUint64Reserved(offset));
+			return this;
+		}
+
+		/**
+		 * Add Unsigned Int 64 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder uint64Reserved(int start, int end) {
+			for (int i = start; i <= end; i = i + 4) {
+				this.add(new ModbusRecordUint64Reserved(i));
+			}
+			return this;
+		}
+
+		/**
+		 * Add a Signed Int 16 value to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param offset the address offset
+		 * @param name   the name of the register
+		 * @param value  the value
+		 * @return myself
+		 */
+		public Builder int16(int offset, String name, int value) {
+			this.add(new ModbusRecordInt16(offset, name, value));
+			return this;
+		}
+
+		/**
+		 * Add a Signed Int 16 Reserved value to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param offset the address offset
+		 * @return myself
+		 */
+		public Builder int16Reserved(int offset) {
+			this.add(new ModbusRecordInt16Reserved(offset));
+			return this;
+		}
+
+		/**
+		 * Add Signed Int 16 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder int16Reserved(int start, int end) {
+			for (int i = start; i <= end; i++) {
+				this.add(new ModbusRecordInt16Reserved(i));
+			}
+			return this;
+		}
+
+		/**
+		 * Add a Signed Int 32 value to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param offset the address offset
+		 * @param name   the name of the register
+		 * @param value  the value
+		 * @return myself
+		 */
+		public Builder int32(int offset, String name, long value) {
+			this.add(new ModbusRecordInt32(offset, name, value));
+			return this;
+		}
+
+		/**
+		 * Add a Signed Int 32 Reserved value to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param offset the address offset
+		 * @return myself
+		 */
+		public Builder int32Reserved(int offset) {
+			this.add(new ModbusRecordInt32Reserved(offset));
+			return this;
+		}
+
+		/**
+		 * Add Signed Int 32 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder int32Reserved(int start, int end) {
+			for (int i = start; i <= end; i = i + 2) {
+				this.add(new ModbusRecordInt32Reserved(i));
+			}
+			return this;
+		}
+
+		/**
+		 * Add a Signed Int 64 value to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param offset the address offset
+		 * @param name   the name of the register
+		 * @param value  the value
+		 * @return myself
+		 */
+		public Builder int64(int offset, String name, long value) {
+			this.add(new ModbusRecordInt64(offset, name, value));
+			return this;
+		}
+
+		/**
+		 * Add a Signed Int 64 Reserved value to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param offset the address offset
+		 * @return myself
+		 */
+		public Builder int64Reserved(int offset) {
+			this.add(new ModbusRecordInt64Reserved(offset));
+			return this;
+		}
+
+		/**
+		 * Add Signed Int 64 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder int64Reserved(int start, int end) {
+			for (int i = start; i <= end; i = i + 4) {
+				this.add(new ModbusRecordInt64Reserved(i));
+			}
 			return this;
 		}
 
@@ -214,6 +453,21 @@ public final class ModbusSlaveNatureTable {
 		}
 
 		/**
+		 * Add Float 32 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder float32Reserved(int start, int end) {
+			for (int i = start; i <= end; i = i + 2) {
+				this.add(new ModbusRecordInt32Reserved(i));
+			}
+			return this;
+		}
+
+		/**
 		 * Add a Float 64 value to the {@link ModbusSlaveNatureTable} {@link Builder}.
 		 *
 		 * @param offset the address offset
@@ -235,6 +489,21 @@ public final class ModbusSlaveNatureTable {
 		 */
 		public Builder float64Reserved(int offset) {
 			this.add(new ModbusRecordFloat64Reserved(offset));
+			return this;
+		}
+
+		/**
+		 * Add Float 64 Reserved values to the {@link ModbusSlaveNatureTable}
+		 * {@link Builder}.
+		 *
+		 * @param start the address offset start
+		 * @param end   the address offset end
+		 * @return myself
+		 */
+		public Builder float64Reserved(int start, int end) {
+			for (int i = start; i <= end; i = i + 4) {
+				this.add(new ModbusRecordFloat64Reserved(i));
+			}
 			return this;
 		}
 
@@ -271,6 +540,15 @@ public final class ModbusSlaveNatureTable {
 			this.nextOffset += record.getType().getWords();
 			// TODO validate that this 'offset' is not already used (e.g. by float32)
 			this.maps.add(record);
+		}
+
+		/**
+		 * Gets the offset of the next record.
+		 *
+		 * @return the next offset
+		 */
+		public int getNextOffset() {
+			return this.nextOffset;
 		}
 
 		public ModbusSlaveNatureTable build() {

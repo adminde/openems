@@ -51,6 +51,16 @@ public abstract class ModbusRecord {
 	}
 
 	/**
+	 * Gets the gain. The register value is the value in {@link #getUnit()}
+	 * multiplied by the gain.
+	 *
+	 * @return the gain
+	 */
+	public int getGain() {
+		return 1;
+	}
+
+	/**
 	 * Gets the value.
 	 * 
 	 * @param component the actual {@link OpenemsComponent}

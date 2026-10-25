@@ -1,5 +1,6 @@
 package io.openems.edge.controller.api.modbus;
 
+import io.openems.common.oem.OpenemsEdgeOem;
 import io.openems.edge.bridge.modbus.api.Parity;
 import io.openems.edge.bridge.modbus.api.Stopbit;
 import io.openems.edge.common.meta.Meta;
@@ -39,6 +40,13 @@ public sealed interface CommonConfig {
 	public Meta metaComponent();
 
 	/**
+	 * The {@link OpenemsEdgeOem}.
+	 * 
+	 * @return oem
+	 */
+	public OpenemsEdgeOem oem();
+
+	/**
 	 * The Component-IDs.
 	 * 
 	 * @return Component-IDs
@@ -66,9 +74,9 @@ public sealed interface CommonConfig {
 	 */
 	public LogVerbosity logVerbosity();
 
-	public record Tcp(String id, String alias, boolean enabled, Meta metaComponent, String[] componentIds,
-			Integer apiTimeout, int port, int maxConcurrentConnections, LogVerbosity logVerbosity)
-			implements CommonConfig {
+	public record Tcp(String id, String alias, boolean enabled, Meta metaComponent, OpenemsEdgeOem oem,
+			String[] componentIds, Integer apiTimeout, int port, int maxConcurrentConnections,
+			LogVerbosity logVerbosity) implements CommonConfig {
 
 		public static final int DEFAULT_PORT = 502;
 
@@ -77,11 +85,13 @@ public sealed interface CommonConfig {
 		 * 
 		 * @param src           the source Config
 		 * @param metaComponent the {@link Meta} component
+		 * @param oem           the {@link OpenemsEdgeOem}
 		 * @return Common-Config
 		 */
-		public static Tcp from(io.openems.edge.controller.api.modbus.readonly.tcp.Config src, Meta metaComponent) {
-			return new Tcp(src.id(), src.alias(), src.enabled(), metaComponent, src.component_ids(), null, src.port(),
-					src.maxConcurrentConnections(), src.logVerbosity());
+		public static Tcp from(io.openems.edge.controller.api.modbus.readonly.tcp.Config src, Meta metaComponent,
+				OpenemsEdgeOem oem) {
+			return new Tcp(src.id(), src.alias(), src.enabled(), metaComponent, oem, src.component_ids(), null,
+					src.port(), src.maxConcurrentConnections(), src.logVerbosity());
 		}
 
 		/**
@@ -89,27 +99,31 @@ public sealed interface CommonConfig {
 		 * 
 		 * @param src           the source Config
 		 * @param metaComponent the {@link Meta} component
+		 * @param oem           the {@link OpenemsEdgeOem}
 		 * @return Common-Config
 		 */
-		public static Tcp from(io.openems.edge.controller.api.modbus.readwrite.tcp.Config src, Meta metaComponent) {
-			return new Tcp(src.id(), src.alias(), src.enabled(), metaComponent, src.component_ids(), src.apiTimeout(),
-					src.port(), src.maxConcurrentConnections(), src.logVerbosity());
+		public static Tcp from(io.openems.edge.controller.api.modbus.readwrite.tcp.Config src, Meta metaComponent,
+				OpenemsEdgeOem oem) {
+			return new Tcp(src.id(), src.alias(), src.enabled(), metaComponent, oem, src.component_ids(),
+					src.apiTimeout(), src.port(), src.maxConcurrentConnections(), src.logVerbosity());
 		}
 	}
 
-	public record Rtu(String id, String alias, boolean enabled, Meta metaComponent, String[] componentIds,
-			Integer apiTimeout, String portName, int baudRate, int databits, Stopbit stopbits, Parity parity,
-			int maxConcurrentConnections, LogVerbosity logVerbosity) implements CommonConfig {
+	public record Rtu(String id, String alias, boolean enabled, Meta metaComponent, OpenemsEdgeOem oem,
+			String[] componentIds, Integer apiTimeout, String portName, int baudRate, int databits, Stopbit stopbits,
+			Parity parity, int maxConcurrentConnections, LogVerbosity logVerbosity) implements CommonConfig {
 
 		/**
 		 * Build Read-Only {@link CommonConfig.Rtu}.
 		 * 
 		 * @param src           the source Config
 		 * @param metaComponent the {@link Meta} component
+		 * @param oem           the {@link OpenemsEdgeOem}
 		 * @return Common-Config
 		 */
-		public static Rtu from(io.openems.edge.controller.api.modbus.readonly.rtu.Config src, Meta metaComponent) {
-			return new Rtu(src.id(), src.alias(), src.enabled(), metaComponent, src.component_ids(), null,
+		public static Rtu from(io.openems.edge.controller.api.modbus.readonly.rtu.Config src, Meta metaComponent,
+				OpenemsEdgeOem oem) {
+			return new Rtu(src.id(), src.alias(), src.enabled(), metaComponent, oem, src.component_ids(), null,
 					src.portName(), src.baudRate(), src.databits(), src.stopbits(), src.parity(),
 					src.maxConcurrentConnections(), src.logVerbosity());
 		}
@@ -119,11 +133,13 @@ public sealed interface CommonConfig {
 		 * 
 		 * @param src           the source Config
 		 * @param metaComponent the {@link Meta} component
+		 * @param oem           the {@link OpenemsEdgeOem}
 		 * @return Common-Config
 		 */
-		public static Rtu from(io.openems.edge.controller.api.modbus.readwrite.rtu.Config src, Meta metaComponent) {
-			return new Rtu(src.id(), src.alias(), src.enabled(), metaComponent, src.component_ids(), src.apiTimeout(),
-					src.portName(), src.baudRate(), src.databits(), src.stopbits(), src.parity(),
+		public static Rtu from(io.openems.edge.controller.api.modbus.readwrite.rtu.Config src, Meta metaComponent,
+				OpenemsEdgeOem oem) {
+			return new Rtu(src.id(), src.alias(), src.enabled(), metaComponent, oem, src.component_ids(),
+					src.apiTimeout(), src.portName(), src.baudRate(), src.databits(), src.stopbits(), src.parity(),
 					src.maxConcurrentConnections(), src.logVerbosity());
 		}
 

@@ -5,7 +5,7 @@ import io.openems.common.types.OptionsEnum;
 import io.openems.edge.common.type.TypeUtils;
 
 public class ModbusRecordInt16 extends ModbusRecordConstant {
-	public static final int UNDEFINED_VALUE = 32767;
+	public static final int UNDEFINED_VALUE = Short.MAX_VALUE;
 	public static final byte[] UNDEFINED_BYTE_ARRAY = toByteArray(UNDEFINED_VALUE);
 	public static final int BYTE_LENGTH = 2;
 

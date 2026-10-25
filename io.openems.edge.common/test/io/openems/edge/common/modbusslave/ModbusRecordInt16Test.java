@@ -5,6 +5,7 @@ import static io.openems.common.test.DummyOptionsEnum.VALUE_1;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,9 @@ public class ModbusRecordInt16Test {
 
 	@Test
 	public void testUndefined() {
+		assertEquals(//
+				ModbusRecordInt16.UNDEFINED_VALUE, //
+				(int) ByteBuffer.wrap(ModbusRecordInt16.UNDEFINED_BYTE_ARRAY).getShort(0));
 		assertArrayEquals(//
 				ModbusRecordInt16.UNDEFINED_BYTE_ARRAY, //
 				ModbusRecordInt16.toByteArray(ModbusRecordInt16.UNDEFINED_VALUE));
@@ -21,9 +25,18 @@ public class ModbusRecordInt16Test {
 
 	@Test
 	public void testValue() {
-		var sut = new ModbusRecordInt16(0, "foo", -12345);
-		assertEquals("ModbusRecordInt16 [value=-12345/0xffffcfc7, type=int16]", sut.toString());
-		assertEquals("\"-12345\"", sut.getValueDescription());
+		{
+			// Positive value
+			var sut = new ModbusRecordInt16(0, "foo", 12345);
+			assertEquals("ModbusRecordInt16 [value=12345/0x3039, type=int16]", sut.toString());
+			assertEquals("\"12345\"", sut.getValueDescription());
+		}
+		{
+			// Negative value
+			var sut = new ModbusRecordInt16(0, "foo", -12345);
+			assertEquals("ModbusRecordInt16 [value=-12345/0xffffcfc7, type=int16]", sut.toString());
+			assertEquals("\"-12345\"", sut.getValueDescription());
+		}
 	}
 
 	@Test
@@ -38,6 +51,7 @@ public class ModbusRecordInt16Test {
 		assertEquals("[0, 0]", Arrays.toString(ModbusRecordInt16.toByteArray(0)));
 		assertEquals("[0, 1]", Arrays.toString(ModbusRecordInt16.toByteArray(1)));
 		assertEquals("[-1, -1]", Arrays.toString(ModbusRecordInt16.toByteArray(-1)));
+		assertEquals("[-1, -100]", Arrays.toString(ModbusRecordInt16.toByteArray(-100)));
 		assertEquals("[127, -1]", Arrays.toString(ModbusRecordInt16.toByteArray(Short.MAX_VALUE)));
 		assertEquals("[-128, 0]", Arrays.toString(ModbusRecordInt16.toByteArray(Short.MIN_VALUE)));
 	}
