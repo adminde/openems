@@ -25,7 +25,7 @@ public class FileEdge extends Edge {
 	}
 
 	public boolean isPublic() {
-		return isPublic;
+		return this.isPublic;
 	}
 
 	public String getApikey() {
@@ -44,6 +44,15 @@ public class FileEdge extends Edge {
 		this.settings = settings;
 	}
 
+	/**
+	 * Creates a {@link FileEdge} from its JSON definition in the metadata file.
+	 *
+	 * @param parent the {@link MetadataFile}
+	 * @param id     the Edge-ID
+	 * @param json   the JSON definition of the Edge
+	 * @return the {@link FileEdge}
+	 * @throws OpenemsNamedException on missing mandatory properties
+	 */
 	public static FileEdge fromJson(MetadataFile parent, String id, JsonObject json) throws OpenemsNamedException {
 		String apikey = JsonUtils.getAsString(json, "apikey");
 		String setupPassword = JsonUtils.getAsOptionalString(json, "setuppassword").orElse("");

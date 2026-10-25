@@ -36,15 +36,36 @@ public class FileUser extends User {
 		return Collections.unmodifiableCollection(this.edges);
 	}
 
+	/**
+	 * Grants this user access to an Edge.
+	 *
+	 * @param edgeId the Edge-ID
+	 */
 	public void addEdge(String edgeId) {
 		this.edges.add(edgeId);
 	}
 
+	/**
+	 * Creates a copy of a {@link FileUser} with new settings.
+	 *
+	 * @param user     the {@link FileUser} to copy
+	 * @param settings the new settings
+	 * @return the new {@link FileUser}
+	 * @throws OpenemsNamedException on error
+	 */
 	public static FileUser fromUser(FileUser user, JsonObject settings) throws OpenemsNamedException {
 		return new FileUser(user.getUserId(), user.getEmail(), user.getName(), 
 				user.getLanguage(), user.getGlobalRole(), user.getEdges(), settings);
 	}
 
+	/**
+	 * Creates a copy of a {@link FileUser} with access to an additional Edge.
+	 *
+	 * @param user the {@link FileUser} to copy
+	 * @param edge the additional {@link Edge}
+	 * @return the new {@link FileUser}
+	 * @throws OpenemsNamedException on error
+	 */
 	public static FileUser fromUser(FileUser user, Edge edge) throws OpenemsNamedException {
 		var edges = user.getEdges();
 		edges.add(edge.getId());
@@ -53,6 +74,15 @@ public class FileUser extends User {
 				user.getLanguage(), user.getGlobalRole(), edges, user.getSettings());
 	}
 
+	/**
+	 * Creates a {@link FileUser} from its JSON definition in the metadata file.
+	 *
+	 * @param id    the User-ID
+	 * @param json  the JSON definition of the User
+	 * @param edges all {@link FileEdge}s of the metadata file
+	 * @return the {@link FileUser}
+	 * @throws OpenemsNamedException on missing mandatory properties
+	 */
 	public static FileUser fromJson(String id, JsonObject json, Collection<FileEdge> edges) throws OpenemsNamedException {
 		String mail = JsonUtils.getAsString(json, "mail");
 		String name = JsonUtils.getAsString(json, "name");
@@ -68,8 +98,7 @@ public class FileUser extends User {
 					edgeIds.add(edgeId);
 				}
 			}
-		}
-		else if (globalRole == Role.ADMIN) {
+		} else if (globalRole == Role.ADMIN) {
 			edgeIds = edges.stream().map(e -> e.getId()).collect(Collectors.toList());
 		}
 		JsonObject settings = json.has("settings") && json.get("settings").isJsonObject()
@@ -79,6 +108,14 @@ public class FileUser extends User {
 		return new FileUser(id, mail, name, language, globalRole, edgeIds, settings);
 	}
 
+	/**
+	 * Creates a guest {@link FileUser} for an unknown User-ID with access to all
+	 * public Edges.
+	 *
+	 * @param id    the User-ID
+	 * @param edges all {@link FileEdge}s of the metadata file
+	 * @return the guest {@link FileUser}
+	 */
 	public static FileUser fallbackGuest(String id, Collection<FileEdge> edges) {
 		Collection<String> edgeIds = edges.stream().filter(e -> e.isPublic()).map(e -> e.getId()).collect(Collectors.toList());
 		return new FileUser(id, FALLBACK_MAIL, FALLBACK_NAME, FALLBACK_LANGUAGE, Role.GUEST, edgeIds, new JsonObject());
