@@ -138,13 +138,22 @@ export class Websocket implements WebsocketInterface {
                     localStorage.LANGUAGE = language.key;
                     this.service.setLang(language);
 
-                    // received login token -> save in cookie
-                    this.cookieService.set(AuthService.TOKEN, authenticateResponse.token, {
-                        expires: 365,
-                        path: "/",
-                        sameSite: "Strict",
-                        secure: location.protocol === "https:",
-                    });
+                    if (authenticateResponse.refreshToken) {
+                        // A stored refresh token switches the next connection to the refresh
+                        // token flow. The short lived access token is deliberately not
+                        // persisted, because a token cookie next to a refresh token is
+                        // treated as an inconsistent state and forces a logout.
+                        this.cookieService.delete(AuthService.TOKEN, "/");
+                        this.injector.get(OAuthService).setRefreshToken(authenticateResponse.refreshToken);
+                    } else {
+                        // received login token -> save in cookie
+                        this.cookieService.set(AuthService.TOKEN, authenticateResponse.token, {
+                            expires: 365,
+                            path: "/",
+                            sameSite: "Strict",
+                            secure: location.protocol === "https:",
+                        });
+                    }
                     this.userService.currentUser.set(User.from(authenticateResponse.user));
                     // Metadata
                     this.service.metadata.next({
@@ -282,7 +291,9 @@ export class Websocket implements WebsocketInterface {
                         const token = this.cookieService.get("token");
                         const oAuthRedirectState = this.cookieService.get("oauthredirectstate");
                         const refreshToken = this.cookieService.get("refresh_token");
-                        if (token) {
+                        // In OAuth mode the short-lived access token must not be replayed.
+                        // The refresh-token flow is authoritative for re-authentication.
+                        if (token && !OAuthService.isOAuth(this.cookieService)) {
                             this.state.set(States.AUTHENTICATING_WITH_TOKEN);
 
                             // Login with Session Token
@@ -422,6 +433,17 @@ export class Websocket implements WebsocketInterface {
                     request.params["payload"].method === "getTokenByRefreshToken"
                 ) {
                     this.onLoggedOut();
+                    reject(reason);
+                    return;
+                }
+
+                // Credentials are never sent again. A rejected password or an expired token
+                // does not become valid on retry, and an immediate repeat trips the brute
+                // force protection of the identity provider.
+                if (
+                    request instanceof AuthenticateWithPasswordRequest ||
+                    request instanceof AuthenticateWithTokenRequest
+                ) {
                     reject(reason);
                     return;
                 }

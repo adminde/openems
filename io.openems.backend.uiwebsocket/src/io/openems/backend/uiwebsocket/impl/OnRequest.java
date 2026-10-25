@@ -197,7 +197,7 @@ public class OnRequest implements io.openems.common.websocket.OnRequest {
 				return user.withToken(result.token());
 			});
 		}).thenCompose(user -> {
-			return this.handleAuthentication(wsData, request.getId(), user);
+			return this.handleAuthentication(wsData, request.getId(), user, null);
 		});
 	}
 
@@ -245,11 +245,10 @@ public class OnRequest implements io.openems.common.websocket.OnRequest {
 			AuthenticateWithPasswordRequest request) {
 		return this.parent.userAuthPasswordService.authenticateWithPassword(request.usernameOpt.get(), request.password)
 				.thenCompose(result -> {
-					return this.parent.metadata.getUserByExternalId(result.userId()).thenApply(user -> {
-						return user.withToken(result.token());
+					return this.parent.metadata.getUserByExternalId(result.userId()).thenCompose(user -> {
+						return this.handleAuthentication(wsData, request.getId(), user.withToken(result.token()),
+								result.refreshToken());
 					});
-				}).thenCompose(user -> {
-					return this.handleAuthentication(wsData, request.getId(), user);
 				}).exceptionallyCompose(throwable -> {
 					return CompletableFuture.failedFuture(OpenemsError.COMMON_AUTHENTICATION_FAILED.exception());
 				});
@@ -259,16 +258,20 @@ public class OnRequest implements io.openems.common.websocket.OnRequest {
 	 * Common handler for {@link AuthenticateWithTokenRequest} and
 	 * {@link AuthenticateWithPasswordRequest}.
 	 *
-	 * @param wsData    the WebSocket attachment
-	 * @param requestId the ID of the original {@link JsonrpcRequest}
-	 * @param user      the authenticated {@link User}
+	 * @param wsData       the WebSocket attachment
+	 * @param requestId    the ID of the original {@link JsonrpcRequest}
+	 * @param user         the authenticated {@link User}
+	 * @param refreshToken the refresh token, or null if the provider does not
+	 *                     issue one
 	 * @return the JSON-RPC Success Response Future
 	 */
-	private CompletableFuture<JsonrpcResponseSuccess> handleAuthentication(WsData wsData, UUID requestId, User user) {
+	private CompletableFuture<JsonrpcResponseSuccess> handleAuthentication(WsData wsData, UUID requestId, User user,
+			String refreshToken) {
 		wsData.setToken(user.getToken());
+		wsData.setRefreshToken(refreshToken);
 		wsData.setUser(user);
-		return CompletableFuture
-				.completedFuture(new AuthenticateResponse(requestId, user.getToken(), user, user.getLanguage()));
+		return CompletableFuture.completedFuture(
+				new AuthenticateResponse(requestId, user.getToken(), refreshToken, user, user.getLanguage()));
 	}
 
 	/**
@@ -298,13 +301,27 @@ public class OnRequest implements io.openems.common.websocket.OnRequest {
 	 * @return the JSON-RPC Success Response Future
 	 */
 	private CompletableFuture<JsonrpcResponseSuccess> handleLogoutRequest(WsData wsData, LogoutRequest request) {
-		wsData.logout();
 		final var token = wsData.getToken().orElse(null);
-		if (token == null) {
-			return CompletableFuture.completedFuture(new GenericJsonrpcResponseSuccess(request.getId()));
+		final var refreshToken = wsData.getRefreshToken().orElse(null);
+		final var user = wsData.getUser();
+		wsData.logout();
+		if (user != null) {
+			this.parent.metadata.invalidateUser(user);
 		}
-		return this.parent.userAuthPasswordService.logout(token).thenApply(unused -> {
-			return new GenericJsonrpcResponseSuccess(request.getId());
+
+		final JsonrpcResponseSuccess response = new GenericJsonrpcResponseSuccess(request.getId());
+		final var authService = this.parent.userAuthPasswordService;
+		if (authService == null || (token == null && refreshToken == null)) {
+			return CompletableFuture.completedFuture(response);
+		}
+		// The local session is already gone, so a failure at the authentication
+		// provider must not fail the logout of the UI.
+		return authService.logout(token, refreshToken).handle((unused, throwable) -> {
+			if (throwable != null) {
+				this.log.warn("Logout at the authentication provider failed for user [{}]: {}",
+						user != null ? user.getId() : "UNKNOWN", throwable.getMessage());
+			}
+			return response;
 		});
 	}
 

@@ -37,6 +37,7 @@ import com.auth0.jwk.JwkProviderBuilder;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTCreationException;
+import com.auth0.jwt.exceptions.JWTDecodeException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.auth0.jwt.interfaces.JWTVerifier;
 import com.auth0.jwt.interfaces.RSAKeyProvider;
@@ -199,13 +200,11 @@ public class OAuthUserAuthenticationServiceImpl implements AuthUserRegistrationS
 	@Override
 	public CompletableFuture<PasswordAuthenticationResult> authenticateWithPassword(String username, String password) {
 		final var config = this.getServiceAccountOemConfig();
-		return KeycloakApi.getToken(this.bridgeHttp, this.issuerUrl.toString(), config.clientId(),
-				config.clientSecret(), username, password).thenApply(token -> {
-					final var jwtToken = JWT.decode(token);
-					final var email = jwtToken.getClaim("email").asString();
-
+		return this.fetchTokensHttpBridge(config, config.redirectUri(), new Grant.PasswordGrant(username, password))
+				.thenApply(token -> {
 					// email is currently treated as login (originally from odoo)
-					return new PasswordAuthenticationResult(jwtToken.getSubject(), email, token);
+					return new PasswordAuthenticationResult(token.sub(), token.login(), token.accessToken(),
+							token.refreshToken());
 				});
 	}
 
@@ -222,9 +221,19 @@ public class OAuthUserAuthenticationServiceImpl implements AuthUserRegistrationS
 
 	@Override
 	public CompletableFuture<Void> logout(String token) {
-		// empty: Keycloak does not support access token revocation
-		// (refresh tokens can be revoked but are not used here)
-		return CompletableFuture.completedFuture(null);
+		return this.logout(token, null);
+	}
+
+	@Override
+	public CompletableFuture<Void> logout(String token, String refreshToken) {
+		if (refreshToken == null) {
+			// Access tokens are stateless JWTs that Keycloak cannot revoke. Only the
+			// refresh token identifies the SSO session that has to be ended.
+			return CompletableFuture.completedFuture(null);
+		}
+		return CompletableFuture.supplyAsync(() -> this.getOemConfigForRefreshToken(refreshToken), this.executor)
+				.thenCompose(config -> KeycloakApi.logout(this.bridgeHttp, this.issuerUrl.toString(),
+						config.clientId(), config.clientSecret(), refreshToken));
 	}
 
 	@Override
@@ -392,6 +401,11 @@ public class OAuthUserAuthenticationServiceImpl implements AuthUserRegistrationS
 			queryParams.put("grant_type", "refresh_token");
 			queryParams.put("refresh_token", rtg.refreshToken());
 		}
+		case Grant.PasswordGrant pg -> {
+			queryParams.put("grant_type", "password");
+			queryParams.put("username", pg.username());
+			queryParams.put("password", pg.password());
+		}
 		}
 		return queryParams;
 	}
@@ -401,6 +415,9 @@ public class OAuthUserAuthenticationServiceImpl implements AuthUserRegistrationS
 		}
 
 		public record RefreshTokenGrant(String refreshToken) implements Grant {
+		}
+
+		public record PasswordGrant(String username, String password) implements Grant {
 		}
 	}
 
@@ -455,6 +472,28 @@ public class OAuthUserAuthenticationServiceImpl implements AuthUserRegistrationS
 			}
 		}
 		throw new RuntimeException("No OEM config found for service account");
+	}
+
+	/**
+	 * Gets the {@link OAuthOemConfig} of the client a refresh token was issued to.
+	 * Keycloak names that client in the azp claim of the token.
+	 *
+	 * @param refreshToken the refresh token
+	 * @return the matching config, or the service account config if the token
+	 *         does not name a configured client
+	 */
+	private OAuthOemConfig getOemConfigForRefreshToken(String refreshToken) {
+		try {
+			final var clientId = JWT.decode(refreshToken).getClaim("azp").asString();
+			for (var oemConfig : this.oemsConfigs.values()) {
+				if (oemConfig.clientId().equals(clientId)) {
+					return oemConfig;
+				}
+			}
+		} catch (JWTDecodeException e) {
+			// The token is not a JWT, so the service account client is used.
+		}
+		return this.getServiceAccountOemConfig();
 	}
 
 	private DecodedJWT processAccessToken(String accessToken) {

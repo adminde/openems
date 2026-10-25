@@ -75,6 +75,35 @@ public final class KeycloakApi {
 	}
 
 	/**
+	 * Ends the Keycloak user session that issued the given refresh token.
+	 *
+	 * <p>
+	 * This is the RP-initiated logout via the OpenID Connect logout endpoint. On
+	 * success Keycloak invalidates the SSO session together with all tokens that
+	 * belong to it. Keycloak only accepts the request from the client the refresh
+	 * token was issued to.
+	 *
+	 * @param bridgeHttp   the {@link BridgeHttp} instance to use for the HTTP
+	 *                     request
+	 * @param issuerUrl    the issuer URL of the Keycloak server
+	 * @param clientId     the client ID the refresh token was issued to
+	 * @param clientSecret the client secret registered in Keycloak
+	 * @param refreshToken the refresh token of the session to end
+	 * @return a {@link CompletableFuture} that completes when the session is
+	 *         ended, or fails if Keycloak rejects the request
+	 */
+	public static CompletableFuture<Void> logout(BridgeHttp bridgeHttp, String issuerUrl, String clientId,
+			String clientSecret, String refreshToken) {
+		return bridgeHttp.request(BridgeHttp.Endpoint.create(issuerUrl + "/protocol/openid-connect/logout") //
+				.setBodyFormEncoded(Map.of(//
+						"client_id", clientId, //
+						"client_secret", clientSecret, //
+						"refresh_token", refreshToken))
+				.build()) //
+				.thenAccept(FunctionUtils::doNothing);
+	}
+
+	/**
 	 * Creates a new user in Keycloak.
 	 * 
 	 * @param bridgeHttp the {@link BridgeHttp} instance to use for the HTTP

@@ -17,7 +17,7 @@ public class CredentialsTest {
 	@Test
 	void testFrom() {
 		final var config = new MyConfig(Protocol.HTTP, "127.0.0.1", 8069, 1, "admin", "admin", "127.0.0.1", 8068,
-				"pgUser", "pgPassword", "db", 10, 10, 10, DebugMode.OFF, false, "");
+				"pgUser", "pgPassword", "db", 10, 10, 10, 60, DebugMode.OFF, false, "");
 
 		assertEquals(DUMMY_ODOO_CREDENTIALS, Credentials.fromConfig(config));
 	}

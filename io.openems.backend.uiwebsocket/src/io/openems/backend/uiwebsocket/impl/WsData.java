@@ -73,6 +73,7 @@ public class WsData extends io.openems.common.websocket.WsData {
 	private final SubscribedChannels subscribedChannels = new SubscribedChannels();
 
 	private Optional<String> token = Optional.empty();
+	private Optional<String> refreshToken = Optional.empty();
 	private volatile User user;
 
 	/* package */ final Object updateSubscriptionsLock = new Object();
@@ -105,6 +106,7 @@ public class WsData extends io.openems.common.websocket.WsData {
 	 */
 	public void logout() {
 		this.unsetToken();
+		this.setRefreshToken(null);
 		this.setUser(null);
 		this.subscribedChannels.dispose();
 	}
@@ -160,6 +162,21 @@ public class WsData extends io.openems.common.websocket.WsData {
 	 */
 	public void unsetToken() {
 		this.token = Optional.empty();
+	}
+
+	public synchronized void setRefreshToken(String refreshToken) {
+		this.refreshToken = Optional.ofNullable(refreshToken);
+	}
+
+	/**
+	 * Gets the Refresh-Token issued at authentication. It is required to end the
+	 * session at the authentication provider on logout.
+	 *
+	 * @return the Refresh-Token, or Optional.Empty if the provider did not issue
+	 *         one
+	 */
+	public Optional<String> getRefreshToken() {
+		return this.refreshToken;
 	}
 
 	/**

@@ -99,6 +99,12 @@ export class OAuthService {
      * @returns
      */
     public async startOAuth(): Promise<void> {
+        // A refresh that is already in flight must not be started a second time.
+        // Identity providers may revoke a refresh token on use, so a concurrent
+        // second exchange with the same token would fail and force a logout.
+        if (this.state() === AUTHENTICATION_STATE.AUTHENTICATING) {
+            return;
+        }
         this.state.set(AUTHENTICATION_STATE.AUTHENTICATING);
 
         const tokenResponse = await this.getTokenByRefreshToken();
@@ -252,11 +258,20 @@ export class OAuthService {
     }
 
     /**
+     * Stores the refresh token in the cookie service.
+     *
+     * @param refreshToken The refresh token
+     */
+    public setRefreshToken(refreshToken: string) {
+        this.cookieService.set(OAuthService.REFRESH_TOKEN, JSON.stringify(refreshToken), 14, "/");
+    }
+
+    /**
      * Sets the tokens in the cookie service.
      *
      * @param result The authentication response result
      */
     private setTokens(result: AuthenticateWithOAuthResponse["result"]) {
-        this.cookieService.set(OAuthService.REFRESH_TOKEN, JSON.stringify(result.refreshToken), 14, "/");
+        this.setRefreshToken(result.refreshToken);
     }
 }
