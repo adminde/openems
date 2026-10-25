@@ -3,13 +3,13 @@ package io.openems.edge.heat.test;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.heat.api.AsymmetricHeating;
+import io.openems.edge.heat.api.Heat;
+import io.openems.edge.heat.api.ManagedHeatElement;
 import io.openems.edge.heat.api.ManagedSymmetricHeating;
 import io.openems.edge.heat.api.SymmetricHeating;
-import io.openems.edge.heat.element.api.HeatElement;
-import io.openems.edge.heat.element.api.ManagedHeatElement;
 
 public class DummyManagedHeatElement extends AbstractOpenemsComponent
-		implements ManagedHeatElement, HeatElement, ManagedSymmetricHeating, AsymmetricHeating, SymmetricHeating,
+		implements ManagedHeatElement, Heat, ManagedSymmetricHeating, AsymmetricHeating, SymmetricHeating,
 		OpenemsComponent {
 
 	/**
@@ -32,7 +32,7 @@ public class DummyManagedHeatElement extends AbstractOpenemsComponent
 				SymmetricHeating.ChannelId.values(), //
 				AsymmetricHeating.ChannelId.values(), //
 				ManagedSymmetricHeating.ChannelId.values(), //
-				HeatElement.ChannelId.values(), //
+				Heat.ChannelId.values(), //
 				ManagedHeatElement.ChannelId.values() //
 		);
 		super.activate(null, id, "", isEnabled);

@@ -1,0 +1,29 @@
+= Thermal ESS Layer
+
+A thermal energy storage system whose state is estimated from a temperature sensor, e.g. a layer of a
+stratified tank or a single tank. Several layers can be combined to one storage by a Thermal ESS Cluster.
+
+The sensor is read from any Channel in [deci-°C], e.g. a 1-Wire thermometer or a temperature register of
+a heat pump. Its height relative to the layer determines what its reading means: a sensor at the supply
+connection measures the warmest point, a sensor in the middle approximately the mean temperature.
+
+While a bound heat pump runs and serves this layer, its supply and return temperatures complete the
+vertical temperature profile (`Connection` `DIRECT` only). They count after a settling time, when the
+return line carries storage water instead of water that stood in the pipes, and the last valid values
+are held while no heat pump circulates. With a heat exchanger coil (`HEAT_EXCHANGER`) supply and return
+are coil temperatures and are not used.
+
+The mean of the profile is published as `Temperature` and is the basis of the State-of-Charge between
+`MinTemperature` and `MaxTemperature`. The hottest point of the profile is limited by `MaxTemperature`:
+once it is reached, the layer accepts no further thermal power target.
+
+The net `ThermalPower` follows from the change of the mean temperature over a sliding window of five
+minutes and is available once the window is covered. The step of the mean when a circulation settles is
+a correction of the estimate and does not appear as thermal power. The heat input of the Heating devices
+delivering to the layer is the `ThermalChargePower`; the remaining heat demand, including standing
+losses, is the `ThermalDischargePower`.
+
+Thermal power targets are distributed to the bound Heating devices like for every `ManagedThermalEss`.
+
+In a simulation, a `Simulator.StorageTank` provides the physical plant: its `SensorTemperature` serves as
+the sensor Channel of the layer, and its `MeanTemperature` is the reference for the estimate.

@@ -17,9 +17,7 @@ import io.openems.edge.common.component.OpenemsComponent;
  *
  * <p>
  * Provides the thermal Channels (temperature, thermal power and energy) plus the
- * summary electrical Channels of the device. The electrical Channels use the
- * same Channel-IDs as {@code ElectricityMeter} (e.g. "ActivePower") so that
- * external references stay compatible; positive {@code ACTIVE_POWER} means
+ * summary electrical Channels of the device. Positive {@code ACTIVE_POWER} means
  * electrical consumption.
  */
 @ProviderType
@@ -70,6 +68,23 @@ public interface SymmetricHeating extends OpenemsComponent {
 				.unit(Unit.CUMULATED_WATT_HOURS) //
 				.persistencePriority(PersistencePriority.HIGH) //
 				.text("Cumulated thermal energy of the Heating.")), //
+
+		/**
+		 * Thermal Efficiency in percent. Thermal output per electrical input, e.g. a
+		 * heat pump mirrors its COP (≈ 300 %), a heating element reports 100 %, a fuel
+		 * cell values below 100 %. Consumers shall treat a missing value as 100 %.
+		 *
+		 * <ul>
+		 * <li>Interface: SymmetricHeating
+		 * <li>Type: Integer
+		 * <li>Unit: %
+		 * <li>Range: positive values
+		 * </ul>
+		 */
+		THERMAL_EFFICIENCY(Doc.of(OpenemsType.INTEGER) //
+				.unit(Unit.PERCENT) //
+				.persistencePriority(PersistencePriority.HIGH) //
+				.text("Thermal output per electrical input.")), //
 
 		/**
 		 * Active Power. Positive values for electrical consumption.
@@ -265,6 +280,45 @@ public interface SymmetricHeating extends OpenemsComponent {
 	 */
 	public default void _setThermalEnergy(long value) {
 		this.getThermalEnergyChannel().setNextValue(value);
+	}
+
+	/**
+	 * Gets the Channel for {@link ChannelId#THERMAL_EFFICIENCY}.
+	 *
+	 * @return the Channel
+	 */
+	public default IntegerReadChannel getThermalEfficiencyChannel() {
+		return this.channel(ChannelId.THERMAL_EFFICIENCY);
+	}
+
+	/**
+	 * Gets the Thermal Efficiency (thermal output per electrical input). See
+	 * {@link ChannelId#THERMAL_EFFICIENCY}.
+	 *
+	 * @return the Channel {@link Value}
+	 */
+	public default Value<Integer> getThermalEfficiency() {
+		return this.getThermalEfficiencyChannel().value();
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#THERMAL_EFFICIENCY} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setThermalEfficiency(Integer value) {
+		this.getThermalEfficiencyChannel().setNextValue(value);
+	}
+
+	/**
+	 * Internal method to set the 'nextValue' on
+	 * {@link ChannelId#THERMAL_EFFICIENCY} Channel.
+	 *
+	 * @param value the next value
+	 */
+	public default void _setThermalEfficiency(int value) {
+		this.getThermalEfficiencyChannel().setNextValue(value);
 	}
 
 	/**

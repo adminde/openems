@@ -2,10 +2,10 @@ Bundle-Name: auth0 auth0
 Bundle-Description: Java client library for the Auth0 platform 
 Bundle-DocURL: https://github.com/auth0/auth0-java
 Bundle-License: https://opensource.org/licenses/MIT
-Bundle-Version: 3.8.0
+Bundle-Version: 5.3.0
 
 Include-Resource: \
-	@auth0-3.8.0.jar,\
+	@auth0-5.3.0.jar,\
 
 Export-Package: \
 	com.auth0.client,\
@@ -38,6 +38,8 @@ Export-Package: \
 	com.auth0.client.mgmt.emails.types,\
 	com.auth0.client.mgmt.eventstreams,\
 	com.auth0.client.mgmt.eventstreams.types,\
+	com.auth0.client.mgmt.experimentation,\
+	com.auth0.client.mgmt.experimentation.types,\
 	com.auth0.client.mgmt.filter,\
 	com.auth0.client.mgmt.flows,\
 	com.auth0.client.mgmt.flows.types,\
@@ -63,6 +65,8 @@ Export-Package: \
 	com.auth0.client.mgmt.organizations.members.effectiveroles.sources,\
 	com.auth0.client.mgmt.organizations.members.effectiveroles.sources.types,\
 	com.auth0.client.mgmt.organizations.members.types,\
+	com.auth0.client.mgmt.organizations.roles,\
+	com.auth0.client.mgmt.organizations.roles.types,\
 	com.auth0.client.mgmt.organizations.types,\
 	com.auth0.client.mgmt.prompts,\
 	com.auth0.client.mgmt.prompts.types,\

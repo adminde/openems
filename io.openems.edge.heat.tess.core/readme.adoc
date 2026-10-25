@@ -1,0 +1,18 @@
+= Thermal ESS Core
+
+Shared calculation helpers for thermal energy storage systems.
+
+The `TemperatureProfile` estimates the vertical temperature profile of a storage tank from temperatures
+known at certain heights, e.g. a sensor in an immersion sleeve plus the supply and return temperatures of
+a heat pump circulating through the tank. Between the known points the profile is interpolated linearly;
+above the highest and below the lowest point it continues constantly. Its mean is the basis of the
+estimated energy content.
+
+The `NetThermalPowerEstimator` derives the net thermal power from the change of the mean temperature over
+a sliding window, which smooths the quantization of temperature sensors. Steps of the mean caused by
+additional known temperatures can be rebased, so corrections of the estimate do not appear as power.
+
+The `StratifiedTank` models a stratified water storage tank as a stack of nodes: water entering and
+leaving through connections moves as plug flow, heat exchangers and heating elements heat individual
+nodes, and temperature inversions are mixed out. It serves as the physical plant of simulations and can
+predict the tank state from known heat flows.

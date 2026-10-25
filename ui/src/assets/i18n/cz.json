@@ -335,7 +335,7 @@
           "CURRENT_VALUE": "Aktuální hodnota",
           "DEPENDEND_ON": "Podle toho",
           "MIN_SWITCHING_TIME": "Minimální přepínací",
-          "MORE_THAN_MAX_POWER": "Hodnota nesmí být nižší než maximální výkon ovládaného zařízení",
+          "MORE_THAN_HP_POWER": "Hodnota nesmí být nižší než maximální výkon ovládaného zařízení",
           "OTHER": "Ostatní",
           "RELATION_ERROR": "Prahová hodnota musí být větší než spínané zatížení",
           "SWITCH_OFF_ABOVE": "Vypněte pomocí",
@@ -456,8 +456,8 @@
     "STORAGE_SYSTEM": "Systém bateriového úložiště",
     "THERMAL_STORAGE_SYSTEM": "Tepelné úložiště",
     "TEMPERATURE": "Teplota",
-    "MIN_TARGET_TEMPERATURE": "Minimální cílová teplota",
-    "MAX_TARGET_TEMPERATURE": "Maximální cílová teplota",
+    "MIN_TEMPERATURE": "Minimální teplota",
+    "TARGET_TEMPERATURE": "Cílová teplota",
     "SUBSCRIBED_SUCCESSFULLY": "Úspěšně uloženy odebírané kanály",
     "SUFFIX": {
       "HOUR": "hodin"

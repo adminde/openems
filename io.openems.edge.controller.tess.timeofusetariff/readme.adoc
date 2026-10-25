@@ -1,0 +1,19 @@
+= Time-of-Use Tariff Controller for Thermal Energy Storage
+
+Charges a `ManagedThermalEss` (single storage or `Tess.Cluster`) in cheap electricity price
+quarters beyond its target temperature, up to the hardware maximum temperature. The stored
+heat extends the time until the storage cools down to its minimum temperature, so the
+Heating device does not need to run during expensive hours.
+
+The controller integrates with the OpenEMS Energy Scheduler as an `EnergySchedulable`:
+the genetic optimizer schedules `CHARGE_GRID` periods on price valleys. The simulation
+models the uncontrollable heat demand per quarter — predicted by the Predictor framework
+(e.g. Similarday model) on the storage's `ThermalDischargePower` channel — and the
+autonomous two-point reheating of the Heating device below the minimum temperature, which
+is what makes pre-charging profitable. The grid energy of a thermal charge is derived via
+the configured thermal efficiency (thermal output per electrical input, e.g. a heat pump
+COP).
+
+Outside of `CHARGE_GRID` periods the controller writes nothing: the Heating devices remain
+autonomous within their temperature band, and a higher-priority controller (e.g. a future
+PV-surplus controller) may request charging via `TargetThermalPowerGreaterOrEquals`.

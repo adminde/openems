@@ -32,8 +32,8 @@ export class ThermalStorageModalComponent extends AbstractModal {
             channelAddresses.push(
                 new ChannelAddress(component.id, "Soc"),
                 new ChannelAddress(component.id, "Temperature"),
-                new ChannelAddress(component.id, "MinTargetTemperature"),
-                new ChannelAddress(component.id, "MaxTargetTemperature"),
+                new ChannelAddress(component.id, "MinTemperature"),
+                new ChannelAddress(component.id, "TargetTemperature"),
             );
         }
         return channelAddresses;

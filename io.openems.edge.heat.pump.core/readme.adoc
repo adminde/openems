@@ -1,0 +1,10 @@
+= Heat Pump Core
+
+Shared calculation helpers for Heat Pumps.
+
+The `HeatPumpPerformanceEstimator` estimates a Heat Pump's live Coefficient of Performance (COP)
+from its nominal rating point, the current sink (flow/buffer) temperature and the part-load ratio.
+It is intended for both real drivers whose devices do not report a COP as telemetry, and for
+Heat Pump simulators. The estimate combines a Carnot-based temperature term (using an assumed
+quality grade) with a documented part-load curve; all parameters other than the assumed quality
+grade are derived from the nominal rating point.

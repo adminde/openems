@@ -60,24 +60,24 @@ public class DummyThermalEss extends AbstractOpenemsComponent implements Thermal
 	}
 
 	/**
-	 * Set {@link ThermalEss.ChannelId#MIN_TARGET_TEMPERATURE}.
+	 * Set {@link ThermalEss.ChannelId#MIN_TEMPERATURE}.
 	 *
 	 * @param value the value
 	 * @return myself
 	 */
-	public DummyThermalEss withMinTargetTemperature(int value) {
-		TestUtils.withValue(this, ThermalEss.ChannelId.MIN_TARGET_TEMPERATURE, value);
+	public DummyThermalEss withMinTemperature(int value) {
+		TestUtils.withValue(this, ThermalEss.ChannelId.MIN_TEMPERATURE, value);
 		return this;
 	}
 
 	/**
-	 * Set {@link ThermalEss.ChannelId#MAX_TARGET_TEMPERATURE}.
+	 * Set {@link ThermalEss.ChannelId#TARGET_TEMPERATURE}.
 	 *
 	 * @param value the value
 	 * @return myself
 	 */
-	public DummyThermalEss withMaxTargetTemperature(int value) {
-		TestUtils.withValue(this, ThermalEss.ChannelId.MAX_TARGET_TEMPERATURE, value);
+	public DummyThermalEss withTargetTemperature(int value) {
+		TestUtils.withValue(this, ThermalEss.ChannelId.TARGET_TEMPERATURE, value);
 		return this;
 	}
 

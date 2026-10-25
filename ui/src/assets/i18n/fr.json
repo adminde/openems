@@ -329,7 +329,7 @@
           "CURRENT_VALUE": "Current value",
           "DEPENDEND_ON": "Dependend on",
           "MIN_SWITCHING_TIME": "Minimum swichting time",
-          "MORE_THAN_MAX_POWER": "La valeur ne doit pas être inférieure à la puissance maximale de l appareil contrôlé",
+          "MORE_THAN_HP_POWER": "La valeur ne doit pas être inférieure à la puissance maximale de l appareil contrôlé",
           "OTHER": "Other",
           "RELATION_ERROR": "Threshold must be greater than the switched load power",
           "SWITCH_OFF_ABOVE": "Switch off above",
@@ -449,8 +449,8 @@
     "STORAGE_SYSTEM": "Système de stockage",
     "THERMAL_STORAGE_SYSTEM": "Stockage thermique",
     "TEMPERATURE": "Température",
-    "MIN_TARGET_TEMPERATURE": "Température cible minimale",
-    "MAX_TARGET_TEMPERATURE": "Température cible maximale",
+    "MIN_TEMPERATURE": "Température minimale",
+    "TARGET_TEMPERATURE": "Température cible",
     "SUFFIX": {
       "HOUR": "h"
     },

@@ -17,7 +17,7 @@ import io.openems.edge.heat.tess.api.ThermalEss;
 public interface ManagedSymmetricHeating extends SymmetricHeating {
 
 	/**
-	 * Optional binding to a {@link ThermalEss} that aggregates this Heating.
+	 * Binds a {@link ThermalEss} that aggregates this Heating.
 	 *
 	 * <p>
 	 * Implementations may override this method to react to the storage reference
@@ -25,10 +25,49 @@ public interface ManagedSymmetricHeating extends SymmetricHeating {
 	 * logic). The default implementation is a no-op so existing implementations are
 	 * unaffected.
 	 *
-	 * @param thermalStorage the bound storage, or {@code null} when unbound
+	 * <p>
+	 * This binding is strictly one-to-one for a generic Heating device. Devices
+	 * that can serve multiple storages exclusively (e.g. a heat pump charging the
+	 * layers of a stratified tank through a diverter valve) override this and
+	 * {@link #unbindThermalStorage(ThermalEss)} to register several storages
+	 * instead — see {@code ManagedHeatPump}.
+	 *
+	 * @param thermalStorage the storage to bind
 	 */
-	public default void setThermalStorage(ThermalEss thermalStorage) {
+	public default void bindThermalStorage(ThermalEss thermalStorage) {
 		// optional — no-op by default
+	}
+
+	/**
+	 * Unbinds a {@link ThermalEss} previously bound via
+	 * {@link #bindThermalStorage(ThermalEss)}.
+	 *
+	 * @param thermalStorage the storage to unbind
+	 */
+	public default void unbindThermalStorage(ThermalEss thermalStorage) {
+		// optional — no-op by default
+	}
+
+	/**
+	 * Applies the thermal charge request of a {@link ThermalEss} as an electrical
+	 * Active Power target.
+	 *
+	 * <p>
+	 * Unlike {@code ManagedSymmetricEss.applyPower()}, which the Power solver
+	 * calls with a decided set-point, this is a request: Heating devices are less
+	 * directly controllable than a battery inverter, and a device serving
+	 * multiple storages may refuse or defer the request in favor of a
+	 * higher-priority storage. The {@code storage} parameter identifies the
+	 * requesting storage; implementations bound to a single storage may ignore
+	 * it. The default implementation writes the target to the
+	 * {@link ChannelId#TARGET_ACTIVE_POWER} Channel.
+	 *
+	 * @param storage     the requesting {@link ThermalEss}
+	 * @param targetPower the electrical Active Power target in [W]
+	 * @throws OpenemsNamedException on error
+	 */
+	public default void applyPower(ThermalEss storage, int targetPower) throws OpenemsNamedException {
+		this.getTargetActivePowerChannel().setNextWriteValue(targetPower);
 	}
 
 	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
