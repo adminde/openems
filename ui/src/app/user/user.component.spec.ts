@@ -5,7 +5,7 @@ import { UserComponent } from "./user.component";
 
 describe("UserComponent - isThemeSelectionAvailable", () => {
     function isThemeSelectionAvailable(theme: Theme): boolean {
-        return (["OpenEMS", "FENECON", "FENECONBeta"] as string[]).includes(theme);
+        return (["OpenEMS", "FENECON", "FENECONBeta", "TH-E Energy"] as string[]).includes(theme);
     }
 
     it("should return true for OpenEMS theme", () => {
@@ -18,6 +18,10 @@ describe("UserComponent - isThemeSelectionAvailable", () => {
 
     it("should return true for FENECONBeta theme", () => {
         expect(isThemeSelectionAvailable("FENECONBeta")).toBe(true);
+    });
+
+    it("should return true for TH-E Energy theme", () => {
+        expect(isThemeSelectionAvailable("TH-E Energy" as Theme)).toBe(true);
     });
 
     it("should return false for Heckert theme", () => {
@@ -38,7 +42,7 @@ describe("UserComponent - isThemeSelectionAvailable", () => {
                     {} as any,
                     {} as any,
                 );
-                const expected = (["OpenEMS", "FENECON", "FENECONBeta"] as string[]).includes(environment.theme);
+                const expected = (["OpenEMS", "FENECON", "FENECONBeta", "TH-E Energy"] as string[]).includes(environment.theme);
                 expect((component as any).isThemeSelectionAvailable).toBe(expected);
             });
         });
