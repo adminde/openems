@@ -4,7 +4,7 @@ import { Theme, Theme as UserTheme } from "src/app/edge/history/shared";
 import { ThemePopoverComponent } from "src/app/user/theme-selection-popup/theme-selection-popover";
 import { environment } from "src/environments";
 import { NavigationService } from "../components/navigation/service/navigation.service";
-import { UnimplementedInEdgeError } from "../errors.ts/errors";
+import { UnimplementedInEdgeError } from "../errors/errors";
 import { JsonrpcResponseSuccess } from "../jsonrpc/base";
 import { JsonRpcUtils } from "../jsonrpc/jsonrpcutils";
 import { UpdateUserSettingsRequest } from "../jsonrpc/request/updateUserSettingsRequest";
@@ -14,37 +14,39 @@ import { Service } from "./service";
 
 @Injectable({ providedIn: "root" })
 export class UserService {
-
-    public static readonly DEFAULT_THEME: UserTheme = UserTheme.LIGHT;
     public currentUser: WritableSignal<User | null> = signal(null);
 
-    /** @deprecated determines if applying new ui or old*/
+    /** @deprecated Determines if applying new ui or old */
     public isNewNavigation: WritableSignal<boolean> = signal(false);
 
     constructor(
         private modalCtrl: ModalController,
         private service: Service,
     ) {
-
         // Prohibits switching colors on init
         this.updateTheme(localStorage.getItem("THEME") as UserTheme);
         effect(() => {
             const user = this.currentUser();
 
             if (user != null) {
-                this.showThemeSelection(user);
-                this.isNewNavigation.set(NavigationService.isNewNavigation(user, this.service.currentEdge()?.getConfigSignal()()));
+                this.initializeTheme(user);
+                this.isNewNavigation.set(
+                    NavigationService.isNewNavigation(user, this.service.currentEdge()?.getConfigSignal()()),
+                );
             }
         });
+    }
+
+    public static get DEFAULT_THEME(): UserTheme {
+        return UserTheme.SYSTEM;
     }
 
     /**
      * Selects the new theme
      *
-     * @param theme the new theme
+     * @param theme The new theme
      */
     public async selectTheme(theme: UserTheme): Promise<void> {
-
         const currentUser: User | null = this.currentUser();
         if (currentUser == null || !theme) {
             return;
@@ -54,22 +56,27 @@ export class UserService {
         this.finalizeThemeSelection(theme);
     }
 
+    /**
+     * Resolves a theme preference to the theme the browser should render.
+     *
+     * @param userTheme The stored theme preference, may be null
+     * @returns Either light or dark, never system
+     */
     public getValidBrowserTheme(userTheme: UserTheme | null): UserTheme {
+        const theme = userTheme ?? UserService.DEFAULT_THEME;
 
-        const theme = userTheme === UserTheme.SYSTEM
+        return theme === UserTheme.SYSTEM
             ? window.matchMedia("(prefers-color-scheme: dark)").matches
                 ? UserTheme.DARK
                 : UserTheme.LIGHT
-            : userTheme;
-
-        return theme ?? UserService.DEFAULT_THEME;
+            : theme;
     }
 
     /**
      * Updates the settings from User
      *
-     * @param key the key to update
-     * @param value the value for given key
+     * @param key The key to update
+     * @param value The value for given key
      */
     public async updateUserSettingsWithProperty(key: string, value: User["settings"][keyof User["settings"]]) {
         const user = this.currentUser();
@@ -80,34 +87,51 @@ export class UserService {
             throw err;
         }
 
-        this.currentUser.set(new User(user.id, user.name, user.globalRole, user.language, user.hasMultipleEdges, updatedSettings));
+        this.currentUser.set(
+            new User(user.id, user.name, user.globalRole, user.language, user.hasMultipleEdges, updatedSettings),
+        );
     }
 
     /**
-     * Shows the theme selection popover, only for new customers
+     * Shows the theme selection popover and applies the selected theme.
      *
-     * @returns
+     * @param currentTheme The theme to preselect
+     * @returns The selected theme, or null if the popover was dismissed without saving
      */
-    private showThemeSelection(user: User): void {
-        const theme: UserTheme | null = this.getTheme(user);
+    public async showThemeSelectionModal(currentTheme: UserTheme): Promise<UserTheme | null> {
+        const modal = await this.modalCtrl.create({
+            component: ThemePopoverComponent,
+            componentProps: { userTheme: currentTheme },
+        });
+        await modal.present();
 
-        if (theme != null) {
-            this.updateTheme(theme);
-            return;
+        const { data } = await modal.onDidDismiss();
+        if (data?.selectedTheme == null) {
+            return null;
         }
 
-        this.showModal();
+        this.selectTheme(data.selectedTheme);
+        return data.selectedTheme;
+    }
+
+    /**
+     * Applies the stored theme of the user, falling back to the default theme.
+     *
+     * @param user The current user
+     */
+    private initializeTheme(user: User): void {
+        this.updateTheme(this.getTheme(user));
     }
 
     /**
      * Gets the theme
      *
-     * @param user the current user
-     * @returns the userTheme if existing, else null
+     * @param user The current user
+     * @returns The userTheme if existing, else null
      */
     private getTheme(user: User | null): UserTheme | null {
         if (environment.backend === "OpenEMS Edge") {
-            return localStorage.getItem("THEME") as UserTheme ?? null;
+            return (localStorage.getItem("THEME") as UserTheme) ?? null;
         }
 
         return user?.getThemeFromSettings() ?? null;
@@ -116,49 +140,27 @@ export class UserService {
     /**
      * Updates the theme and initializes it
      *
-     * @param userTheme the new user theme
+     * @param userTheme The new user theme
      */
     private updateTheme(userTheme: UserTheme | null): void {
-        const validTheme = this.getValidBrowserTheme(userTheme);
-        let attr: Exclude<`${UserTheme}`, UserTheme.SYSTEM> = validTheme;
-
-        if (validTheme === UserTheme.SYSTEM) {
-            attr = window.matchMedia("(prefers-color-scheme: dark)").matches ? UserTheme.DARK : UserTheme.LIGHT;
-        }
+        // Store the raw preference so a system preference keeps following the OS setting
+        const theme = userTheme ?? UserService.DEFAULT_THEME;
+        const attr = this.getValidBrowserTheme(theme);
 
         // Provide color to set before angular app inits
         const backgroundColor = getComputedStyle(document.documentElement).getPropertyValue("--ion-background-color");
         localStorage.setItem("THEME_COLOR", backgroundColor);
-        localStorage.setItem("THEME", validTheme);
+        localStorage.setItem("THEME", theme);
 
         document.documentElement.setAttribute("data-theme", attr);
     }
 
     /**
-     * Shows the theme selection popover
-    *
-    * @param currentTheme current theme
-    */
-    private async showModal(): Promise<void> {
-
-        const modal = await this.modalCtrl.create({
-            component: ThemePopoverComponent,
-        });
-
-        await modal.present();
-
-        const { data } = await modal.onDidDismiss();
-
-        const selectedTheme = data?.selectedTheme ?? UserService.DEFAULT_THEME;
-        this.finalizeThemeSelection(selectedTheme);
-    }
-
-    /**
      * Updates the user settings
-    *
-    * @param settings the new settings to use
-    * @returns
-    */
+     *
+     * @param settings The new settings to use
+     * @returns
+     */
     private updateUserSettings(settings: object): Promise<[Error | null, JsonrpcResponseSuccess | null]> {
         const request = new UpdateUserSettingsRequest({ settings: settings });
         if (environment.backend === "OpenEMS Edge") {
@@ -169,9 +171,9 @@ export class UserService {
 
     /**
      * Updates the theme for the current user
-    *
-    * @param theme the new theme
-    */
+     *
+     * @param theme The new theme
+     */
     private updateCurrentUser(theme: Theme): void {
         this.currentUser.update((user: User | null) => {
             if (user == null) {
@@ -188,16 +190,15 @@ export class UserService {
 
     /**
      * Finalizes the theme selection
-    *
-    * @param theme the new theme
-    * @returns
-    */
+     *
+     * @param theme The new theme
+     * @returns
+     */
     private finalizeThemeSelection(theme: Theme): Promise<void> {
-        return this.updateUserSettings({ theme: theme })
-            .then(() => {
-                this.updateCurrentUser(theme as Theme);
-                localStorage.setItem("THEME", theme);
-                this.updateTheme(theme);
-            });
+        return this.updateUserSettings({ theme: theme }).then(() => {
+            this.updateCurrentUser(theme as Theme);
+            localStorage.setItem("THEME", theme);
+            this.updateTheme(theme);
+        });
     }
 }
