@@ -105,12 +105,13 @@ public class HttpBridgeOdooService implements HttpBridgeService {
 					if (json.has("error")) {
 						final var error = OdooResponseError.serializer().deserialize(json.get("error"));
 
+						if (OdooUtils.isSessionExpiredError(error.dataName())) {
+							throw new SessionExpiredException();
+						}
+
 						switch (error.dataName()) {
 						case "odoo.exceptions.AccessDenied":
 							throw new AccessDeniedException();
-
-						case "odoo.http.SessionExpiredException":
-							throw new SessionExpiredException();
 
 						default:
 							// for OpenemsExceptions from Odoo only throw OpenemsException with message for

@@ -284,12 +284,20 @@ public interface Field {
 		PASSWORD("password", true), //
 		PARTNER("partner_id", true), //
 		GLOBAL_ROLE("global_role", true), //
-		GROUPS("groups_id", true), //
+		/**
+		 * Groups of the user since Odoo 19.
+		 */
+		GROUPS("group_ids", true), //
 		OPENEMS_LANGUAGE("openems_language", true), //
 
 		// when oauth is used
 		OAUTH_PROVIDER_ID("oauth_provider_id", false), //
-		OAUTH_UID("oauth_uid", false);
+		OAUTH_UID("oauth_uid", false), //
+
+		/**
+		 * Groups of the user up to Odoo 18; renamed to {@link #GROUPS} in Odoo 19.
+		 */
+		GROUPS_LEGACY("groups_id", false);
 
 		public static final String ODOO_MODEL = "res.users";
 		public static final String ODOO_TABLE = User.ODOO_MODEL.replace(".", "_");
@@ -349,7 +357,13 @@ public interface Field {
 		COUNTRY("country_id", true), //
 		ADDRESS_TYPE("type", true), //
 		LANGUAGE("lang", true), //
-		CATEGORY_ID("category_id", true);
+		CATEGORY_ID("category_id", true), //
+		/**
+		 * The company of a contact: the partner itself if it has no parent_id (up to
+		 * Odoo 18 also if it is_company), otherwise that of its parent.
+		 */
+		COMMERCIAL_PARTNER("commercial_partner_id", true), //
+		USERS("user_ids", false);
 
 		public static final String ODOO_MODEL = "res.partner";
 		public static final String ODOO_TABLE = Partner.ODOO_MODEL.replace(".", "_");

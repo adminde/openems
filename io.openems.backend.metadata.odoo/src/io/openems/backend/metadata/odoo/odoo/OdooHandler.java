@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -83,6 +84,11 @@ public class OdooHandler {
 
 	private final DebugExecutor refreshToken;
 	private final DebugExecutor executor;
+
+	/** Database IDs of the {@link OdooUserGroup}s, resolved by XML-ID. */
+	private final Map<OdooUserGroup, Integer> groupIds = new ConcurrentHashMap<>();
+	/** Name of the groups field of 'res.users', see getUserGroupsField(). */
+	private volatile String userGroupsField;
 
 	public OdooHandler(MetadataOdoo parent, EdgeCache edgeCache, Config config, DebugExecutor refreshToken,
 			DebugExecutor executor) {
@@ -284,7 +290,14 @@ public class OdooHandler {
 				Field.Partner.ZIP, //
 				Field.Partner.CITY, //
 				Field.Partner.COUNTRY, //
-				Field.Partner.COMPANY_NAME);
+				Field.Partner.NAME, //
+				Field.Partner.COMMERCIAL_PARTNER, //
+				Field.Partner.IS_COMPANY, //
+				Field.Partner.PARENT);
+
+		// 'commercial_company_name' is the key of GetUserInformationResponse; the
+		// Odoo field is not read, since Odoo 20 it is the own name of a person
+		odooPartner.put(Field.Partner.COMPANY_NAME.id(), this.getCompanyName(partnerId, odooPartner).orElse(null));
 
 		var odooCountryId = ObjectUtils.getAsObjectArrray(odooPartner.get("country_id"));
 		if (odooCountryId.length > 1) {
@@ -402,12 +415,7 @@ public class OdooHandler {
 		var jCompanyName = companyNameOpt.get();
 
 		if (user != null) {
-			var odooPartner = OdooUtils.readOne(this.credentials, Field.Partner.ODOO_MODEL, //
-					this.getOdooPartnerId(user), //
-					Field.Partner.COMPANY_NAME);
-
-			var partnerCompanyNameOpt = ObjectUtils
-					.getAsOptionalString(odooPartner.get(Field.Partner.COMPANY_NAME.id()));
+			var partnerCompanyNameOpt = this.getCompanyName(this.getOdooPartnerId(user));
 			if (partnerCompanyNameOpt.isPresent()) {
 				if (jCompanyName.equals(partnerCompanyNameOpt.get())) {
 					return new HashMap<>();
@@ -415,21 +423,178 @@ public class OdooHandler {
 			}
 		}
 
-		var companyFound = OdooUtils.search(this.credentials, Field.Partner.ODOO_MODEL, //
-				new Domain(Field.Partner.IS_COMPANY, Operator.EQ, true),
-				new Domain(Field.Partner.COMPANY_NAME, Operator.EQ, jCompanyName));
-
 		Map<String, Object> companyFields = new HashMap<>();
-		if (companyFound.length > 0) {
-			companyFields.put(Field.Partner.PARENT.id(), companyFound[0]);
-		} else {
-			var createdCompany = OdooUtils.create(this.credentials, Field.Partner.ODOO_MODEL, //
-					new FieldValue<>(Field.Partner.IS_COMPANY, true),
-					new FieldValue<>(Field.Partner.NAME, jCompanyName));
-			companyFields.put(Field.Partner.PARENT.id(), createdCompany);
+		companyFields.put(Field.Partner.PARENT.id(), this.findOrCreateCompany(jCompanyName));
+		return companyFields;
+	}
+
+	/**
+	 * Finds the company with the given name, otherwise creates it.
+	 *
+	 * <p>
+	 * A company is a partner without parent_id; contacts are linked to it via
+	 * parent_id. The search does not rely on is_company: since Odoo 20 it is
+	 * computed from the VAT and false for companies without one. Partners of users,
+	 * archived users included, are excluded, so a contact never becomes its own
+	 * parent. A new company is
+	 * created with is_company, which Odoo up to 18 stores and Odoo 20 recomputes;
+	 * company_type no longer exists in Odoo 20.
+	 *
+	 * @param name the company name
+	 * @return the Odoo partner id of the company
+	 * @throws OpenemsException on error
+	 */
+	private int findOrCreateCompany(String name) throws OpenemsException {
+		var found = OdooUtils.search(this.credentials, Field.Partner.ODOO_MODEL, //
+				Map.of("order", "is_company desc, id asc", "limit", 1), //
+				getCompanySearchDomains(name, this.getUserPartnerIdsByName(name)));
+		if (found.length > 0) {
+			return found[0];
 		}
 
-		return companyFields;
+		Map<String, Object> companyFields = new HashMap<>();
+		companyFields.put(Field.Partner.NAME.id(), name);
+		companyFields.put(Field.Partner.IS_COMPANY.id(), true);
+		return OdooUtils.create(this.credentials, Field.Partner.ODOO_MODEL, companyFields);
+	}
+
+	/**
+	 * Gets the partner ids of all users, archived users included, whose partner
+	 * has the given name and no parent_id.
+	 *
+	 * <p>
+	 * 'user_ids' of a partner only holds active users, so the users are read with
+	 * active_test=False.
+	 *
+	 * @param name the partner name
+	 * @return the partner ids
+	 * @throws OpenemsException on error
+	 */
+	private List<Integer> getUserPartnerIdsByName(String name) throws OpenemsException {
+		var users = OdooUtils.searchRead(this.credentials, Field.User.ODOO_MODEL, //
+				new Field[] { Field.User.PARTNER }, //
+				Map.of("context", Map.of("active_test", false)), //
+				new Domain(new Field[] { Field.User.PARTNER, Field.Partner.NAME }, Operator.EQ, name), //
+				new Domain(new Field[] { Field.User.PARTNER, Field.Partner.PARENT }, Operator.EQ, false));
+		return Stream.of(users) //
+				.map(user -> OdooUtils.getOdooReferenceId(user.get(Field.User.PARTNER.id()))) //
+				.flatMap(Optional::stream) //
+				.distinct() //
+				.toList();
+	}
+
+	/**
+	 * Gets the search domains for a company by name.
+	 *
+	 * @param name           the company name
+	 * @param userPartnerIds the partner ids of users, see
+	 *                       {@link #getUserPartnerIdsByName(String)}
+	 * @return the domains
+	 */
+	protected static Domain[] getCompanySearchDomains(String name, List<Integer> userPartnerIds) {
+		return new Domain[] { //
+				new Domain(Field.Partner.PARENT, Operator.EQ, false), //
+				new Domain(Field.Partner.USERS, Operator.EQ, false), //
+				new Domain("id", Operator.NOT_IN, userPartnerIds), //
+				new Domain(Field.Partner.NAME, Operator.EQ, name) };
+	}
+
+	/**
+	 * Gets the name of the company of a partner.
+	 *
+	 * <p>
+	 * The company is the commercial_partner_id if that is another partner,
+	 * otherwise the partner itself if it is a company record (see
+	 * {@link #isCompanyRecord(int)}). commercial_company_name is not used: since
+	 * Odoo 20 it is the own name of a person without parent_id.
+	 *
+	 * @param partnerId the Odoo partner id
+	 * @return the company name or empty
+	 * @throws OpenemsException on error
+	 */
+	private Optional<String> getCompanyName(int partnerId) throws OpenemsException {
+		var partner = OdooUtils.readOne(this.credentials, Field.Partner.ODOO_MODEL, partnerId, //
+				Field.Partner.COMMERCIAL_PARTNER, Field.Partner.NAME, Field.Partner.IS_COMPANY, Field.Partner.PARENT);
+		return this.getCompanyName(partnerId, partner);
+	}
+
+	/**
+	 * Gets the name of the company of a partner, see {@link #getCompanyName(int)}.
+	 *
+	 * @param partnerId the Odoo partner id
+	 * @param partner   the partner with the fields commercial_partner_id, name,
+	 *                  is_company and parent_id
+	 * @return the company name or empty
+	 * @throws OpenemsException on error
+	 */
+	private Optional<String> getCompanyName(int partnerId, Map<String, Object> partner) throws OpenemsException {
+		var companyIdOpt = getOtherCommercialPartnerId(partnerId, partner);
+		if (companyIdOpt.isPresent()) {
+			var company = OdooUtils.readOne(this.credentials, Field.Partner.ODOO_MODEL, companyIdOpt.get(), //
+					Field.Partner.NAME);
+			return ObjectUtils.getAsOptionalString(company.get(Field.Partner.NAME.id()));
+		}
+		if (this.isCompanyRecord(partnerId, partner)) {
+			return ObjectUtils.getAsOptionalString(partner.get(Field.Partner.NAME.id()));
+		}
+		return Optional.empty();
+	}
+
+	/**
+	 * Checks if a partner is a company record itself, whose name must not be
+	 * replaced by the first and last name of a person.
+	 *
+	 * <p>
+	 * True if it is_company (since Odoo 20 only with a VAT) or if it has no
+	 * parent_id and contacts are linked to it via parent_id.
+	 *
+	 * @param partnerId the Odoo partner id
+	 * @return true if the partner is a company
+	 * @throws OpenemsException on error
+	 */
+	private boolean isCompanyRecord(int partnerId) throws OpenemsException {
+		var partner = OdooUtils.readOne(this.credentials, Field.Partner.ODOO_MODEL, partnerId, //
+				Field.Partner.IS_COMPANY, Field.Partner.PARENT);
+		return this.isCompanyRecord(partnerId, partner);
+	}
+
+	/**
+	 * Checks if a partner is a company record itself, see
+	 * {@link #isCompanyRecord(int)}.
+	 *
+	 * @param partnerId the Odoo partner id
+	 * @param partner   the partner with the fields is_company and parent_id
+	 * @return true if the partner is a company
+	 * @throws OpenemsException on error
+	 */
+	private boolean isCompanyRecord(int partnerId, Map<String, Object> partner) throws OpenemsException {
+		if (Boolean.TRUE.equals(partner.get(Field.Partner.IS_COMPANY.id()))) {
+			return true;
+		}
+		if (OdooUtils.getOdooReferenceId(partner.get(Field.Partner.PARENT.id())).isPresent()) {
+			return false;
+		}
+		var contacts = OdooUtils.search(this.credentials, Field.Partner.ODOO_MODEL, Map.of("limit", 1), //
+				new Domain(Field.Partner.PARENT, Operator.EQ, partnerId), //
+				new Domain(Field.Partner.ADDRESS_TYPE, Operator.EQ, "contact"));
+		return contacts.length > 0;
+	}
+
+	/**
+	 * Gets the commercial_partner_id of a partner if it is another partner, i.e.
+	 * the company the partner is linked to via parent_id.
+	 *
+	 * @param partnerId the Odoo partner id
+	 * @param partner   the partner with the field commercial_partner_id
+	 * @return the Odoo partner id of the company or empty
+	 */
+	protected static Optional<Integer> getOtherCommercialPartnerId(int partnerId, Map<String, Object> partner) {
+		var commercialPartnerIdOpt = OdooUtils
+				.getOdooReferenceId(partner.get(Field.Partner.COMMERCIAL_PARTNER.id()));
+		if (commercialPartnerIdOpt.isPresent() && commercialPartnerIdOpt.get() != partnerId) {
+			return commercialPartnerIdOpt;
+		}
+		return Optional.empty();
 	}
 
 	/**
@@ -541,10 +706,7 @@ public class OdooHandler {
 
 		this.updateEdgeComment(userJson, edgeId, foundEdge[0]);
 
-		final var installer = OdooUtils.readOne(this.credentials, Field.Partner.ODOO_MODEL, installerId,
-				Field.Partner.IS_COMPANY);
-		final var isCompany = (boolean) installer.get("is_company");
-		if (!isCompany) {
+		if (!this.isCompanyRecord(installerId)) {
 			Map<String, Object> fieldsToUpdate = new HashMap<>();
 			getAsOptionalString(installerJson, "firstname") //
 					.ifPresent(firstname -> fieldsToUpdate.put(Field.Partner.FIRSTNAME.id(), firstname));
@@ -1018,7 +1180,7 @@ public class OdooHandler {
 		userFields.put(Field.User.LOGIN.id(), email);
 		userFields.put(Field.Partner.EMAIL.id(), email);
 		userFields.put(Field.User.GLOBAL_ROLE.id(), role.getOdooRole());
-		userFields.put(Field.User.GROUPS.id(), role.toOdooIds());
+		userFields.put(this.getUserGroupsField(), this.getOdooGroupIds(role));
 		userFields.putAll(this.updateAddress(jsonObject));
 		userFields.putAll(this.updateCompany(jsonObject));
 
@@ -1076,6 +1238,52 @@ public class OdooHandler {
 		} else {
 			this.sendRegistrationMail(createdUserId, oem);
 		}
+	}
+
+	/**
+	 * Gets the name of the groups field of 'res.users': 'group_ids' since Odoo 19,
+	 * 'groups_id' before. Resolved once via 'fields_get' and cached.
+	 *
+	 * @return the field name
+	 * @throws OpenemsException on error
+	 */
+	private String getUserGroupsField() throws OpenemsException {
+		var field = this.userGroupsField;
+		if (field != null) {
+			return field;
+		}
+		var existing = OdooUtils.getExistingFields(this.credentials, Field.User.ODOO_MODEL, //
+				Field.User.GROUPS, Field.User.GROUPS_LEGACY);
+		if (existing.contains(Field.User.GROUPS.id())) {
+			field = Field.User.GROUPS.id();
+		} else if (existing.contains(Field.User.GROUPS_LEGACY.id())) {
+			field = Field.User.GROUPS_LEGACY.id();
+		} else {
+			throw new OpenemsException("Groups field not found on [" + Field.User.ODOO_MODEL + "]");
+		}
+		this.userGroupsField = field;
+		return field;
+	}
+
+	/**
+	 * Gets the database IDs of the Odoo groups of the given {@link OdooUserRole}.
+	 * Each group is resolved once by its XML-ID and cached.
+	 *
+	 * @param role the {@link OdooUserRole}
+	 * @return the group IDs
+	 * @throws OpenemsException on error
+	 */
+	protected List<Integer> getOdooGroupIds(OdooUserRole role) throws OpenemsException {
+		final var ids = new ArrayList<Integer>();
+		for (var group : role.getOdooGroups()) {
+			var id = this.groupIds.get(group);
+			if (id == null) {
+				id = OdooUtils.getObjectReference(this.credentials, group.getModule(), group.getName());
+				this.groupIds.put(group, id);
+			}
+			ids.add(id);
+		}
+		return ids;
 	}
 
 	/**

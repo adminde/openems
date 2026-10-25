@@ -4,6 +4,7 @@ import static io.openems.backend.metadata.odoo.postgres.CredentialsTest.DUMMY_OD
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringEndsWith.endsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -36,10 +37,64 @@ class HttpBridgeOdooAuthenticationServiceTest {
 			}
 			""";
 
+	private static final String DUMMY_SESSION_EXPIRED_RESPONSE_ODOO_20 = """
+			{
+			  "jsonrpc": "2.0",
+			  "id": null,
+			  "error": {
+			    "code": 100,
+			    "message": "Odoo Session Expired",
+			    "data": {
+			      "name": "odoo.http.session.SessionExpiredException",
+			      "debug": "",
+			      "message": "Session expired",
+			      "arguments": [
+			        "Session expired"
+			      ],
+			      "context": {}
+			    }
+			  }
+			}
+			""";
+
+	private static final String DUMMY_ACCESS_DENIED_RESPONSE = """
+			{
+			  "jsonrpc": "2.0",
+			  "id": null,
+			  "error": {
+			    "code": 200,
+			    "message": "Odoo Server Error",
+			    "data": {
+			      "name": "odoo.exceptions.AccessDenied",
+			      "debug": "",
+			      "message": "Access Denied",
+			      "arguments": [
+			        "Access Denied"
+			      ],
+			      "context": {}
+			    }
+			  }
+			}
+			""";
+
 	@Test
 	void testIsSessionExpired() {
 		try (var service = new HttpBridgeOdooAuthenticationService(null, null, null)) {
 			assertTrue(service.isSessionExpired(HttpResponse.ok(DUMMY_SESSION_EXPIRED_RESPONSE), null));
+		}
+	}
+
+	@Test
+	void testIsSessionExpiredOdoo20() {
+		try (var service = new HttpBridgeOdooAuthenticationService(null, null, null)) {
+			assertTrue(service.isSessionExpired(HttpResponse.ok(DUMMY_SESSION_EXPIRED_RESPONSE_ODOO_20), null));
+		}
+	}
+
+	@Test
+	void testIsNotSessionExpired() {
+		try (var service = new HttpBridgeOdooAuthenticationService(null, null, null)) {
+			assertFalse(service.isSessionExpired(HttpResponse.ok(DUMMY_ACCESS_DENIED_RESPONSE), null));
 		}
 	}
 

@@ -7,8 +7,20 @@ Enables you to manage multiple edges with one backend.
 
 [NOTE]
 ====
-* This bundle works with Odoo 15. For a seamless integration of Odoo 
+* This bundle targets Odoo 18 and Odoo 20; names that differ between them (groups field of
+`res.users`, session-expired error) are handled. For a seamless integration of Odoo
 and OpenEMS the open-source https://github.com/OpenEMS/odoo-openems[Odoo-OpenEMS] module is needed.
+* `odooPassword` is used for the session login (`/web/session/authenticate`) and for XML-RPC
+(`/xmlrpc/2/object`). Odoo accepts no API key for the session login, so it must be the password of
+the user `odooLogin`. Odoo 20 accepts API keys for RPC only with scope `rpc`, Odoo 18 also keys
+without scope. Where API keys are used against Odoo 20, check after the upgrade that they have
+scope `rpc`, otherwise create new keys with scope `rpc`.
+* The name of the groups field of `res.users` and the id of the portal group (`base.group_portal`)
+are resolved once and cached. After an Odoo upgrade or a newly set up Odoo database the backend
+has to be restarted.
+* The company of a contact is its `commercial_partner_id` (not `commercial_company_name`). With
+Odoo 18 the fallback to the free text field `company_name` of a contact without company no
+longer applies; such a contact has no company in the user information.
 ====
 
 

@@ -1,6 +1,7 @@
 package io.openems.backend.metadata.odoo.odoo;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
@@ -15,6 +16,7 @@ import org.junit.Test;
 import io.openems.backend.metadata.odoo.Field;
 import io.openems.backend.metadata.odoo.Field.EdgeDevice;
 import io.openems.backend.metadata.odoo.odoo.Domain.Operator;
+import io.openems.common.exceptions.OpenemsException;
 
 public class OdooUtilsTest {
 
@@ -85,6 +87,33 @@ public class OdooUtilsTest {
 			assertEquals(Operator.EQ.getValue(), v[1]);
 			assertEquals("bar", v[2]);
 		}
+	}
+
+	@Test
+	public void testIsSessionExpiredError() {
+		// Odoo 18/19
+		assertTrue(OdooUtils.isSessionExpiredError("odoo.http.SessionExpiredException"));
+		// Odoo 20
+		assertTrue(OdooUtils.isSessionExpiredError("odoo.http.session.SessionExpiredException"));
+		assertTrue(OdooUtils.isSessionExpiredError("SessionExpiredException"));
+
+		assertFalse(OdooUtils.isSessionExpiredError("odoo.exceptions.AccessDenied"));
+		assertFalse(OdooUtils.isSessionExpiredError("odoo.http.NoSessionExpiredException"));
+		assertFalse(OdooUtils.isSessionExpiredError(""));
+		assertFalse(OdooUtils.isSessionExpiredError(null));
+	}
+
+	@Test
+	public void testGetObjectReferenceId() throws OpenemsException {
+		assertEquals(10, OdooUtils.getObjectReferenceId("base", "group_portal", //
+				new Object[] { "res.groups", 10 }));
+
+		// no read access: check_object_reference returns (model, False)
+		assertThrows(OpenemsException.class, () -> OdooUtils.getObjectReferenceId("base", "group_portal", //
+				new Object[] { "res.groups", false }));
+		assertThrows(OpenemsException.class, () -> OdooUtils.getObjectReferenceId("base", "group_portal", //
+				new Object[] { "res.groups" }));
+		assertThrows(OpenemsException.class, () -> OdooUtils.getObjectReferenceId("base", "group_portal", null));
 	}
 
 	@Test

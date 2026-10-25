@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
@@ -154,12 +155,13 @@ public class OdooUtils {
 				// "exception_type":"access_denied"
 				var dataExceptionType = JsonUtils.getAsOptionalString(data, "exception_type");
 
+				if (isSessionExpiredError(dataName)) {
+					throw new SessionExpiredException();
+				}
+
 				switch (dataName) {
 				case "odoo.exceptions.AccessDenied":
 					throw OpenemsError.COMMON_AUTHENTICATION_FAILED.exception();
-
-				case "odoo.http.SessionExpiredException":
-					throw new SessionExpiredException();
 
 				default:
 					// for OpenemsExceptions from Odoo only throw OpenemsException with message for
@@ -197,6 +199,24 @@ public class OdooUtils {
 				connection.disconnect();
 			}
 		}
+	}
+
+	/**
+	 * Checks if the name of an Odoo JSON-RPC error denotes an expired session.
+	 *
+	 * <p>
+	 * Odoo up to 19 serializes the error as
+	 * {@code odoo.http.SessionExpiredException}, Odoo 20 as
+	 * {@code odoo.http.session.SessionExpiredException}. Only the class name is
+	 * compared, so both work.
+	 *
+	 * @param dataName the 'error.data.name' of the JSON-RPC response
+	 * @return true if the session expired
+	 */
+	public static boolean isSessionExpiredError(String dataName) {
+		return dataName != null //
+				&& (dataName.equals("SessionExpiredException") //
+						|| dataName.endsWith(".SessionExpiredException"));
 	}
 
 	protected static SuccessResponseAndHeaders sendAdminJsonrpcRequest(Credentials credentials, String url,
@@ -451,17 +471,55 @@ public class OdooUtils {
 	 */
 	protected static int getObjectReference(Credentials credentials, String module, String name)
 			throws OpenemsException {
+		final Object result;
 		try {
 			// Execute XML request
-			var resultObj = (Object[]) executeKw(credentials, "ir.model.data", "check_object_reference",
-					new Object[] { module, name });
-			if (resultObj == null) {
-				throw new OpenemsException(
-						"No matching entry found for module [" + module + "] and name [" + name + "]");
-			}
-			return (int) resultObj[1];
+			result = executeKw(credentials, "ir.model.data", "check_object_reference", new Object[] { module, name });
 		} catch (Throwable e) {
 			throw new OpenemsException("Unable to read from Odoo: " + e.getMessage());
+		}
+		return getObjectReferenceId(module, name, result);
+	}
+
+	/**
+	 * Gets the id from the result of 'ir.model.data.check_object_reference', which
+	 * is (model, id), or (model, False) if the user has no read access.
+	 *
+	 * @param module the Odoo module
+	 * @param name   the external identifier
+	 * @param result the result of check_object_reference
+	 * @return internal id of external identifier
+	 * @throws OpenemsException if the result holds no id
+	 */
+	protected static int getObjectReferenceId(String module, String name, Object result) throws OpenemsException {
+		if (result instanceof Object[] reference && reference.length > 1 && reference[1] instanceof Integer id) {
+			return id;
+		}
+		throw new OpenemsException("No id for external identifier [" + module + "." + name + "]: " //
+				+ "not found or no read access for the Odoo user");
+	}
+
+	/**
+	 * Returns those of the given fields that exist on an Odoo model, using
+	 * 'fields_get'. Used where field names differ between Odoo versions.
+	 *
+	 * @param credentials the Odoo credentials
+	 * @param model       Odoo model to query (e.g. 'res.users')
+	 * @param fields      the candidate fields
+	 * @return the names of the existing fields
+	 * @throws OpenemsException on error
+	 */
+	@SuppressWarnings("unchecked")
+	protected static Set<String> getExistingFields(Credentials credentials, String model, Field... fields)
+			throws OpenemsException {
+		var fieldStrings = getAsStringArray(fields);
+		try {
+			// Execute XML request
+			var result = (Map<String, Object>) executeKw(credentials, model, "fields_get", new Object[] {},
+					Map.of("allfields", fieldStrings, "attributes", new String[] { "type" }));
+			return Set.copyOf(result.keySet());
+		} catch (Throwable e) {
+			throw new OpenemsException("Unable to read fields from Odoo: " + e.getMessage());
 		}
 	}
 
