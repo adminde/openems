@@ -22,11 +22,15 @@
                                         LOGIN.PREAMBLE
                                     </ion-text>
                                 </ion-item>
-                                <ion-item>
-                                    <ion-input #password required type="password"
-                                        [label]="'LOGIN.PASSWORD_LABEL' | translate" label-placement="floating"
-                                        [placeholder]="'LOGIN.PASSWORD_LABEL' | translate" value="user"></ion-input>
-                                </ion-item>
+                                <!-- Native input (not ion-input) is required here: some password managers
+                                     fail to autofill the credential fields of a dynamically rendered
+                                     ion-input web component. The empty placeholder drives the CSS floating
+                                     label (:placeholder-shown); see login.component.scss. -->
+                                <div class="login-field">
+                                    <input #password id="password" class="login-input" required type="password"
+                                        name="password" autocomplete="current-password" placeholder=" " value="user">
+                                    <label class="login-label" for="password">{{ 'LOGIN.PASSWORD_LABEL' | translate }}</label>
+                                </div>
                                 <!-- workaround for submit with enter key https://github.com/ionic-team/ionic-framework/issues/19368 -->
                                 <input type="submit" style="visibility: hidden; position: absolute; position: -999px" />
                                 <ion-button [disabled]="formIsDisabled" type="submit" class="ion-float-right">
@@ -40,18 +44,20 @@
                     @if (environment.backend === 'OpenEMS Backend') {
                     <ion-card-content>
                         <form (ngSubmit)="doLogin({ username: username.value, password: password.value})">
-                            <ion-item>
-                                <ion-input #username required type="input"
-                                    [placeholder]="'E-Mail / ' + ('LOGIN.USER' | translate)"
-                                    [label]="'E-Mail / '  + ('LOGIN.USER' | translate)" label-placement="floating">
-                                </ion-input>
-                            </ion-item>
-                            <ion-item>
-                                <ion-input #password required type="password"
-                                    [placeholder]="'LOGIN.PASSWORD_LABEL' | translate" label-placement="floating"
-                                    [label]="'LOGIN.PASSWORD_LABEL' | translate">
-                                </ion-input>
-                            </ion-item>
+                            <!-- Native inputs (not ion-input) are required here: some password managers
+                                 fail to autofill the credential fields of a dynamically rendered
+                                 ion-input web component. The empty placeholder drives the CSS floating
+                                 label (:placeholder-shown); see login.component.scss. -->
+                            <div class="login-field">
+                                <input #username id="username" class="login-input" required type="text"
+                                    name="username" autocomplete="username" placeholder=" ">
+                                <label class="login-label" for="username">{{ 'E-Mail / ' + ('LOGIN.USER' | translate) }}</label>
+                            </div>
+                            <div class="login-field">
+                                <input #password id="password" class="login-input" required type="password"
+                                    name="password" autocomplete="current-password" placeholder=" ">
+                                <label class="login-label" for="password">{{ 'LOGIN.PASSWORD_LABEL' | translate }}</label>
+                            </div>
                             <!-- workaround for submit with enter key https://github.com/ionic-team/ionic-framework/issues/19368 -->
                             <input type="submit" style="visibility: hidden; position: absolute; position: -999px" />
                             <ion-item lines="none" class="ion-margin-top">

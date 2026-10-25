@@ -16,6 +16,7 @@ import { States } from "../shared/states/states";
 @Component({
     selector: "login",
     templateUrl: "./login.component.html",
+    styleUrls: ["./login.component.scss"],
     changeDetection: ChangeDetectionStrategy.Eager,
     standalone: false,
 })
