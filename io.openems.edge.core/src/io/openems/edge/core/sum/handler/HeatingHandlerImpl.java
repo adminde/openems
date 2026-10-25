@@ -30,6 +30,11 @@ public class HeatingHandlerImpl {
 	private final CalculateLongSum heatingThermalEnergy = new CalculateLongSum();
 	private final CalculateIntegerSum managedConsumptionActivePower = new CalculateIntegerSum();
 
+	/**
+	 * Adds a {@link SymmetricHeating} to the handler.
+	 *
+	 * @param component the {@link SymmetricHeating} to add
+	 */
 	@Reference(//
 			policy = ReferencePolicy.DYNAMIC, //
 			cardinality = ReferenceCardinality.MULTIPLE, //
@@ -40,6 +45,11 @@ public class HeatingHandlerImpl {
 		this.heatings.add(component);
 	}
 
+	/**
+	 * Removes a {@link SymmetricHeating} from the handler.
+	 *
+	 * @param component the {@link SymmetricHeating} to remove
+	 */
 	public void removeHeating(SymmetricHeating component) {
 		this.heatings.remove(component);
 	}

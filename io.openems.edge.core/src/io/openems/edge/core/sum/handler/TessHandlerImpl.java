@@ -27,6 +27,11 @@ public class TessHandlerImpl {
 	private final CalculateLongSum tessThermalDischargeEnergy = new CalculateLongSum();
 	private CalculateTessSoc tessSoc = new CalculateTessSoc(SocAveragingMethod.ARITHMETIC);
 
+	/**
+	 * Adds a {@link ThermalEss} to the handler.
+	 *
+	 * @param component the {@link ThermalEss} to add
+	 */
 	@Reference(//
 			policy = ReferencePolicy.DYNAMIC, //
 			cardinality = ReferenceCardinality.MULTIPLE, //
@@ -37,6 +42,11 @@ public class TessHandlerImpl {
 		this.tesss.add(component);
 	}
 
+	/**
+	 * Removes a {@link ThermalEss} from the handler.
+	 *
+	 * @param component the {@link ThermalEss} to remove
+	 */
 	public void removeTess(ThermalEss component) {
 		this.tesss.remove(component);
 	}
