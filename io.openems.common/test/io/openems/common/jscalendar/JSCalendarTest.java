@@ -17,6 +17,18 @@ import static java.time.DayOfWeek.SUNDAY;
 import static java.time.DayOfWeek.THURSDAY;
 import static java.time.DayOfWeek.TUESDAY;
 import static java.time.DayOfWeek.WEDNESDAY;
+import static java.time.Month.APRIL;
+import static java.time.Month.AUGUST;
+import static java.time.Month.DECEMBER;
+import static java.time.Month.FEBRUARY;
+import static java.time.Month.JANUARY;
+import static java.time.Month.JULY;
+import static java.time.Month.JUNE;
+import static java.time.Month.MARCH;
+import static java.time.Month.MAY;
+import static java.time.Month.NOVEMBER;
+import static java.time.Month.OCTOBER;
+import static java.time.temporal.ChronoUnit.HOURS;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.UUID.randomUUID;
 import static org.junit.Assert.assertEquals;
@@ -25,6 +37,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -32,6 +45,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Set;
 
 import org.junit.Test;
 
@@ -180,6 +195,174 @@ public class JSCalendarTest {
 		}
 	}
 
+	private static String nextOccurrence(RecurrenceRule rule, Clock clock, LocalDateTime taskStart, String from) {
+		final var result = rule.getNextOccurrence(clock, taskStart, ZonedDateTime.parse(from));
+		return result == null ? null : result.toString();
+	}
+
+	@Test
+	public void testRecurrence_byMonth() {
+		final var clock = createDummyClock(); // 2020 is a leap year
+		final var taskStart = EPOCH.plusHours(8);
+		{
+			// Season within one year
+			final var spring = RecurrenceRule.create() //
+					.setFrequency(DAILY) //
+					.addByMonth(MARCH, APRIL, MAY) //
+					.build();
+			assertEquals("2020-03-01T08:00Z", nextOccurrence(spring, clock, taskStart, "2020-01-01T00:00Z"));
+			assertEquals("2020-05-31T08:00Z", nextOccurrence(spring, clock, taskStart, "2020-05-31T08:00Z"));
+			assertEquals("2021-03-01T08:00Z",
+					nextOccurrence(spring, clock, taskStart, "2020-05-31T08:00:00.000000001Z"));
+		}
+		{
+			// Season over the turn of the year
+			final var winter = RecurrenceRule.create() //
+					.setFrequency(DAILY) //
+					.addByMonth(NOVEMBER, DECEMBER, JANUARY, FEBRUARY) //
+					.build();
+			assertEquals("2020-01-01T08:00Z", nextOccurrence(winter, clock, taskStart, "2020-01-01T00:00Z"));
+			assertEquals("2020-02-29T08:00Z", nextOccurrence(winter, clock, taskStart, "2020-02-28T09:00Z"));
+			assertEquals("2020-11-01T08:00Z", nextOccurrence(winter, clock, taskStart, "2020-02-29T09:00Z"));
+			assertEquals("2021-01-01T08:00Z", nextOccurrence(winter, clock, taskStart, "2020-12-31T09:00Z"));
+			assertEquals("2021-11-01T08:00Z", nextOccurrence(winter, clock, taskStart, "2021-02-28T09:00Z"));
+		}
+		{
+			// Every day of the season with a leap day and without
+			final var sut = JSCalendar.Task.<Void>create() //
+					.setStart("08:00:00") //
+					.setDuration(Duration.ofHours(4)) //
+					.addRecurrenceRule(b -> b //
+							.setFrequency(DAILY) //
+							.addByMonth(NOVEMBER, DECEMBER, JANUARY, FEBRUARY)) //
+					.build();
+			assertEquals(31 + 29 + 30 + 31, sut.getOccurrencesBetween(clock, //
+					ZonedDateTime.parse("2020-01-01T00:00Z"), ZonedDateTime.parse("2020-12-31T23:59Z")).size());
+			assertEquals(31 + 28 + 30 + 31, sut.getOccurrencesBetween(clock, //
+					ZonedDateTime.parse("2021-01-01T00:00Z"), ZonedDateTime.parse("2021-12-31T23:59Z")).size());
+		}
+	}
+
+	@Test
+	public void testRecurrence_byMonthDay() {
+		final var clock = createDummyClock();
+		{
+			// The evening before a season that starts in November
+			final var eve = RecurrenceRule.create() //
+					.setFrequency(DAILY) //
+					.addByMonth(OCTOBER) //
+					.addByMonthDay(-1) //
+					.build();
+			final var taskStart = EPOCH.plusHours(22).plusMinutes(30);
+			assertEquals("2020-10-31T22:30Z", nextOccurrence(eve, clock, taskStart, "2020-01-01T00:00Z"));
+			assertEquals("2021-10-31T22:30Z",
+					nextOccurrence(eve, clock, taskStart, "2020-10-31T22:30:00.000000001Z"));
+		}
+		{
+			// The last day of February in leap years and others
+			final var lastOfFebruary = RecurrenceRule.create() //
+					.setFrequency(DAILY) //
+					.addByMonth(FEBRUARY) //
+					.addByMonthDay(-1) //
+					.build();
+			assertEquals("2020-02-29T00:00Z", nextOccurrence(lastOfFebruary, clock, EPOCH, "2020-01-01T00:00Z"));
+			assertEquals("2021-02-28T00:00Z",
+					nextOccurrence(lastOfFebruary, clock, EPOCH, "2020-02-29T00:00:00.000000001Z"));
+			assertEquals("2024-02-29T00:00Z",
+					nextOccurrence(lastOfFebruary, clock, EPOCH, "2023-02-28T00:00:00.000000001Z"));
+		}
+		{
+			// MONTHLY without byDay occurs on the days of byMonthDay in every month
+			final var firstAndLast = RecurrenceRule.create() //
+					.setFrequency(MONTHLY) //
+					.addByMonthDay(1, -1) //
+					.build();
+			assertEquals("2020-01-01T00:00Z", nextOccurrence(firstAndLast, clock, EPOCH, "2020-01-01T00:00Z"));
+			assertEquals("2020-01-31T00:00Z",
+					nextOccurrence(firstAndLast, clock, EPOCH, "2020-01-01T00:00:00.000000001Z"));
+			assertEquals("2020-02-01T00:00Z",
+					nextOccurrence(firstAndLast, clock, EPOCH, "2020-01-31T00:00:00.000000001Z"));
+			assertEquals("2020-02-29T00:00Z",
+					nextOccurrence(firstAndLast, clock, EPOCH, "2020-02-01T00:00:00.000000001Z"));
+		}
+		{
+			// A day that never exists has no occurrence
+			final var never = RecurrenceRule.create() //
+					.setFrequency(DAILY) //
+					.addByMonth(FEBRUARY) //
+					.addByMonthDay(30) //
+					.build();
+			assertNull(never.getNextOccurrence(clock, EPOCH, NOW_2000));
+		}
+	}
+
+	@Test
+	public void testRecurrence_byMonth_weeklyAndMonthly() {
+		final var clock = createDummyClock();
+		{
+			// Every Sunday in December
+			final var sut = JSCalendar.Task.<Void>create() //
+					.setStart("10:00:00") //
+					.addRecurrenceRule(b -> b //
+							.setFrequency(WEEKLY) //
+							.addByDay(SUNDAY) //
+							.addByMonth(DECEMBER)) //
+					.build();
+			final var times = sut.getOccurrencesBetween(clock, NOW_2000, ZonedDateTime.parse("2021-12-31T00:00Z"));
+			assertEquals(8, times.size());
+			assertDayOfWeek(times, 0, "2020-12-06T10:00Z", SUNDAY);
+			assertDayOfWeek(times, 3, "2020-12-27T10:00Z", SUNDAY);
+			assertDayOfWeek(times, 4, "2021-12-05T10:00Z", SUNDAY);
+			assertDayOfWeek(times, 7, "2021-12-26T10:00Z", SUNDAY);
+		}
+		{
+			// Every first Sunday of June, July and August
+			final var sut = JSCalendar.Task.<Void>create() //
+					.setStart("20:00:00") //
+					.addRecurrenceRule(b -> b //
+							.setFrequency(MONTHLY) //
+							.addByDay(SUNDAY) //
+							.addByMonth(JUNE, JULY, AUGUST)) //
+					.build();
+			final var times = sut.getOccurrencesBetween(clock, NOW_2000, ZonedDateTime.parse("2021-06-30T00:00Z"));
+			assertEquals(4, times.size());
+			assertDayOfWeek(times, 0, "2020-06-07T20:00Z", SUNDAY);
+			assertDayOfWeek(times, 1, "2020-07-05T20:00Z", SUNDAY);
+			assertDayOfWeek(times, 2, "2020-08-02T20:00Z", SUNDAY);
+			assertDayOfWeek(times, 3, "2021-06-06T20:00Z", SUNDAY);
+		}
+	}
+
+	@Test
+	public void testRecurrence_byMonth_timeZone() {
+		final var clock = new TimeLeapClock(createDummyClock().instant(), ZoneId.of("Europe/Berlin"));
+		{
+			// The time of day stays on the wall clock over the change to daylight saving
+			// time
+			final var march = RecurrenceRule.create() //
+					.setFrequency(DAILY) //
+					.addByMonth(MARCH) //
+					.build();
+			final var taskStart = EPOCH.plusHours(8);
+			assertEquals("2020-03-28T08:00+01:00[Europe/Berlin]",
+					nextOccurrence(march, clock, taskStart, "2020-03-28T00:00+01:00[Europe/Berlin]"));
+			assertEquals("2020-03-29T08:00+02:00[Europe/Berlin]",
+					nextOccurrence(march, clock, taskStart, "2020-03-28T08:00:00.000000001+01:00[Europe/Berlin]"));
+		}
+		{
+			// The month is the one of the local start, which is still October in UTC
+			final var november = RecurrenceRule.create() //
+					.setFrequency(DAILY) //
+					.addByMonth(NOVEMBER) //
+					.build();
+			final var taskStart = EPOCH.plusMinutes(30);
+			assertEquals("2020-11-01T00:30+01:00[Europe/Berlin]",
+					nextOccurrence(november, clock, taskStart, "2020-10-01T00:00Z"));
+			assertEquals("2021-11-01T00:30+01:00[Europe/Berlin]",
+					nextOccurrence(november, clock, taskStart, "2020-11-30T00:30:00.000000001+01:00[Europe/Berlin]"));
+		}
+	}
+
 	@Test
 	public void testTask_getOccurrencesBetween() {
 		final var clock = createDummyClock();
@@ -247,6 +430,71 @@ public class JSCalendarTest {
 	public void testTasks_getActiveOneTask() {
 		var tasks = JSCalendar.Tasks.empty();
 		assertNull(tasks.getActiveOneTask());
+	}
+
+	@Test
+	public void testTasks_getActiveOneTasks() {
+		final var clock = createDummyClock(); // Wednesday 2020-01-01 00:00
+		final var tasks = JSCalendar.Tasks.<StringPayload>create(clock) //
+				.add(t -> t //
+						.setStart("10:00") //
+						.setDuration(Duration.ofHours(2)) //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(DAILY)) //
+						.setPayload(new StringPayload("SHORT"))) //
+				.add(t -> t //
+						.setStart("08:00") //
+						.setDuration(Duration.ofHours(10)) //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(DAILY)) //
+						.setPayload(new StringPayload("LONG"))) //
+				.add(t -> t //
+						.setStart("22:00") //
+						.setDuration(Duration.ofHours(4)) //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(WEEKLY) //
+								.addByDay(WEDNESDAY)) //
+						.setPayload(new StringPayload("NIGHT"))) //
+				.add(t -> t //
+						.setStart("09:00") //
+						.setDuration(Duration.ofHours(1)) //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(DAILY) //
+								.setUntil(LocalDate.of(2019, 12, 31))) //
+						.setPayload(new StringPayload("EXPIRED"))) //
+				.add(t -> t //
+						.setStart("09:00") //
+						.addRecurrenceRule(b -> b //
+								.setFrequency(DAILY)) //
+						.setPayload(new StringPayload("INSTANT"))) //
+				.build();
+
+		assertEquals(List.of(), activePayloads(tasks));
+
+		clock.leap(9, HOURS); // 09:00
+		assertEquals(List.of("LONG"), activePayloads(tasks));
+
+		clock.leap(1, HOURS); // 10:00, in the order of the calendar although LONG started earlier
+		assertEquals(List.of("SHORT", "LONG"), activePayloads(tasks));
+		assertOneTask(tasks.getActiveOneTasks().get(1), "2020-01-01T08:00Z", "2020-01-01T18:00Z", "LONG");
+
+		clock.leap(2, HOURS); // 12:00
+		assertEquals(List.of("LONG"), activePayloads(tasks));
+
+		clock.leap(11, HOURS); // 23:00
+		assertEquals(List.of("NIGHT"), activePayloads(tasks));
+
+		clock.leap(2, HOURS); // Thursday 01:00, still the occurrence of the previous day
+		assertEquals(List.of("NIGHT"), activePayloads(tasks));
+
+		clock.leap(1, HOURS); // 02:00
+		assertEquals(List.of(), activePayloads(tasks));
+	}
+
+	private static List<String> activePayloads(Tasks<StringPayload> tasks) {
+		return tasks.getActiveOneTasks().stream() //
+				.map(ot -> ot.payload().value()) //
+				.toList();
 	}
 
 	@Test
@@ -909,6 +1157,106 @@ public class JSCalendarTest {
 	}
 
 	@Test
+	public void testByMonth() {
+		var sut = JSCalendar.Task.<StringPayload>create() //
+				.setUid(getNilUuid()) //
+				.setStart("08:00:00") //
+				.setDuration(Duration.ofHours(4)) //
+				.addRecurrenceRule(b -> b //
+						.setFrequency(DAILY) //
+						.addByMonth(NOVEMBER, DECEMBER, JANUARY, FEBRUARY)) //
+				.setPayload(new StringPayload("Winter")) //
+				.build();
+		var json = TASK_SERIALIZER.serialize(sut);
+		assertEquals("""
+				{
+				  "@type": "Task",
+				  "uid": "00000000-0000-0000-0000-000000000000",
+				  "start": "08:00:00",
+				  "duration": "PT4H",
+				  "recurrenceRules": [
+				    {
+				      "frequency": "daily",
+				      "byMonth": [
+				        "1",
+				        "2",
+				        "11",
+				        "12"
+				      ]
+				    }
+				  ],
+				  "openems.io:payload": {
+				    "value": "Winter"
+				  }
+				}""", prettyToString(json));
+
+		// Parse JSON
+		assertEquals(sut, TASK_SERIALIZER.deserialize(json));
+	}
+
+	@Test
+	public void testByMonthDay() {
+		var sut = JSCalendar.Task.<StringPayload>create() //
+				.setUid(getNilUuid()) //
+				.setStart("22:30:00") //
+				.setDuration(Duration.ofHours(2)) //
+				.addRecurrenceRule(b -> b //
+						.setFrequency(DAILY) //
+						.addByMonth(OCTOBER) //
+						.addByMonthDay(-1)) //
+				.setPayload(new StringPayload("Eve")) //
+				.build();
+		var json = TASK_SERIALIZER.serialize(sut);
+		assertEquals("""
+				{
+				  "@type": "Task",
+				  "uid": "00000000-0000-0000-0000-000000000000",
+				  "start": "22:30:00",
+				  "duration": "PT2H",
+				  "recurrenceRules": [
+				    {
+				      "frequency": "daily",
+				      "byMonthDay": [
+				        -1
+				      ],
+				      "byMonth": [
+				        "10"
+				      ]
+				    }
+				  ],
+				  "openems.io:payload": {
+				    "value": "Eve"
+				  }
+				}""", prettyToString(json));
+
+		// Parse JSON
+		assertEquals(sut, TASK_SERIALIZER.deserialize(json));
+	}
+
+	@Test
+	public void testByMonthParse() {
+		var clock = createDummyClock();
+
+		// Months as numbers are accepted beside the strings of RFC 8984
+		var sut = JSCalendar.Tasks.fromStringOrEmpty(clock, """
+				[{"@type":"Task","start":"08:00:00",\
+				"recurrenceRules":[{"frequency":"daily","byMonth":[11,"12"]}]}]""");
+		assertEquals(Set.of(NOVEMBER, DECEMBER), sut.tasks.get(0).recurrenceRules().get(0).byMonth());
+
+		// Leap months, unknown months and invalid days of the month are rejected
+		for (var rule : List.of(//
+				"\"byMonth\":[\"3L\"]", //
+				"\"byMonth\":[\"13\"]", //
+				"\"byMonthDay\":[0]", //
+				"\"byMonthDay\":[32]")) {
+			assertEquals(rule, 0, JSCalendar.Tasks.fromStringOrEmpty(clock, //
+					"[{\"@type\":\"Task\",\"start\":\"08:00:00\",\"recurrenceRules\":[{\"frequency\":\"daily\"," //
+							+ rule + "}]}]") //
+					.numberOfTasks());
+		}
+	}
+
+	@Test
 	public void testTasks_getOneTasksBetween2() {
 		var clock = new TimeLeapClock(createDummyClock().instant(), ZoneId.of("Europe/Berlin"));
 		var tasks = JSCalendar.Tasks.<JsonObject>create(clock) //
@@ -1043,6 +1391,76 @@ public class JSCalendarTest {
 		var now = ZonedDateTime.now(clock);
 		var times = sut.getOccurrencesBetween(clock, now, now.plusWeeks(1));
 		assertEquals(0, times.size());
+	}
+
+	@Test
+	public void testTasks_getActiveOneTask_mergedLongerThanOneDay() {
+		// Adjacent Tasks of one payload merge into a OneTask from Sunday 15:00 to
+		// Friday 15:00, longer than the one-day query horizon
+		final var calendar = """
+				[{"@type":"Task","start":"2020-01-05T15:00:00","duration":"PT9H",\
+				"recurrenceRules":[{"frequency":"weekly","byDay":["su"]}]},\
+				{"@type":"Task","start":"2020-01-06T00:00:00","duration":"PT24H",\
+				"recurrenceRules":[{"frequency":"weekly","byDay":["mo","tu","we","th"]}]},\
+				{"@type":"Task","start":"2020-01-06T00:00:00","duration":"PT15H",\
+				"recurrenceRules":[{"frequency":"weekly","byDay":["fr"]}]}]""";
+		// start at every hour of a week, step two weeks in quarter hours
+		for (var hour = 0; hour < 7 * 24; hour++) {
+			final var clock = new TimeLeapClock(ZonedDateTime.of(2020, 1, 6, 0, 0, 0, 0, ZoneId.of("Europe/Berlin")) //
+					.plusHours(hour));
+			final var tasks = Tasks.fromStringOrEmpty(clock, calendar);
+			for (var quarter = 0; quarter < 14 * 96; quarter++) {
+				final var now = ZonedDateTime.now(clock);
+				final var expected = switch (now.getDayOfWeek()) {
+				case MONDAY, TUESDAY, WEDNESDAY, THURSDAY -> true;
+				case FRIDAY -> now.getHour() < 15;
+				case SATURDAY -> false;
+				case SUNDAY -> now.getHour() >= 15;
+				};
+				assertEquals("at " + now + " after a start at hour " + hour, expected,
+						tasks.getActiveOneTask() != null);
+				clock.leap(15, MINUTES);
+			}
+		}
+	}
+
+	@Test
+	public void testTasks_getActiveOneTask_seasonal() {
+		// A window every day from 08:00 to 12:00 from November to February and the
+		// evening before that season from 22:30 to 00:30
+		final var calendar = """
+				[{"@type":"Task","start":"2019-10-01T08:00:00","duration":"PT4H",\
+				"recurrenceRules":[{"frequency":"daily","byMonth":["11","12","1","2"]}],\
+				"openems.io:payload":{"value":"WINDOW"}},\
+				{"@type":"Task","start":"2019-10-01T22:30:00","duration":"PT2H",\
+				"recurrenceRules":[{"frequency":"daily","byMonth":["10"],"byMonthDay":[-1]}],\
+				"openems.io:payload":{"value":"EVE"}}]""";
+		final var clock = new TimeLeapClock(ZonedDateTime.of(2019, 10, 1, 0, 0, 0, 0, ZoneId.of("Europe/Berlin")));
+		final var tasks = Tasks.fromStringOrEmpty(clock, calendar, StringPayload.serializer());
+		assertEquals(2, tasks.numberOfTasks());
+
+		// Two seasons in steps of half an hour, over a leap day and four changes of
+		// daylight saving time
+		final var end = ZonedDateTime.of(2021, 4, 1, 0, 0, 0, 0, ZoneId.of("Europe/Berlin"));
+		for (var now = ZonedDateTime.now(clock); now.isBefore(end); now = ZonedDateTime.now(clock)) {
+			final var month = now.getMonthValue();
+			final var day = now.getDayOfMonth();
+			final var time = now.toLocalTime();
+			final String expected;
+			if ((month >= 11 || month <= 2) && now.getHour() >= 8 && now.getHour() < 12) {
+				expected = "WINDOW";
+			} else if ((month == 10 && day == 31 && !time.isBefore(LocalTime.of(22, 30)))
+					|| (month == 11 && day == 1 && time.isBefore(LocalTime.of(0, 30)))) {
+				expected = "EVE";
+			} else {
+				expected = null;
+			}
+
+			final var activeOneTask = tasks.getActiveOneTask();
+			assertEquals("at " + now, expected, activeOneTask == null ? null : activeOneTask.payload().value());
+			assertEquals("at " + now, expected == null ? List.of() : List.of(expected), activePayloads(tasks));
+			clock.leap(30, MINUTES);
+		}
 	}
 
 	private static record StringPayload(String value) {

@@ -23,11 +23,14 @@ import static java.util.Arrays.stream;
 import static java.util.Collections.emptyList;
 
 import java.time.Clock;
+import java.time.DateTimeException;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Month;
+import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
@@ -265,6 +268,12 @@ public class JSCalendar<PAYLOAD> {
 
 					} else { // END is exclusive
 						this.oneTasks.removeFirst(); // Remove outdated OneTasks
+						if (!this.oneTasks.isEmpty() && now.isBefore(this.oneTasks.getFirst().start)) {
+							// All remaining entries start in the future. They cannot be trusted: the
+							// expired entry may have been truncated to the query horizon and far-future
+							// entries would hide occurrences in between. Clear to force a refill.
+							this.oneTasks.clear();
+						}
 						result = this.getActiveOneTask();
 					}
 				}
@@ -281,6 +290,35 @@ public class JSCalendar<PAYLOAD> {
 		 */
 		public synchronized OneTask<PAYLOAD> getLastActiveOneTask() {
 			return this.lastActiveOneTask;
+		}
+
+		/**
+		 * Gets all {@link OneTask}s that are active now, in the order of their
+		 * {@link Task}s.
+		 *
+		 * <p>
+		 * {@link #getActiveOneTask()} answers which single {@link Task} applies now and
+		 * lets an earlier {@link Task} displace a later one for as long as the two
+		 * overlap. This method instead returns every {@link Task} whose occurrence
+		 * spans the current time, each with its full occurrence, for callers that
+		 * combine the payloads of all active {@link Task}s. A {@link Task} without
+		 * duration is never active here.
+		 *
+		 * @return the active {@link OneTask}s; empty if none is active
+		 */
+		public ImmutableList<OneTask<PAYLOAD>> getActiveOneTasks() {
+			final var now = ZonedDateTime.now(this.clock);
+			final var result = ImmutableList.<OneTask<PAYLOAD>>builder();
+			for (var task : this.tasks) {
+				if (task.duration.isZero()) {
+					continue;
+				}
+				task.getOccurrencesBetween(this.clock, now, now).stream() //
+						.filter(start -> !now.isBefore(start) && now.isBefore(start.plus(task.duration))) //
+						.min(Comparator.naturalOrder()) //
+						.ifPresent(start -> result.add(OneTask.from(task, start, task.duration)));
+			}
+			return result.build();
 		}
 
 		/**
@@ -992,10 +1030,26 @@ public class JSCalendar<PAYLOAD> {
 		}
 	}
 
-	public record RecurrenceRule(RecurrenceFrequency frequency, LocalDate until, ImmutableSortedSet<NDay> byDay) {
+	public record RecurrenceRule(RecurrenceFrequency frequency, LocalDate until,
+			ImmutableSortedSet<NDay> byDay, ImmutableSortedSet<Month> byMonth, ImmutableSortedSet<Integer> byMonthDay) {
 		// TODO "until" is defined as LocalDateTime in the RFC
 		// NOTE: "until" is 'inclusive'
 		// https://www.rfc-editor.org/rfc/rfc8984.html#section-4.3.3
+
+		/**
+		 * The longest gap between two occurrences of a valid day of the year, the 29th
+		 * of February around a century year that is no leap year.
+		 */
+		private static final Period MAX_OCCURRENCE_GAP = Period.ofYears(8);
+
+		public RecurrenceRule {
+			Objects.requireNonNull(byDay, "byDay cannot be null");
+			Objects.requireNonNull(byMonth, "byMonth cannot be null");
+			Objects.requireNonNull(byMonthDay, "byMonthDay cannot be null");
+			if (byMonthDay.stream().anyMatch(d -> d == 0 || d < -31 || d > 31)) {
+				throw new IllegalArgumentException("byMonthDay must be between -31 and 31 (excluding 0)");
+			}
+		}
 
 		/**
 		 * Returns a {@link JsonSerializer} for a {@link RecurrenceRule}.
@@ -1011,6 +1065,16 @@ public class JSCalendar<PAYLOAD> {
 									.mapToOptional(arr -> arr.getAsImmutableSortedSet(//
 											RecurrenceRule::deserializeByDayElement, //
 											Comparator.comparing(NDay::day)))//
+									.orElse(ImmutableSortedSet.of()), //
+							json.getNullableJsonArrayPath("byMonth") //
+									.mapToOptional(arr -> arr.getAsImmutableSortedSet(//
+											RecurrenceRule::deserializeByMonthElement, //
+											Comparator.<Month>naturalOrder()))//
+									.orElse(ImmutableSortedSet.of()), //
+							json.getNullableJsonArrayPath("byMonthDay") //
+									.mapToOptional(arr -> arr.getAsImmutableSortedSet(//
+											JsonElementPath::getAsInt, //
+											Comparator.<Integer>naturalOrder()))//
 									.orElse(ImmutableSortedSet.of())), //
 					obj -> buildJsonObject() //
 							.addPropertyIfNotNull("frequency", obj.frequency().name().toLowerCase()) //
@@ -1027,6 +1091,14 @@ public class JSCalendar<PAYLOAD> {
 									j.add("byDay", nDaySerializer().toSetSerializer().serialize(obj.byDay));
 								}
 							}) //
+							.onlyIf(!obj.byMonthDay.isEmpty(), //
+									j -> j.add("byMonthDay", obj.byMonthDay.stream() //
+											.map(JsonPrimitive::new) //
+											.collect(toJsonArray()))) //
+							.onlyIf(!obj.byMonth.isEmpty(), //
+									j -> j.add("byMonth", obj.byMonth.stream() //
+											.map(m -> new JsonPrimitive(Integer.toString(m.getValue()))) //
+											.collect(toJsonArray()))) //
 							.build());
 		}
 
@@ -1100,11 +1172,32 @@ public class JSCalendar<PAYLOAD> {
 			return DAY_TO_STRING.get(dow);
 		}
 
+		/**
+		 * Converts an element of `byMonth` to a {@link Month}. RFC 8984 defines the
+		 * months as strings like "11", but numbers like 11 are accepted as well. Leap
+		 * months like "3L" do not exist in the Gregorian calendar.
+		 *
+		 * @param el the element, e.g. "11"
+		 * @return a {@link Month} instance, e.g. {@link Month#NOVEMBER}
+		 */
+		protected static Month deserializeByMonthElement(JsonElementPath el) {
+			final var element = el.isNumber() //
+					? Integer.toString(el.getAsInt()) //
+					: el.getAsString();
+			try {
+				return Month.of(Integer.parseInt(element));
+			} catch (NumberFormatException | DateTimeException e) {
+				throw new OpenemsRuntimeException("Unable to parse value '" + element + "' to Month");
+			}
+		}
+
 		public static class Builder {
 			private RecurrenceFrequency frequency;
 			private LocalDate until;
 			private ImmutableSortedSet.Builder<NDay> byDay = ImmutableSortedSet
 					.orderedBy(Comparator.comparing(NDay::day));
+			private final ImmutableSortedSet.Builder<Month> byMonth = ImmutableSortedSet.naturalOrder();
+			private final ImmutableSortedSet.Builder<Integer> byMonthDay = ImmutableSortedSet.naturalOrder();
 
 			public Builder() {
 			}
@@ -1144,10 +1237,39 @@ public class JSCalendar<PAYLOAD> {
 				return this;
 			}
 
+			/**
+			 * Adds a `byMonth` rule. Limits the occurrences to the given months, for
+			 * example November, December, January and February for a season over the turn
+			 * of the year.
+			 *
+			 * @param byMonth the {@link Month}s
+			 * @return myself
+			 */
+			public Builder addByMonth(Month... byMonth) {
+				stream(byMonth).forEach(this.byMonth::add);
+				return this;
+			}
+
+			/**
+			 * Adds a `byMonthDay` rule. Limits the occurrences to the given days of the
+			 * month. Negative values count from the end of the month, for example -1 for
+			 * the last day.
+			 *
+			 * @param byMonthDay the days of the month, 1 to 31 or -31 to -1
+			 * @return myself
+			 */
+			public Builder addByMonthDay(int... byMonthDay) {
+				for (var day : byMonthDay) {
+					this.byMonthDay.add(day);
+				}
+				return this;
+			}
+
 			public RecurrenceRule build() {
 				Objects.requireNonNull(this.frequency);
 
 				var byDay = this.byDay.build();
+				var byMonthDay = this.byMonthDay.build();
 				switch (this.frequency) {
 				case DAILY, YEARLY -> {
 					if (!byDay.isEmpty()) {
@@ -1161,6 +1283,9 @@ public class JSCalendar<PAYLOAD> {
 					if (hasNthSet) {
 						LOG.warn("WARNING: nthOfPeriod is not allowed for WEEKLY recurrence");
 					}
+					if (!byMonthDay.isEmpty()) {
+						LOG.warn("WARNING: byMonthDay is not allowed for WEEKLY recurrence");
+					}
 					if (byDay.isEmpty()) {
 						// if no day is given, add all weekdays by default
 						byDay = Arrays.stream(DayOfWeek.values())//
@@ -1171,7 +1296,7 @@ public class JSCalendar<PAYLOAD> {
 					}
 				}
 				}
-				return new RecurrenceRule(this.frequency, this.until, byDay);
+				return new RecurrenceRule(this.frequency, this.until, byDay, this.byMonth.build(), byMonthDay);
 			}
 		}
 
@@ -1212,10 +1337,17 @@ public class JSCalendar<PAYLOAD> {
 		/**
 		 * Gets the next occurrence of the {@link RecurrenceRule} at or after a date.
 		 *
+		 * <p>
+		 * {@code byMonth} and {@code byMonthDay} limit the occurrences that
+		 * {@code frequency} and {@code byDay} produce to the given months and days of
+		 * the month of the occurrence's start in the {@link ZoneId} of the
+		 * {@link Clock}. A MONTHLY rule without {@code byDay} occurs on the days in
+		 * {@code byMonthDay} of every month.
+		 *
 		 * @param clock     a {@link Clock} providing a base {@link ZoneId}
 		 * @param taskStart the start timestamp of the {@link Task}
 		 * @param from      the 'from' date
-		 * @return a {@link ZonedDateTime}
+		 * @return a {@link ZonedDateTime}; null if there is no next occurrence
 		 */
 		public ZonedDateTime getNextOccurrence(Clock clock, LocalDateTime taskStart, ZonedDateTime from) {
 			final var taskStartZoned = taskStart.atZone(clock.getZone());
@@ -1224,7 +1356,33 @@ public class JSCalendar<PAYLOAD> {
 					: from;
 			from = from.withZoneSameInstant(clock.getZone());
 
-			final var result = switch (this.frequency) {
+			final var searchEnd = from.plus(MAX_OCCURRENCE_GAP);
+			while (true) {
+				final var result = this.getNextUnlimitedOccurrence(taskStart, from);
+				if (result == null //
+						|| (this.until != null && result.toLocalDate().isAfter(this.until)) //
+						|| result.isAfter(searchEnd)) {
+					return null;
+				}
+				final var date = result.toLocalDate();
+				if (!this.byMonth.isEmpty() && !this.byMonth.contains(date.getMonth())) {
+					from = date.withDayOfMonth(1).plusMonths(1).atStartOfDay(result.getZone());
+				} else if (!this.byMonthDay.isEmpty() && !this.isByMonthDay(date)) {
+					from = date.plusDays(1).atStartOfDay(result.getZone());
+				} else {
+					return result;
+				}
+			}
+		}
+
+		private boolean isByMonthDay(LocalDate date) {
+			final var day = date.getDayOfMonth();
+			return this.byMonthDay.contains(day) //
+					|| this.byMonthDay.contains(day - date.lengthOfMonth() - 1);
+		}
+
+		private ZonedDateTime getNextUnlimitedOccurrence(LocalDateTime taskStart, ZonedDateTime from) {
+			return switch (this.frequency) {
 			case DAILY -> this.determineEarliestNextOccurrence(taskStart, from);
 
 			case WEEKLY -> {
@@ -1236,8 +1394,11 @@ public class JSCalendar<PAYLOAD> {
 			}
 			case MONTHLY -> {
 				if (this.byDay.isEmpty()) {
-					// for now only byDay is implemented for MONTHLY
-					yield null;
+					// For now only byDay and byMonthDay are implemented for MONTHLY. Every day is a
+					// candidate for byMonthDay, which getNextOccurrence then limits.
+					yield this.byMonthDay.isEmpty() //
+							? null //
+							: this.determineEarliestNextOccurrence(taskStart, from);
 				}
 
 				// determine the earliest possible next occurrence
@@ -1269,12 +1430,6 @@ public class JSCalendar<PAYLOAD> {
 			}
 			case YEARLY -> null; // not implemented
 			};
-
-			// Check if result is after the 'until' date
-			if (this.until != null && result.toLocalDate().isAfter(this.until)) {
-				return null;
-			}
-			return result;
 		}
 
 		private NDay getNextDay(DayOfWeek dow) {

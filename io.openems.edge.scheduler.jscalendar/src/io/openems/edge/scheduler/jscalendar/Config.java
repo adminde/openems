@@ -20,7 +20,7 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 	@AttributeDefinition(name = "Always Run Before", description = "IDs of Controllers that should be executed _before_ other Controllers in the order of the IDs.")
 	String[] alwaysRunBeforeController_ids() default {};
 
-	@AttributeDefinition(name = "Calendar of active controllers", description = "Takes a JSON-Array in JSCalendar format")
+	@AttributeDefinition(name = "Calendar of active controllers", description = "Takes a JSON-Array in JSCalendar format. Tasks that are active at the same time run their Controllers in the order of the Tasks.")
 	String jsCalendar() default "[]";
 
 	@AttributeDefinition(name = "Always Run After", description = "IDs of Controllers that should be executed _after_ other Controllers in the order of the IDs.")

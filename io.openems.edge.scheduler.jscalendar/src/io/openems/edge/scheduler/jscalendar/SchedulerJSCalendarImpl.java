@@ -2,7 +2,9 @@ package io.openems.edge.scheduler.jscalendar;
 
 import static org.osgi.service.component.annotations.ConfigurationPolicy.REQUIRE;
 
+import java.time.Clock;
 import java.util.LinkedHashSet;
+import java.util.List;
 
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
@@ -15,6 +17,7 @@ import org.osgi.service.metatype.annotations.Designate;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.jscalendar.JSCalendar;
+import io.openems.common.jscalendar.JSCalendar.Tasks.OneTask;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.component.OpenemsComponent;
@@ -27,7 +30,8 @@ import io.openems.edge.scheduler.jscalendar.Utils.Payload;
 
 /**
  * This Scheduler returns all active Controllers from the JSCalendar including
- * the before/after controllers.
+ * the before/after controllers. Tasks that are active at the same time
+ * contribute their Controllers in the order of the Tasks in the calendar.
  */
 @Designate(ocd = Config.class, factory = true)
 @Component(//
@@ -41,6 +45,7 @@ public class SchedulerJSCalendarImpl extends AbstractOpenemsComponent
 
 	private Config config = null;
 	private JSCalendar.Tasks<Payload> tasks = JSCalendar.Tasks.empty();
+	private Clock tasksClock = null;
 
 	@Reference
 	private ConfigurationAdmin cm;
@@ -67,12 +72,45 @@ public class SchedulerJSCalendarImpl extends AbstractOpenemsComponent
 		super.modified(context, config.id(), config.alias(), config.enabled());
 	}
 
-	private void applyConfig(Config config) {
+	private synchronized void applyConfig(Config config) {
 		this.config = config;
-		this.tasks = config.enabled() //
-				? JSCalendar.Tasks.fromStringOrEmpty(this.componentManager.getClock(), //
-						config.jsCalendar(), Payload.serializer()) //
+		this.parseTasks(this.componentManager.getClock());
+	}
+
+	/**
+	 * Parses the configured calendar against the given {@link Clock}.
+	 *
+	 * @param clock the {@link Clock}
+	 */
+	private void parseTasks(Clock clock) {
+		this.tasksClock = clock;
+		this.tasks = this.config.enabled() //
+				? JSCalendar.Tasks.fromStringOrEmpty(clock, this.config.jsCalendar(), Payload.serializer()) //
 				: JSCalendar.Tasks.empty();
+	}
+
+	/**
+	 * Gets the {@link OneTask}s active under the ComponentManager's current
+	 * {@link Clock}.
+	 *
+	 * <p>
+	 * The {@link JSCalendar.Tasks} evaluate against the Clock they were parsed
+	 * with. The ComponentManager may hand out a different Clock after this
+	 * component has activated, and Tasks parsed before would keep evaluating the
+	 * previous one. They are therefore parsed again whenever the clock changes. The
+	 * system clock is handed out new but equal on every call, which leaves the
+	 * Tasks as they are. The stored clock is the one asked, because a system clock
+	 * only equals another system clock.
+	 *
+	 * @return the active {@link OneTask}s in the order of the calendar; empty if
+	 *         none is active
+	 */
+	private List<OneTask<Payload>> getActiveOneTasks() {
+		final var clock = this.componentManager.getClock();
+		if (!this.tasksClock.equals(clock)) {
+			this.parseTasks(clock);
+		}
+		return this.tasks.getActiveOneTasks();
 	}
 
 	@Override
@@ -88,11 +126,8 @@ public class SchedulerJSCalendarImpl extends AbstractOpenemsComponent
 		// Add "Always Run Before" Controllers
 		this.addControllersById(result, this.config.alwaysRunBeforeController_ids());
 
-		// Get and update Active-Task
-		var activeTask = this.tasks.getActiveOneTask();
-
-		// Add active controllers from JSCalendar
-		if (activeTask != null) {
+		// Add the controllers of every active task, in the order of the calendar
+		for (var activeTask : this.getActiveOneTasks()) {
 			this.addControllersById(result, activeTask.payload().controllerIds());
 		}
 
