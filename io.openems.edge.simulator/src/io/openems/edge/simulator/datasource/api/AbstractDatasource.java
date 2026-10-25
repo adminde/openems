@@ -83,6 +83,27 @@ public abstract class AbstractDatasource extends AbstractOpenemsComponent implem
 				.toList();
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>
+	 * The values start at the record the simulation is currently playing, so a
+	 * Predictor gets what lies ahead, not what the file started with.
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public <T> List<T> getNextValues(OpenemsType type, ChannelAddress channelAddress, int count) {
+		// First: try full ChannelAddress
+		var values = this.data.getNextValues(channelAddress.toString(), count);
+		if (values.isEmpty()) {
+			// Not found: try Channel-ID only (without Component-ID)
+			values = this.data.getNextValues(channelAddress.getChannelId(), count);
+		}
+		return values.stream() //
+				.map(v -> (T) TypeUtils.getAsType(type, v)) //
+				.toList();
+	}
+
 	@Override
 	public <T> T getValue(OpenemsType type, ChannelAddress channelAddress) {
 		// First: try full ChannelAddress

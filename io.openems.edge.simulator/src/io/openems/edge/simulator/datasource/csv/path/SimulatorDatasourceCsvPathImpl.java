@@ -75,7 +75,7 @@ public class SimulatorDatasourceCsvPathImpl extends AbstractDatasource
 	protected void handleNextTimeDelta(ZonedDateTime now) {
 		var nextTime = this.getData().getCurrentIndex();
 		this._setTimeDelta((int) Duration.between(now, nextTime).getSeconds() + 1);
-		this.logDebug(log, "Set time delta for next index '" + nextTime + "': " + this.getTimeDelta());
+		this.logDebug(this.log, "Set time delta for next index '" + nextTime + "': " + this.getTimeDelta());
 	}
 
 	@Override

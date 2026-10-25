@@ -3,6 +3,7 @@ package io.openems.edge.simulator.app;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
@@ -17,6 +18,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -37,6 +39,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonPrimitive;
 
+import io.openems.common.channel.AccessMode;
 import io.openems.common.exceptions.NotImplementedException;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
@@ -46,6 +49,7 @@ import io.openems.common.session.Role;
 import io.openems.common.test.TimeLeapClock;
 import io.openems.common.timedata.Resolution;
 import io.openems.common.types.ChannelAddress;
+import io.openems.common.types.MeterType;
 import io.openems.common.types.OpenemsType;
 import io.openems.common.utils.JsonUtils;
 import io.openems.common.worker.AbstractWorker;
@@ -60,8 +64,10 @@ import io.openems.edge.common.jsonapi.ComponentJsonApi;
 import io.openems.edge.common.jsonapi.EdgeGuards;
 import io.openems.edge.common.jsonapi.EdgeKeys;
 import io.openems.edge.common.jsonapi.JsonApiBuilder;
+import io.openems.edge.common.sum.Sum;
 import io.openems.edge.common.type.TypeUtils;
 import io.openems.edge.common.user.User;
+import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.simulator.app.ExecuteSimulationRequest.Profile;
 import io.openems.edge.simulator.datasource.api.SimulatorDatasource;
 import io.openems.edge.timedata.api.Timedata;
@@ -202,6 +208,15 @@ public class SimulatorAppImpl extends AbstractOpenemsComponent implements Simula
 		var timeLeapClock = new TimeLeapClock(//
 				request.clock.start.toInstant(), ZoneId.systemDefault());
 
+		// Past values are reduced to the current one per cycle (see
+		// alignPastValuesWithClock), which is exact only while a cycle leaps further
+		// than a Channel keeps its past values.
+		if (Duration.ofMillis(request.clock.timeleapPerCycle)
+				.compareTo(Duration.from(Channel.MAX_AGE_OF_PAST_VALUES)) < 0) {
+			this.logWarn(this.log, "Time-Leap of [" + request.clock.timeleapPerCycle
+					+ " ms] is shorter than the age of past values. Controllers only see the current value.");
+		}
+
 		// keep simulation data for later use
 		this.lastSimulation = null;
 		this.currentSimulation = new CurrentSimulation(user, request, timeLeapClock, response);
@@ -219,6 +234,7 @@ public class SimulatorAppImpl extends AbstractOpenemsComponent implements Simula
 		}
 		switch (event.getTopic()) {
 		case EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE:
+			this.alignPastValuesWithClock();
 			this.collectData();
 			break;
 		case EdgeEventConstants.TOPIC_CYCLE_AFTER_WRITE:
@@ -279,6 +295,53 @@ public class SimulatorAppImpl extends AbstractOpenemsComponent implements Simula
 			}
 		}
 		currentSimulation.addData(now, channels);
+	}
+
+	/**
+	 * Keys the past values of every Channel by the simulated time.
+	 *
+	 * <p>
+	 * Channels stamp their past values with the wall clock, while Controllers
+	 * query them with the simulated clock, e.g. the average of the last 100
+	 * seconds in Controller.Ess.GridOptimizedCharge. As the simulated time lies
+	 * before the wall clock, such a query returns every value of the last minutes
+	 * of wall clock, including those of the previous simulation. Within
+	 * {@link Channel#MAX_AGE_OF_PAST_VALUES} of simulated time there is only the
+	 * current value at a Time-Leap of 15 minutes, so that is what is kept.
+	 */
+	private void alignPastValuesWithClock() {
+		var currentSimulation = this.currentSimulation;
+		if (currentSimulation == null) {
+			return;
+		}
+		var now = LocalDateTime.now(currentSimulation.clock);
+		for (var component : this.componentManager.getEnabledComponents()) {
+			for (var channel : component.channels()) {
+				keepOnlyCurrentValue(channel, now);
+			}
+		}
+	}
+
+	private static <T> void keepOnlyCurrentValue(Channel<T> channel, LocalDateTime now) {
+		var pastValues = channel.getPastValues();
+		pastValues.clear();
+		// the value of a write-only Channel cannot be read, neither now nor as a
+		// past value, so it only needs clearing
+		if (channel.channelDoc().getAccessMode() != AccessMode.WRITE_ONLY) {
+			pastValues.put(now, channel.value());
+		}
+	}
+
+	/**
+	 * Clears the past values of every Channel, so that no value keyed by the
+	 * simulated time outlasts the simulation.
+	 */
+	private void clearPastValues() {
+		for (var component : this.componentManager.getEnabledComponents()) {
+			for (var channel : component.channels()) {
+				channel.getPastValues().clear();
+			}
+		}
 	}
 
 	/**
@@ -364,6 +427,9 @@ public class SimulatorAppImpl extends AbstractOpenemsComponent implements Simula
 
 		this.lastSimulation = this.currentSimulation;
 		this.currentSimulation = null;
+		if (currentSimulation != null) {
+			this.clearPastValues();
+		}
 		this.setCycleTime(Cycle.DEFAULT_CYCLE_TIME);
 
 		try {
@@ -412,10 +478,11 @@ public class SimulatorAppImpl extends AbstractOpenemsComponent implements Simula
 			var config = this.cm.getConfiguration("Ess.Power", null);
 			Dictionary<String, Object> properties = new Hashtable<>();
 			properties.put("enablePid", false);
+			properties.put("enablePT1Filter", false);
 			config.update(properties);
 		} catch (IOException e) {
 			this.logError(this.log,
-					"Unable to configure Ess.Power enabledPid. " + e.getClass() + ": " + e.getMessage());
+					"Unable to configure the Ess.Power filters. " + e.getClass() + ": " + e.getMessage());
 		}
 	}
 
@@ -471,27 +538,149 @@ public class SimulatorAppImpl extends AbstractOpenemsComponent implements Simula
 
 	@Override
 	public int getTimeDelta() {
-		return -1;
+		var simulation = this.currentSimulation;
+		if (simulation == null) {
+			return -1;
+		}
+		return simulation.request.clock.timeleapPerCycle / 1000;
 	}
 
 	@Override
 	public <T> List<T> getValues(OpenemsType type, ChannelAddress channelAddress) {
-		// TODO Auto-generated method stub
-		return List.of();
+		return this.collect(type, channelAddress, profile -> profile.values);
+	}
+
+	@Override
+	public <T> List<T> getNextValues(OpenemsType type, ChannelAddress channelAddress, int count) {
+		return this.collect(type, channelAddress, profile -> profile.getNextValues(count));
+	}
+
+	/**
+	 * Gets the values of a Channel, taking from each {@link Profile} whatever
+	 * {@code fromProfile} selects. A Channel with a Profile of its own plays that
+	 * Profile. The Sum-Channels for production and consumption, which Predictors
+	 * are asked for, have no Profile; they are added up from the Profiles of the
+	 * meters of the matching {@link MeterType}, so a simulation only has to
+	 * provide the meter Profiles.
+	 *
+	 * @param <T>            the type
+	 * @param type           the expected type
+	 * @param channelAddress the {@link ChannelAddress}
+	 * @param fromProfile    selects the values to take from one Profile
+	 * @return the values; empty if nothing matches
+	 */
+	@SuppressWarnings("unchecked")
+	private <T> List<T> collect(OpenemsType type, ChannelAddress channelAddress,
+			Function<Profile, List<Integer>> fromProfile) {
+		var simulation = this.currentSimulation;
+		if (simulation == null) {
+			return List.of();
+		}
+		var meters = this.componentManager.getEnabledComponentsOfType(ElectricityMeter.class);
+		return sumProfiles(simulation.request, channelAddress, meters, fromProfile).stream() //
+				.map(v -> (T) TypeUtils.getAsType(type, v)) //
+				.toList();
 	}
 
 	@Override
 	public <T> T getValue(OpenemsType type, ChannelAddress channelAddress) {
-		if (this.currentSimulation == null) {
+		var simulation = this.currentSimulation;
+		if (simulation == null) {
 			return null;
 		}
-		// First: try full ChannelAddress
-		var profile = this.currentSimulation.request.profiles.get(channelAddress.toString());
+		var profile = simulation.request.getProfile(channelAddress);
 		if (profile == null) {
-			// Not found: try Channel-ID only (without Component-ID)
-			profile = this.currentSimulation.request.profiles.get(channelAddress.getChannelId());
+			return null;
 		}
 		return TypeUtils.getAsType(type, profile.getCurrentValue());
+	}
+
+	/**
+	 * Takes {@code fromProfile} of the Channel's own {@link Profile}, or, for a
+	 * Sum-Channel, of every meter Profile that feeds it, added up slot by slot.
+	 *
+	 * @param request        the {@link ExecuteSimulationRequest}
+	 * @param channelAddress the {@link ChannelAddress}
+	 * @param meters         the enabled {@link ElectricityMeter}s
+	 * @param fromProfile    selects the values to take from one Profile
+	 * @return the values; empty if nothing matches
+	 */
+	protected static List<Integer> sumProfiles(ExecuteSimulationRequest request, ChannelAddress channelAddress,
+			List<ElectricityMeter> meters, Function<Profile, List<Integer>> fromProfile) {
+		var profile = request.getProfile(channelAddress);
+		if (profile != null) {
+			return fromProfile.apply(profile);
+		}
+		if (!Sum.SINGLETON_COMPONENT_ID.equals(channelAddress.getComponentId())) {
+			return List.of();
+		}
+		List<Integer> sum = null;
+		for (var meter : meters) {
+			if (!feedsSumChannel(channelAddress.getChannelId(), meter.getMeterType())) {
+				continue;
+			}
+			var meterProfile = request
+					.getProfile(new ChannelAddress(meter.id(), ElectricityMeter.ChannelId.ACTIVE_POWER.id()));
+			if (meterProfile != null) {
+				sum = add(sum, fromProfile.apply(meterProfile));
+			}
+		}
+		return sum == null ? List.of() : sum;
+	}
+
+	/**
+	 * Whether a meter of the given {@link MeterType} contributes to a Sum-Channel.
+	 *
+	 * @param sumChannelId the Channel-ID of the Sum-Channel
+	 * @param meterType    the {@link MeterType}
+	 * @return true if the meter is one of the Channel's sources
+	 */
+	private static boolean feedsSumChannel(String sumChannelId, MeterType meterType) {
+		return switch (sumChannelId) {
+		case "ProductionActivePower" -> switch (meterType) {
+		case PRODUCTION, PRODUCTION_AND_CONSUMPTION -> true;
+		default -> false;
+		};
+		case "ConsumptionActivePower" -> switch (meterType) {
+		case CONSUMPTION_METERED, CONSUMPTION_NOT_METERED, MANAGED_CONSUMPTION_METERED -> true;
+		default -> false;
+		};
+		case "UnmanagedConsumptionActivePower" -> switch (meterType) {
+		case CONSUMPTION_METERED, CONSUMPTION_NOT_METERED -> true;
+		default -> false;
+		};
+		default -> false;
+		};
+	}
+
+	/**
+	 * Adds two value lists slot by slot, up to the shorter one. A null on one
+	 * side counts as 0, a slot that is null on both stays null.
+	 *
+	 * @param sum    the sum so far; null before the first list
+	 * @param values the list to add
+	 * @return the sum per slot
+	 */
+	private static List<Integer> add(List<Integer> sum, List<Integer> values) {
+		if (sum == null) {
+			return values;
+		}
+		var size = Math.min(sum.size(), values.size());
+		var result = new ArrayList<Integer>(size);
+		for (var i = 0; i < size; i++) {
+			var a = sum.get(i);
+			var b = values.get(i);
+			// spelled out: a conditional operator would unbox and throw on a
+			// slot that is null on both sides
+			if (a == null) {
+				result.add(b);
+			} else if (b == null) {
+				result.add(a);
+			} else {
+				result.add(a + b);
+			}
+		}
+		return result;
 	}
 
 	@Override

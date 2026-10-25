@@ -70,6 +70,26 @@ public class DataContainer {
 	}
 
 	/**
+	 * Gets the values for the key from the current record onwards, at most
+	 * {@code count} of them.
+	 *
+	 * @param key   the Channel-Id
+	 * @param count the maximum number of values
+	 * @return the record values from the current one
+	 */
+	public List<Float> getNextValues(String key, int count) {
+		var index = this.getKeyIndex(key);
+		if (index == null) {
+			return List.of();
+		}
+		var from = Math.max(this.currentIndex, 0);
+		var to = (int) Math.min((long) from + count, this.records.size());
+		return this.records.subList(from, to).stream() //
+				.map(a -> a[index]) //
+				.toList();
+	}
+
+	/**
 	 * Gets the value for the key from the current record. If no keys exist, get the
 	 * first value of the record.
 	 *

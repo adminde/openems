@@ -122,6 +122,12 @@ public class CsvIndexDataContainer extends CsvDataContainer {
 		this.indexMode = index;
 	}
 
+	/**
+	 * Parses the header line and registers the contained keys. The timestamp
+	 * column is removed from the keys and used as the index column.
+	 *
+	 * @param line the header line
+	 */
 	public void addHeader(String line) {
 		var keys = Stream.of(line.split(this.format.lineSeparator)).collect(Collectors.toCollection(ArrayList::new));
 		this.indexNum = keys.indexOf(TIMESTAMP);
@@ -132,14 +138,25 @@ public class CsvIndexDataContainer extends CsvDataContainer {
 		this.setKeys(keys.toArray(s -> new String[s]));
 	}
 
+	/**
+	 * Parses a data line and adds it as an indexed record.
+	 *
+	 * @param line the data line
+	 */
 	public void addLine(String line) {
 		var values = Stream.of(line.split(this.format.lineSeparator)).collect(Collectors.toCollection(ArrayList::new));
 		var index = values.remove(this.indexNum);
-		var record = parseFloat(values.toArray(s -> new String[s]));
+		var record = this.parseFloat(values.toArray(s -> new String[s]));
 		this.addIndex(index);
 		this.addRecord(record);
 	}
 
+	/**
+	 * Parses the index value of a data line according to the configured index
+	 * mode and adds it to the index.
+	 *
+	 * @param index the raw index value
+	 */
 	public void addIndex(String index) {
 	    index = index == null ? "" : index.trim();
         switch (this.indexMode) {
@@ -164,7 +181,7 @@ public class CsvIndexDataContainer extends CsvDataContainer {
                 if (index.isEmpty()) {
                     throw new IllegalArgumentException("YYYYMMDD_HHMMSS requires a datetime value");
                 }
-                OffsetDateTime timestamp = parseOffsetDateTime(index);
+                OffsetDateTime timestamp = this.parseOffsetDateTime(index);
                 this.index.add(timestamp.toZonedDateTime());
                 break;
             case HHMMSS:
@@ -200,6 +217,11 @@ public class CsvIndexDataContainer extends CsvDataContainer {
 	    throw new IllegalArgumentException("Cannot parse datetime (expected [yyyy-]MM-dd[T| ]HH:mm:ssZ): " + value);
 	}
 
+	/**
+	 * Gets the list of index timestamps.
+	 *
+	 * @return the index
+	 */
 	public List<ZonedDateTime> getIndex() {
 		return this.index;
 	}
@@ -218,6 +240,8 @@ public class CsvIndexDataContainer extends CsvDataContainer {
 
 	/**
 	 * Switch to the next row of values.
+	 *
+	 * @param now the current time; used to rewind after the last record
 	 */
 	public void nextRecord(ZonedDateTime now) {
 		this.currentIndex++;
@@ -228,11 +252,19 @@ public class CsvIndexDataContainer extends CsvDataContainer {
 
 	/**
 	 * Rewinds the data to start again at the first record.
+	 *
+	 * @param now the current time
 	 */
 	public void rewind(ZonedDateTime now) {
 		this.initialize(now);
 	}
 
+	/**
+	 * Positions the index on the record closest to the target time, shifting the
+	 * index years to the target year if necessary.
+	 *
+	 * @param target the target time
+	 */
 	public void initialize(ZonedDateTime target) {
 		ZonedDateTime result = this.index.get(0);
 		long resultDelta = Long.MAX_VALUE;
@@ -265,7 +297,7 @@ public class CsvIndexDataContainer extends CsvDataContainer {
 		if (resultYearDelta != 0) {
 			result = result.plusYears(resultYearDelta);
 			IntStream.range(0, this.index.size()) //
-					.forEach(i -> index.set(i, index.get(i).plusYears(resultYearDelta)));
+					.forEach(i -> this.index.set(i, this.index.get(i).plusYears(resultYearDelta)));
 		}
 		this.currentIndex = this.index.indexOf(result);
 

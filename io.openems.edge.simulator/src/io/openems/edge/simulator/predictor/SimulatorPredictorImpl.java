@@ -1,12 +1,12 @@
 package io.openems.edge.simulator.predictor;
 
+import static io.openems.common.utils.DateUtils.roundDownToQuarter;
 import static org.osgi.service.component.annotations.ReferenceCardinality.MANDATORY;
 import static org.osgi.service.component.annotations.ReferencePolicy.STATIC;
 import static org.osgi.service.component.annotations.ReferencePolicyOption.GREEDY;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.LinkedList;
+import java.util.List;
 
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -75,23 +75,63 @@ public class SimulatorPredictorImpl extends AbstractPredictor
 		return this.componentManager;
 	}
 
+	/** Quarter hours a Prediction covers: two days. */
+	private static final int HORIZON_QUARTERS = 48 /* hours */ * 4 /* quarters per hour */;
+
+	/** Seconds between two Datasource values when it does not say. */
+	private static final int DEFAULT_TIME_DELTA = 300;
+
 	@Override
 	protected Prediction createNewPrediction(ChannelAddress channelAddress) {
-		var source = this.datasource.<Integer>getValues(OpenemsType.INTEGER, channelAddress);
+		var timeDelta = this.datasource.getTimeDelta();
+		if (timeDelta <= 0) {
+			timeDelta = DEFAULT_TIME_DELTA;
+		}
+		// Ask the Datasource for exactly as much as the horizon needs. The
+		// horizon is the Predictor's own business, so the Datasource never has
+		// to guess one.
+		var count = (int) Math.ceil((double) HORIZON_QUARTERS * 900 / timeDelta);
+		var source = this.datasource.<Integer>getNextValues(OpenemsType.INTEGER, channelAddress, count);
 		if (source.isEmpty()) {
 			return Prediction.EMPTY_PREDICTION;
 		}
-		// Fill 48 hours starting from midnight; assume Datasource provides one vale per
-		// 5 minutes
-		var values = new Integer[48 /* hours */ * 4 /* quarters per hour */];
-		var cache = new LinkedList<Integer>();
-		for (var i = 0; i < values.length; i++) {
-			while (cache.size() < 3) {
-				cache.addAll(source);
+		// Rasterized to quarter hours, starting at the CURRENT quarter hour,
+		// which is where consumers like the GridOptimizedCharge controller read
+		// index 0 (see its predictionStartQuarterHour).
+		var values = rasterize(source, timeDelta, HORIZON_QUARTERS);
+		var now = roundDownToQuarter(Instant.now(this.componentManager.getClock()));
+		return Prediction.from(now, values);
+	}
+
+	/**
+	 * Rasterizes values that lie timeDelta seconds apart onto quarter hours:
+	 * several values per quarter hour are averaged, a value spanning several
+	 * quarter hours is repeated. A source shorter than the requested range is
+	 * cycled.
+	 *
+	 * @param source           the values, starting now
+	 * @param timeDeltaSeconds the seconds between two values
+	 * @param quarters         the number of quarter hours to fill
+	 * @return one value per quarter hour
+	 */
+	protected static Integer[] rasterize(List<Integer> source, int timeDeltaSeconds, int quarters) {
+		var result = new Integer[quarters];
+		if (timeDeltaSeconds <= 900) {
+			var perQuarter = Math.max(1, Math.round(900f / timeDeltaSeconds));
+			var chunk = new Integer[perQuarter];
+			var index = 0;
+			for (var i = 0; i < quarters; i++) {
+				for (var j = 0; j < perQuarter; j++) {
+					chunk[j] = source.get(index++ % source.size());
+				}
+				result[i] = TypeUtils.averageInt(chunk);
 			}
-			values[i] = TypeUtils.averageInt(cache.poll(), cache.poll(), cache.poll());
+		} else {
+			var quartersPerValue = Math.max(1, Math.round(timeDeltaSeconds / 900f));
+			for (var i = 0; i < quarters; i++) {
+				result[i] = source.get(i / quartersPerValue % source.size());
+			}
 		}
-		var today = Instant.now(this.componentManager.getClock()).truncatedTo(ChronoUnit.DAYS);
-		return Prediction.from(today, values);
+		return result;
 	}
 }
