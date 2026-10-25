@@ -9,7 +9,7 @@ import { CommonUiModule } from "src/app/shared/common-ui.module";
 import { ComponentsBaseModule } from "src/app/shared/components/components.module";
 
 import { PickdateComponentModule } from "src/app/shared/components/pickdate/pickdate.module";
-import { QueryHistoricTimeseriesExportXlxsRequest } from "src/app/shared/jsonrpc/request/queryHistoricTimeseriesExportXlxs";
+import { QueryHistoricTimeseriesExportXlsxRequest } from "src/app/shared/jsonrpc/request/queryHistoricTimeseriesExportXlsx";
 import { Base64PayloadResponse } from "src/app/shared/jsonrpc/response/base64PayloadResponse";
 import { Service } from "src/app/shared/shared";
 import { Language } from "src/app/shared/type/language";
@@ -68,14 +68,14 @@ export class HistoryExcelExportComponent {
                 iconName: "download-outline",
                 contentText: this.translate.instant("HISTORY_EXPORT.DESCRIPTION"),
                 buttonText: this.translate.instant("HISTORY_EXPORT.DOWNLOAD_AS_XLSX"),
-                buttonCallback: () => this.exportToXlxs(),
+                buttonCallback: () => this.exportToXlsx(),
                 buttonIconName: "download-outline",
             },
         ]);
     }
 
     /** Export historic data to Excel file. */
-    protected exportToXlxs() {
+    protected exportToXlsx() {
         if (this.platFormService.getDevice()?.isApp()) {
             this.service.toast(this.translate.instant("APP.FUNCTIONALITY_TEMPORARILY_NOT_AVAILABLE"), "warning");
             return;
@@ -97,7 +97,7 @@ export class HistoryExcelExportComponent {
 
         edge.sendRequest(
             this.service.websocket,
-            new QueryHistoricTimeseriesExportXlxsRequest(maxDate, this.service.historyPeriod.value.to),
+            new QueryHistoricTimeseriesExportXlsxRequest(maxDate, this.service.historyPeriod.value.to),
         )
             .then((response) => {
                 const r = response as Base64PayloadResponse;

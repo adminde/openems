@@ -28,7 +28,7 @@ import io.openems.common.jsonrpc.request.GetEdgeConfigRequest;
 import io.openems.common.jsonrpc.request.QueryHistoricTimeseriesDataRequest;
 import io.openems.common.jsonrpc.request.QueryHistoricTimeseriesEnergyPerPeriodRequest;
 import io.openems.common.jsonrpc.request.QueryHistoricTimeseriesEnergyRequest;
-import io.openems.common.jsonrpc.request.QueryHistoricTimeseriesExportXlxsRequest;
+import io.openems.common.jsonrpc.request.QueryHistoricTimeseriesExportXlsxRequest;
 import io.openems.common.jsonrpc.response.EdgeRpcResponse;
 import io.openems.common.jsonrpc.response.GetEdgeConfigResponse;
 import io.openems.common.jsonrpc.response.QueryHistoricTimeseriesDataResponse;
@@ -80,8 +80,10 @@ public class EdgeRpcRequestHandler {
 		case QueryHistoricTimeseriesEnergyPerPeriodRequest.METHOD -> this.handleQueryHistoricEnergyPerPeriodRequest(
 				edgeId, user, QueryHistoricTimeseriesEnergyPerPeriodRequest.from(request));
 
-		case QueryHistoricTimeseriesExportXlxsRequest.METHOD -> this.handleQueryHistoricTimeseriesExportXlxsRequest(
-				edgeId, user, QueryHistoricTimeseriesExportXlxsRequest.from(request));
+		case QueryHistoricTimeseriesExportXlsxRequest.METHOD,
+				QueryHistoricTimeseriesExportXlsxRequest.METHOD_ALIAS ->
+			this.handleQueryHistoricTimeseriesExportXlsxRequest(
+					edgeId, user, QueryHistoricTimeseriesExportXlsxRequest.from(request));
 
 		case GetEdgeConfigRequest.METHOD ->
 			this.handleGetEdgeConfigRequest(edgeId, user, GetEdgeConfigRequest.from(request));
@@ -263,23 +265,23 @@ public class EdgeRpcRequestHandler {
 	}
 
 	/**
-	 * Handles a {@link QueryHistoricTimeseriesExportXlxsRequest}.
+	 * Handles a {@link QueryHistoricTimeseriesExportXlsxRequest}.
 	 *
 	 * @param edgeId  the Edge-ID
 	 * @param user    the {@link User}
-	 * @param request the {@link QueryHistoricTimeseriesExportXlxsRequest}
+	 * @param request the {@link QueryHistoricTimeseriesExportXlsxRequest}
 	 * @return the Future JSON-RPC Response
 	 * @throws OpenemsNamedException on error
 	 */
-	private CompletableFuture<JsonrpcResponseSuccess> handleQueryHistoricTimeseriesExportXlxsRequest(String edgeId,
-			User user, QueryHistoricTimeseriesExportXlxsRequest request) {
-		return this.parent.submitQueryRequest("handleQueryHistoricTimeseriesExportXlxsRequest", () -> {
-			return this.handleQueryHistoricTimeseriesExportXlxsRequest(edgeId, request, user.getLanguage());
+	private CompletableFuture<JsonrpcResponseSuccess> handleQueryHistoricTimeseriesExportXlsxRequest(String edgeId,
+			User user, QueryHistoricTimeseriesExportXlsxRequest request) {
+		return this.parent.submitQueryRequest("handleQueryHistoricTimeseriesExportXlsxRequest", () -> {
+			return this.handleQueryHistoricTimeseriesExportXlsxRequest(edgeId, request, user.getLanguage());
 		});
 	}
 
-	private QueryHistoricTimeseriesExportXlsxResponse handleQueryHistoricTimeseriesExportXlxsRequest(String edgeId,
-			QueryHistoricTimeseriesExportXlxsRequest request, Language language) throws OpenemsNamedException {
+	private QueryHistoricTimeseriesExportXlsxResponse handleQueryHistoricTimeseriesExportXlsxRequest(String edgeId,
+			QueryHistoricTimeseriesExportXlsxRequest request, Language language) throws OpenemsNamedException {
 		final var powerChannels = new TreeSet<ChannelAddress>(QueryHistoricTimeseriesExportXlsxResponse.POWER_CHANNELS);
 		final var energyChannels = new TreeSet<ChannelAddress>(
 				QueryHistoricTimeseriesExportXlsxResponse.ENERGY_CHANNELS);
@@ -304,7 +306,7 @@ public class EdgeRpcRequestHandler {
 					request.getToDate(), powerData, energyData, language, detailData);
 
 		} catch (IOException e) {
-			throw new OpenemsException("QueryHistoricTimeseriesExportXlxsRequest failed: " + e.getMessage());
+			throw new OpenemsException("QueryHistoricTimeseriesExportXlsxRequest failed: " + e.getMessage());
 		}
 	}
 
