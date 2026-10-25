@@ -101,9 +101,10 @@ public class DefaultConfigurationWorker extends ComponentManagerWorker {
 		 * Create Timedata.Rrd4j
 		 */
 		if (existingConfigs.stream().noneMatch(c -> //
-		// Check if either "Timedata.Rrd4j" or
-		// "Timedata.InfluxDB" exist
-		"Timedata.Rrd4j".equals(c.factoryPid) || "Timedata.InfluxDB".equals(c.factoryPid))) {
+		// Check if any Timedata implementation exists
+		"Timedata.Rrd4j".equals(c.factoryPid)
+				|| "Timedata.InfluxDB".equals(c.factoryPid)
+				|| "Timedata.TimescaleDB".equals(c.factoryPid))) {
 			// if not -> create configuration for "Timedata.Rrd4j"
 			this.createConfiguration(defaultConfigurationFailed, "Timedata.Rrd4j", Arrays.asList(//
 					new Property("id", "rrd4j0"), //
