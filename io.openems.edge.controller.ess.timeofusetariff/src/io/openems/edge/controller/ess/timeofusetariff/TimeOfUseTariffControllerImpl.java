@@ -370,8 +370,24 @@ public class TimeOfUseTariffControllerImpl extends AbstractOpenemsComponent impl
 
 	private List<StateMachine> getActiveModes() {
 		final var activeModes = new ArrayList<>(this.config.controlMode().modes);
+		// CHARGE_GRID buys energy from the grid, which Meta may withhold. Read through
+		// the same accessor the other ESS Controllers use, so that an installation
+		// which withholds the permission gets the same answer from all of them.
+		if (!this.meta.getIsEssChargeFromGridAllowed()) {
+			activeModes.remove(StateMachine.CHARGE_GRID);
+		}
 		final boolean hasGridOptimizedCharge = this.ctrlGridOptimizedCharges.stream()//
 				.anyMatch(ctrl -> ctrl.getMode() != io.openems.edge.controller.ess.gridoptimizedcharge.Mode.OFF);
+		// DELAY_CHARGE leaves the surplus to the grid instead of storing it. The
+		// modes of every control mode store the surplus. With a time-of-use sell
+		// price that is how a site sells at a high price and stores at a low one,
+		// or waits empty for a cheaper period. Without one exporting never beats
+		// storing, so the control modes keep their sets and only the grid
+		// optimized charge brings the mode along below.
+		final boolean hasTimeOfUseSellPrice = this.tariffManager.getGridSellDayAheadPrices().asArray().length > 0;
+		if (hasTimeOfUseSellPrice && !hasGridOptimizedCharge) {
+			activeModes.add(StateMachine.DELAY_CHARGE);
+		}
 		if (hasGridOptimizedCharge) {
 			activeModes.addAll(List.of(//
 					StateMachine.DELAY_CHARGE, //

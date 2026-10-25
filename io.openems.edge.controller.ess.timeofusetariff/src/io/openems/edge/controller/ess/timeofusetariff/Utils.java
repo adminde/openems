@@ -54,7 +54,16 @@ public final class Utils {
 	 */
 	public static final float ESS_CHARGE_C_RATE = 0.5F;
 
-	// TODO dynamic
+	/**
+	 * C-Rate during {@link StateMachine#DISCHARGE_GRID}, clamped to the inverter
+	 * rating. It mirrors {@link #ESS_CHARGE_C_RATE}.
+	 */
+	public static final float ESS_DISCHARGE_C_RATE = 0.5F;
+
+	/**
+	 * Fallback discharge power in {@link StateMachine#DISCHARGE_GRID} while the
+	 * ESS capacity or rating is still undefined.
+	 */
 	public static final int ESS_DISCHARGE_TO_GRID_POWER = 5000; // [W]
 
 	public static final ChannelAddress SUM_PRODUCTION = new ChannelAddress("_sum", "ProductionActivePower");
@@ -86,7 +95,8 @@ public final class Utils {
 		case DELAY_DISCHARGE -> calculateDelayDischarge(ess, essActivePower, balancingSetpoint);
 		case CHARGE_GRID, PEAK_SHAVING -> calculateChargeGrid(ess, essActivePower, gridActivePower, balancingSetpoint,
 				gridBuySoftLimit, optimizationContext);
-		case DISCHARGE_GRID -> calculateDischargeGrid(essActivePower, gridActivePower);
+		case DISCHARGE_GRID -> calculateDischargeGrid(ess, essActivePower, gridActivePower, balancingSetpoint,
+				gridSellHardLimit, optimizationContext);
 		case DELAY_CHARGE -> calculateLimitCharge(ess, essActivePower, 0, balancingSetpoint);
 		case LIMIT_CHARGE -> {
 			final var limitChargePower = calculateLimitChargePower(ess, optimizationContext, clock);
@@ -133,16 +143,30 @@ public final class Utils {
 		}
 	}
 
-	static ApplyMode calculateDischargeGrid(int essActivePower, int gridActivePower) {
+	static ApplyMode calculateDischargeGrid(ManagedSymmetricEss ess, int essActivePower, int gridActivePower,
+			int pwrBalancing, int gridSellHardLimit, OptimizationContext coc) {
 		var realGridPower = gridActivePower + essActivePower; // 'real', without current ESS charge/discharge
-		var essDischargeInDischargeGrid = ESS_DISCHARGE_TO_GRID_POWER; // [W]
-		var targetDischargePower = essDischargeInDischargeGrid + max(0, realGridPower);
-		// TODO limit grid-sell power
-		// var effectiveGridSellPower = min(0, realGridPower) + targetDischargePower;
-		// var chargePower = max(0, targetChargePower - max(0, effectiveGridBuyPower -
-		// maxChargePowerFromGrid));
 
-		return new ApplyMode(DISCHARGE_GRID, targetDischargePower);
+		var soc = ess.getSoc();
+		if (soc.isDefined() && soc.get() <= coc.minSocInDischargeGrid()) {
+			// The storage is at or below its floor and has nothing left to sell. The
+			// surplus the schedule meant to sell stays with the grid, so the storage
+			// idles instead of storing it. A site with a deficit keeps serving its
+			// consumption, which is BALANCING.
+			return calculateLimitCharge(ess, essActivePower, 0, pwrBalancing);
+		}
+
+		var essDischargeInDischargeGrid = calculateDischargePowerInDischargeGrid(ess); // [W]
+		var targetDischargePower = essDischargeInDischargeGrid + max(0, realGridPower);
+
+		// Discharge to grid, limited by the grid sell limit. The limit bounds how much
+		// the mode sells and does not end the mode.
+		var power = min(targetDischargePower, pwrBalancing + gridSellHardLimit);
+		if (power == pwrBalancing) {
+			// ...but actually same as BALANCING
+			return new ApplyMode(BALANCING, pwrBalancing);
+		}
+		return new ApplyMode(DISCHARGE_GRID, power);
 	}
 
 	static ApplyMode calculateDelayDischarge(//
@@ -277,6 +301,34 @@ public final class Utils {
 						.average() //
 						.orElse(maxEnergyInChargeGrid) //
 						* ESS_CHARGE_C_RATE);
+	}
+
+	/**
+	 * Calculates the ESS discharge power in {@link StateMachine#DISCHARGE_GRID}
+	 * for the live apply path: {@link #ESS_DISCHARGE_C_RATE} of the capacity,
+	 * clamped to the inverter rating.
+	 *
+	 * @param ess the {@link ManagedSymmetricEss}
+	 * @return the value in [W]
+	 */
+	static int calculateDischargePowerInDischargeGrid(ManagedSymmetricEss ess) {
+		var capacity = ess.getCapacity();
+		var maxApparentPower = ess.getMaxApparentPower();
+		if (!capacity.isDefined() || !maxApparentPower.isDefined()) {
+			return ESS_DISCHARGE_TO_GRID_POWER;
+		}
+		return min(round(capacity.get() * ESS_DISCHARGE_C_RATE), maxApparentPower.get());
+	}
+
+	/**
+	 * Same as {@link #calculateDischargePowerInDischargeGrid(ManagedSymmetricEss)}
+	 * for the schedule simulation.
+	 *
+	 * @param goc the {@link GlobalOptimizationContext}
+	 * @return the value in [W]
+	 */
+	static int calculateDischargePowerInDischargeGrid(GlobalOptimizationContext goc) {
+		return min(round(goc.ess().totalEnergy() * ESS_DISCHARGE_C_RATE), goc.ess().maxDischargePower());
 	}
 
 	private static Integer calculatePeakShavingPower(int essActivePower, int gridActivePower, Integer gridSoftLimit) {

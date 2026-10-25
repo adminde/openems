@@ -4,6 +4,8 @@ import static io.openems.edge.controller.ess.timeofusetariff.EnergyScheduler.app
 import static io.openems.edge.controller.ess.timeofusetariff.EnergyScheduler.applyDischargeConsumption;
 import static io.openems.edge.controller.ess.timeofusetariff.EnergyScheduler.applyLimitCharge;
 import static io.openems.edge.controller.ess.timeofusetariff.EnergyScheduler.buildEnergyScheduleHandler;
+import static io.openems.edge.controller.ess.timeofusetariff.StateMachine.DELAY_CHARGE;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,8 +19,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.google.common.collect.ImmutableList;
+
+import io.openems.common.exceptions.OpenemsException;
 import io.openems.edge.controller.test.DummyController;
+import io.openems.edge.energy.api.handler.Fitness;
 import io.openems.edge.energy.api.simulation.EnergyFlow;
+import io.openems.edge.energy.api.simulation.GlobalScheduleContext;
 import io.openems.edge.energy.api.test.EnergyScheduleTester;
 
 class EnergySchedulerTest {
@@ -87,6 +94,80 @@ class EnergySchedulerTest {
 		// Initial Population: DELAY_DISCHARGE, CHARGE_GRID and DISCHARGE_GRID
 		var ip = t.perEsh.get(0).initialPopulation();
 		assertEquals(5, ip.size());
+	}
+
+	@Test
+	void testDischargeToGrid_aboveTheFloor() {
+		var esh = buildEnergyScheduleHandler(new DummyController("ctrl0"),
+				() -> new EnergyScheduler.Config(ControlMode.DISCHARGE_TO_GRID.modes, null, null));
+		var t = EnergyScheduleTester.from(esh);
+
+		// 5 kWh of 22 kWh. Half the capacity per hour is 11 kW, 2750 Wh per quarter,
+		// on top of the 106 Wh the consumption takes.
+		var t0 = t.simulatePeriod(3 /* DISCHARGE_GRID */);
+		assertEquals(0, t0.fitness().build().hardConstraintViolations());
+		assertEquals(2856, t0.ef().solve().getEss());
+	}
+
+	@Test
+	void testDischargeToGrid_atTheFloor() throws OpenemsException {
+		var esh = buildEnergyScheduleHandler(new DummyController("ctrl0"),
+				() -> new EnergyScheduler.Config(ControlMode.DISCHARGE_TO_GRID.modes, null, null));
+		var t = EnergyScheduleTester.from(esh);
+
+		// Leave 220 Wh, the one percent floor of the 22 kWh storage.
+		var gsc = GlobalScheduleContext.from(t.goc);
+		gsc.ess.calculateInitialEnergy(4780);
+		var period = t.goc.periods().get(0);
+		var ef = EnergyFlow.Model.from(gsc, period);
+		var fitness = Fitness.builder();
+
+		esh.simulate(period, gsc, null, ef, 3 /* DISCHARGE_GRID */, fitness, false);
+
+		// The period is rejected and only the consumption is served.
+		assertEquals(1, fitness.build().hardConstraintViolations());
+		assertEquals(106, ef.solve().getEss());
+	}
+
+	@Test
+	void testDelayCharge_initialPopulation() {
+		var esh = buildEnergyScheduleHandler(new DummyController("ctrl0"),
+				() -> new EnergyScheduler.Config(withDelayCharge(ControlMode.DISCHARGE_TO_GRID), null, null));
+		var t = EnergyScheduleTester.from(esh);
+
+		// One more seed: the surplus stays with the grid and is stored only in the
+		// two price valleys. It sorts last, after the seeds that start with BALANCING.
+		var ip = t.perEsh.get(0).initialPopulation();
+		assertEquals(6, ip.size());
+		var expected = new int[t.goc.periods().size()];
+		Arrays.fill(expected, 5 /* DELAY_CHARGE */);
+		expected[3] = 0 /* BALANCING */;
+		expected[15] = 0 /* BALANCING */;
+		assertArrayEquals(expected, ip.get(5).modeIndexes());
+	}
+
+	@Test
+	void testDelayCharge_leavesSurplusToTheGrid() {
+		var esh = buildEnergyScheduleHandler(new DummyController("ctrl0"),
+				() -> new EnergyScheduler.Config(withDelayCharge(ControlMode.DISCHARGE_TO_GRID), null, null));
+		var t = EnergyScheduleTester.from(esh);
+
+		// The hour from 07:00 produces 1925 Wh against 268 Wh of consumption.
+		assertEquals(-1657, t.simulatePeriodIndex(25, 0 /* BALANCING */).ef().solve().getEss());
+		var t25 = t.simulatePeriodIndex(25, 5 /* DELAY_CHARGE */);
+		assertEquals(0, t25.fitness().build().hardConstraintViolations());
+		assertEquals(0, t25.ef().solve().getEss());
+		assertEquals(-1657, t25.ef().solve().getGrid());
+
+		// With a deficit DELAY_CHARGE still serves the consumption.
+		assertEquals(106, t.simulatePeriodIndex(0, 5 /* DELAY_CHARGE */).ef().solve().getEss());
+	}
+
+	private static ImmutableList<StateMachine> withDelayCharge(ControlMode controlMode) {
+		return ImmutableList.<StateMachine>builder() //
+				.addAll(controlMode.modes) //
+				.add(DELAY_CHARGE) //
+				.build();
 	}
 
 	@Nested

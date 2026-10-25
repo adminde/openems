@@ -126,12 +126,31 @@ public class SimulatorEssSymmetricReactingImpl extends AbstractOpenemsComponent
 
 	private Instant lastTimestamp = null;
 
+	/** How long the power applied below will run for, taken from the previous
+	 * cycle. Zero on the first call, which disables the clamp there. */
+	private long lastDurationMillis = 0;
+
+	/** The power applied on the previous call. Integrating the ActivePower
+	 * CHANNEL instead, as the stock code did, books energy that never crossed
+	 * the meter: on the leaping clock its value can be several periods stale. */
+	private int lastAppliedActivePower = 0;
+
 	@Override
 	public void applyPower(int activePower, int reactivePower) throws OpenemsException {
+		var now = Instant.now(this.componentManager.getClock());
+		if (this.lastTimestamp != null && Duration.between(this.lastTimestamp, now).isZero()) {
+			// A simulation that executes every cycle twice calls this a second time at
+			// an unchanged simulated instant. Simulator.App collects on every process
+			// image and keys the sample by time, so the sample it keeps for the instant
+			// carries the first call's power and a grid meter computed from it. Only
+			// that power may be integrated and reported. Honouring the repeat would
+			// book a set point that no collected series contains.
+			return;
+		}
+
 		/*
 		 * calculate State of charge
 		 */
-		var now = Instant.now(this.componentManager.getClock());
 		final int soc;
 		if (this.lastTimestamp == null) {
 			// initial run
@@ -140,9 +159,14 @@ public class SimulatorEssSymmetricReactingImpl extends AbstractOpenemsComponent
 		} else {
 			// calculate duration since last value
 			var duration /* [msec] */ = Duration.between(this.lastTimestamp, now).toMillis();
+			// A second cycle at the same instant has no duration of its own. The clamp
+			// below must still see the length of a period, so the last real one stays.
+			if (duration > 0) {
+				this.lastDurationMillis = duration;
+			}
 
 			// calculate energy since last run in [Wh]
-			var energy /* [Wmsec] */ = this.getActivePower().orElse(0) /* [W] */ * duration /* [msec] */;
+			var energy /* [Wmsec] */ = (long) this.lastAppliedActivePower /* [W] */ * duration /* [msec] */;
 
 			// Adding the energy to the initial energy.
 			this.energy -= energy;
@@ -172,7 +196,25 @@ public class SimulatorEssSymmetricReactingImpl extends AbstractOpenemsComponent
 		if (soc == 100 && activePower < 0) {
 			activePower = 0;
 		}
+		/*
+		 * Clamp to the energy actually present. The SoC checks above are a
+		 * period behind, so without this a battery driven into empty delivers one
+		 * more full period of energy it does not have.
+		 */
+		if (this.lastDurationMillis > 0) {
+			final double capacityWmsec = this.config.capacity() /* [Wh] */ * 3600.0 * 1000.0;
+			if (activePower > 0) {
+				// discharge: at most the stored energy
+				var limit = (int) (this.energy / this.lastDurationMillis);
+				activePower = Math.min(activePower, Math.max(0, limit));
+			} else if (activePower < 0) {
+				// charge: at most the remaining headroom
+				var limit = (int) ((capacityWmsec - this.energy) / this.lastDurationMillis);
+				activePower = Math.max(activePower, -Math.max(0, limit));
+			}
+		}
 		this._setActivePower(activePower);
+		this.lastAppliedActivePower = activePower;
 		if (soc == 0 && reactivePower > 0) {
 			reactivePower = 0;
 		}

@@ -15,13 +15,15 @@ import static io.openems.edge.controller.ess.timeofusetariff.StateMachine.DISCHA
 import static io.openems.edge.controller.ess.timeofusetariff.StateMachine.DISCHARGE_GRID;
 import static io.openems.edge.controller.ess.timeofusetariff.StateMachine.LIMIT_CHARGE;
 import static io.openems.edge.controller.ess.timeofusetariff.StateMachine.PEAK_SHAVING;
-import static io.openems.edge.controller.ess.timeofusetariff.Utils.ESS_DISCHARGE_TO_GRID_POWER;
 import static io.openems.edge.controller.ess.timeofusetariff.Utils.calculateChargePowerInChargeGrid;
+import static io.openems.edge.controller.ess.timeofusetariff.Utils.calculateDischargePowerInDischargeGrid;
 import static io.openems.edge.controller.ess.timeofusetariff.Utils.calculateMaxSocForEnvironment;
+import static io.openems.edge.controller.ess.timeofusetariff.Utils.calculateMinSocForEnvironment;
 import static io.openems.edge.energy.api.EnergyUtils.energyToSoc;
 import static io.openems.edge.energy.api.EnergyUtils.findFirstPeakIndex;
 import static io.openems.edge.energy.api.EnergyUtils.findFirstValleyIndex;
 import static io.openems.edge.energy.api.EnergyUtils.findValleyIndexes;
+import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
@@ -77,16 +79,23 @@ public class EnergyScheduler {
 			Fitness.CustomConstraint.Direction.LOWER_IS_BETTER);
 
 	public record OptimizationContext(//
-			int maxSocInChargeGrid, int maxEnergyInChargeGrid, int essChargePowerInChargeGrid,
+			int maxSocInChargeGrid, //
+			int maxEnergyInChargeGrid, //
+			int essChargePowerInChargeGrid, //
+			int minSocInDischargeGrid, //
+			int minEnergyInDischargeGrid, //
+			int essDischargePowerInDischargeGrid, //
 			Map<LocalDateTime, Integer> futureQuarterlyPeriodsWithSurplusByQuarter,
 			Map<LocalDate, LocalTime> targetTimeByDay) {
 
 		protected static OptimizationContext from(//
 				GlobalOptimizationContext goc, Double targetSocBuffer, LocalTime manualTargetTime) {
-			// TODO: calculateMaxSocForEnvironment() is prepared for DISCHARGE_GRID
 			final var maxSocInChargeGrid = calculateMaxSocForEnvironment(goc.environment());
 			final var maxEnergyInChargeGrid = round(goc.ess().totalEnergy() * (maxSocInChargeGrid / 100F));
 			final var essChargePowerInChargeGrid = calculateChargePowerInChargeGrid(goc, maxEnergyInChargeGrid);
+			final var minSocInDischargeGrid = calculateMinSocForEnvironment(goc.environment());
+			final var minEnergyInDischargeGrid = round(goc.ess().totalEnergy() * (minSocInDischargeGrid / 100F));
+			final var essDischargePowerInDischargeGrid = calculateDischargePowerInDischargeGrid(goc);
 
 			// Precompute grid optimized charge
 			final Map<LocalDateTime, Integer> futureQuarterlyPeriodsWithSurplusByQuarter;
@@ -105,6 +114,7 @@ public class EnergyScheduler {
 			// TODO calculateDoNotDischargeToGridAfterPeriod(goc, prices) is prepared for
 			// DISCHARGE_GRID
 			return new OptimizationContext(maxSocInChargeGrid, maxEnergyInChargeGrid, essChargePowerInChargeGrid,
+					minSocInDischargeGrid, minEnergyInDischargeGrid, essDischargePowerInDischargeGrid,
 					futureQuarterlyPeriodsWithSurplusByQuarter, targetTimeByDay);
 		}
 	}
@@ -159,6 +169,10 @@ public class EnergyScheduler {
 					if (hasDischargeGrid) {
 						generateInitialPopulationForDischargeToGrid(result, goc, gridBuyPrices);
 					}
+					var hasDelayCharge = modes.streamForOptimizer().anyMatch(m -> m == DELAY_CHARGE);
+					if (hasDelayCharge) {
+						generateInitialPopulationForDelayCharge(result, goc, gridBuyPrices);
+					}
 					return result.build();
 				})
 
@@ -187,6 +201,11 @@ public class EnergyScheduler {
 					// Disallow mode CHARGE_GRID when ess is full
 					final int soc = energyToSoc(gsc.ess.getInitialEnergy(), gsc.goc.ess().totalEnergy());
 					if (mode == CHARGE_GRID && soc >= coc.maxSocInChargeGrid()) {
+						fitness.addHardConstraintViolation();
+					}
+
+					// Disallow mode DISCHARGE_GRID when ess is empty
+					if (mode == DISCHARGE_GRID && soc <= coc.minSocInDischargeGrid()) {
 						fitness.addHardConstraintViolation();
 					}
 
@@ -255,7 +274,8 @@ public class EnergyScheduler {
 			applyChargeGrid(ef, chargeEnergy);
 		}
 		case DISCHARGE_GRID -> {
-			var dischargeEnergy = period.duration().convertPowerToEnergy(ESS_DISCHARGE_TO_GRID_POWER);
+			var dischargeEnergy = clamp(gsc.ess.getInitialEnergy() - coc.minEnergyInDischargeGrid,
+					0, period.duration().convertPowerToEnergy(coc.essDischargePowerInDischargeGrid));
 			applyDischargeGrid(ef, dischargeEnergy);
 		}
 		case DELAY_CHARGE -> applyDelayCharge(ef);
@@ -385,6 +405,25 @@ public class EnergyScheduler {
 						.toArray(StateMachine[]::new)) //
 				.map(InitialPopulation::new) //
 				.forEach(result::add);
+	}
+
+	/**
+	 * Seeds the schedule of a site that sells: the surplus stays with the grid and
+	 * is stored only in the price valleys.
+	 *
+	 * @param result the {@link InitialPopulation}s
+	 * @param goc    the {@link GlobalOptimizationContext}
+	 * @param prices the grid-buy prices per period
+	 */
+	private static void generateInitialPopulationForDelayCharge(
+			ImmutableSortedSet.Builder<InitialPopulation<StateMachine>> result, GlobalOptimizationContext goc,
+			double[] prices) {
+		final var valleyIndexes = findValleyIndexes(prices);
+		result.add(new InitialPopulation<>(goc.periods().stream() //
+				.map(p -> IntStream.of(valleyIndexes).anyMatch(i -> i == p.index()) //
+						? BALANCING //
+						: DELAY_CHARGE) //
+				.toArray(StateMachine[]::new)));
 	}
 
 	protected static int calculateDoNotDischargeToGridAfterPeriod(GlobalOptimizationContext goc, double[] prices) {
