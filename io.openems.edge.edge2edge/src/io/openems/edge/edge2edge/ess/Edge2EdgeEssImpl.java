@@ -1,5 +1,6 @@
 package io.openems.edge.edge2edge.ess;
 
+import io.openems.common.referencetarget.GenerateTargetsFromReferences;
 import static io.openems.edge.common.channel.ChannelUtils.setValue;
 import static io.openems.edge.common.event.EdgeEventConstants.TOPIC_CYCLE_AFTER_PROCESS_IMAGE;
 import static org.osgi.service.component.annotations.ReferenceCardinality.MANDATORY;
@@ -11,7 +12,6 @@ import static org.osgi.service.component.annotations.ReferencePolicyOption.GREED
 import java.util.List;
 import java.util.function.Consumer;
 
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -53,6 +53,7 @@ import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 @EventTopics({ //
 		TOPIC_CYCLE_AFTER_PROCESS_IMAGE //
 })
+@GenerateTargetsFromReferences("Modbus")
 public class Edge2EdgeEssImpl extends AbstractEdge2Edge implements ManagedSymmetricEss, AsymmetricEss, SymmetricEss,
 		Edge2EdgeEss, Edge2Edge, ModbusComponent, TimedataProvider, EventHandler, OpenemsComponent {
 
@@ -62,15 +63,13 @@ public class Edge2EdgeEssImpl extends AbstractEdge2Edge implements ManagedSymmet
 			SymmetricEss.ChannelId.ACTIVE_DISCHARGE_ENERGY);
 
 	@Reference
-	private ConfigurationAdmin cm;
-
-	@Reference
 	private Power power;
 
 	@Reference(policy = DYNAMIC, policyOption = GREEDY, cardinality = OPTIONAL)
 	private volatile Timedata timedata;
 
-	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY)
+	@Reference(policy = STATIC, policyOption = GREEDY, cardinality = MANDATORY, //
+			target = "(&(id=${config.modbus_id})(enabled=true))")
 	protected void setModbus(BridgeModbus modbus) {
 		super.setModbus(modbus);
 	}
@@ -97,10 +96,8 @@ public class Edge2EdgeEssImpl extends AbstractEdge2Edge implements ManagedSymmet
 
 	@Activate
 	private void activate(ComponentContext context, Config config) throws OpenemsException {
-		if (super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId(), this.cm,
-				"Modbus", config.modbus_id(), config.remoteComponentId(), config.remoteAccessMode())) {
-			return;
-		}
+		super.activate(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId(),
+				config.remoteComponentId(), config.remoteAccessMode());
 	}
 
 	@Deactivate

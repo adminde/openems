@@ -154,6 +154,10 @@ public class Edge2EdgeWebsocketBridgeImpl extends AbstractOpenemsComponent
 		});
 
 		this.getRemoteSumStateChannel().onChange((previousValue, newValue) -> {
+			if (this.config != null && !this.config.remoteSumState()) {
+				return;
+			}
+
 			final var level = newValue.asOptional() //
 					.flatMap(Level::fromValue) //
 					.orElse(null);

@@ -6,7 +6,7 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 @ObjectClassDefinition(//
 		name = "Edge-2-Edge Bridge", //
-		description = "Connects an energy storage system from a slave OpenEMS Edge via Modbus")
+		description = "This bridge provides an HTTP Websocket/JSON connection to a slave OpenEMS Edge")
 @interface Config {
 
 	@AttributeDefinition(name = "Component-ID", description = "Unique ID of this Component")
@@ -26,6 +26,11 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 	@AttributeDefinition(name = "Remote Password", type = AttributeType.PASSWORD)
 	String remotePassword();
+
+	@AttributeDefinition(name = "Remote State Summary", //
+			description = "Surface the remote Edge's faults and warnings as this Bridge's own State. "
+					+ "Disable to keep this Bridge's State always OK, regardless of the remote Edge's State.")
+	boolean remoteSumState() default true;
 
 	String webconsole_configurationFactory_nameHint() default "Edge-2-Edge Bridge [{id}]";
 
