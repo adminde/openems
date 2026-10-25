@@ -134,6 +134,8 @@ class EvseChargePointMennekesTest {
 				.output(ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY_L1, null) //
 				.output(ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY_L2, null) //
 				.output(ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY_L3, null) //
+				.output(ElectricityMeter.ChannelId.REACTIVE_LAGGING_ENERGY, null) //
+				.output(ElectricityMeter.ChannelId.REACTIVE_LEADING_ENERGY, null) //
 
 				.output(EvseChargePointBender.ChannelId.VEHICLE_STATE, VehicleState.STATE_C) //
 				.output(EvseChargePoint.ChannelId.IS_READY_FOR_CHARGING, true)//

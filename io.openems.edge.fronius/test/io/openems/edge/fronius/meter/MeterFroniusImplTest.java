@@ -135,6 +135,8 @@ public class MeterFroniusImplTest {
 						.output(ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY_L2, 19L) //
 						.output("S213TotWhImpPhC", 24F) //
 						.output(ElectricityMeter.ChannelId.ACTIVE_CONSUMPTION_ENERGY_L3, 20L) //
+						.output(ElectricityMeter.ChannelId.REACTIVE_LAGGING_ENERGY, null) //
+						.output(ElectricityMeter.ChannelId.REACTIVE_LEADING_ENERGY, null) //
 						.output("S213TotVAhExp", 25F) //
 						.output("S213TotVAhExpPhA", 26F) //
 						.output("S213TotVAhExpPhB", 27F) //

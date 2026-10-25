@@ -67,6 +67,8 @@ public class MeterChintDdsu666ImplTest {
 						.output(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY_L1, null) //
 						.output(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY_L2, null) //
 						.output(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY_L3, null) //
+						.output(ElectricityMeter.ChannelId.REACTIVE_LAGGING_ENERGY, null) //
+						.output(ElectricityMeter.ChannelId.REACTIVE_LEADING_ENERGY, null) //
 						.output(ElectricityMeter.ChannelId.CURRENT, 5000) //
 						.output(ElectricityMeter.ChannelId.CURRENT_L1, 5000) //
 						.output(ElectricityMeter.ChannelId.CURRENT_L2, null) //

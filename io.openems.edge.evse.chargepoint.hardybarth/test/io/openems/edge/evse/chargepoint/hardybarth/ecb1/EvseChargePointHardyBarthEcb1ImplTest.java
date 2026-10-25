@@ -216,6 +216,8 @@ class EvseChargePointHardyBarthEcb1ImplTest {
 						.output(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY_L1, null) //
 						.output(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY_L2, null) //
 						.output(ElectricityMeter.ChannelId.ACTIVE_PRODUCTION_ENERGY_L3, null) //
+						.output(ElectricityMeter.ChannelId.REACTIVE_LAGGING_ENERGY, null) //
+						.output(ElectricityMeter.ChannelId.REACTIVE_LEADING_ENERGY, null) //
 						.output(ElectricityMeter.ChannelId.FREQUENCY, null) //
 						.output(ElectricityMeter.ChannelId.REACTIVE_POWER, null) //
 						.output(ElectricityMeter.ChannelId.REACTIVE_POWER_L1, null) //

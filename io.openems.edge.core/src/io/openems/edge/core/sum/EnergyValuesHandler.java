@@ -32,6 +32,8 @@ public class EnergyValuesHandler {
 			Sum.ChannelId.ESS_DC_DISCHARGE_ENERGY, //
 			Sum.ChannelId.GRID_BUY_ACTIVE_ENERGY, //
 			Sum.ChannelId.GRID_SELL_ACTIVE_ENERGY, //
+			Sum.ChannelId.GRID_LAGGING_REACTIVE_ENERGY, //
+			Sum.ChannelId.GRID_LEADING_REACTIVE_ENERGY, //
 			Sum.ChannelId.PRODUCTION_ACTIVE_ENERGY, //
 			Sum.ChannelId.PRODUCTION_AC_ACTIVE_ENERGY, //
 			Sum.ChannelId.PRODUCTION_DC_ACTIVE_ENERGY, //
