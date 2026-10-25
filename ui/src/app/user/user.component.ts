@@ -149,16 +149,6 @@ export class UserComponent implements OnInit {
         this.userService.selectTheme(theme);
     }
 
-    /**
-     * Shows the theme selection popover with previews of the available themes.
-     */
-    protected async showThemeSelection(): Promise<void> {
-        const selectedTheme = await this.userService.showThemeSelectionModal(this.userTheme);
-        if (selectedTheme != null) {
-            this.userTheme = selectedTheme;
-        }
-    }
-
     public applyChanges() {
         const params: SetUserInformationRequest["params"] = {
             user: {
@@ -305,6 +295,16 @@ export class UserComponent implements OnInit {
 
         this.currentLanguage = language;
         this.translate.use(language.key);
+    }
+
+    /**
+     * Shows the theme selection popover with previews of the available themes.
+     */
+    protected async showThemeSelection(): Promise<void> {
+        const selectedTheme = await this.userService.showThemeSelectionModal(this.userTheme);
+        if (selectedTheme != null) {
+            this.userTheme = selectedTheme;
+        }
     }
 
     private updateUserInformation(): Promise<void> {
