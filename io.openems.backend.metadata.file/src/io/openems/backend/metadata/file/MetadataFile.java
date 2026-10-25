@@ -76,7 +76,7 @@ import io.openems.common.utils.JsonUtils;
  *
  */
 @Designate(ocd = Config.class, factory = false)
-@Component( //
+@Component(//
 		name = "Metadata.File", //
 		configurationPolicy = ConfigurationPolicy.REQUIRE, //
 		immediate = true //
@@ -169,7 +169,7 @@ public class MetadataFile extends AbstractMetadata implements Metadata,
 		User user = this.getUser(userId).orElse(null);
 		if (user == null) {
 			user = FileUser.fallbackGuest(userId, this.edges.values());
-			users.put(userId, (FileUser) user);
+			this.users.put(userId, (FileUser) user);
 		}
 		return CompletableFuture.completedFuture(user);
 	}
@@ -197,7 +197,7 @@ public class MetadataFile extends AbstractMetadata implements Metadata,
 	public void updateUserSettings(User user, JsonObject settings) throws OpenemsNamedException {
 		// TODO: Update metadata file
 		var fileUser = this.users.get(user.getUserId());
-		users.put(user.getUserId(), FileUser.fromUser(fileUser, settings));
+		this.users.put(user.getUserId(), FileUser.fromUser(fileUser, settings));
 	}
 
 	@Override
@@ -214,7 +214,7 @@ public class MetadataFile extends AbstractMetadata implements Metadata,
 		// TODO: Update metadata file
 		var fileUser = this.users.get(user.getUserId());
 		if (!fileUser.hasMultipleEdges()) {
-			users.put(user.getUserId(), FileUser.fromUser(fileUser, edge));
+			this.users.put(user.getUserId(), FileUser.fromUser(fileUser, edge));
 			return;
 		}
 		fileUser.addEdge(edge.getId());
@@ -410,7 +410,7 @@ public class MetadataFile extends AbstractMetadata implements Metadata,
 		if (!edgeIds.contains(edgeId)) {
 			return null;
 		}
-		return CompletableFuture.completedFuture(new EdgeMetadata( //
+		return CompletableFuture.completedFuture(new EdgeMetadata(//
 				edge.getId(), //
 				edge.getComment(), //
 				edge.getProducttype(), //
