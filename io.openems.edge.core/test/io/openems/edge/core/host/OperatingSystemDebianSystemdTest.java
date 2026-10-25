@@ -1,14 +1,18 @@
 package io.openems.edge.core.host;
 
 import static io.openems.common.utils.JsonUtils.prettyToString;
-import static io.openems.edge.core.host.OperatingSystemDebianSystemd.parseNetworkManagerConnectionFile;
+import static io.openems.edge.core.host.OperatingSystemDebianSystemd.parseNmcliConnection;
+import static io.openems.edge.core.host.OperatingSystemDebianSystemd.parseNmcliConnectionList;
 import static io.openems.edge.core.host.OperatingSystemDebianSystemd.parseSystemdNetworkdConfigurationFile;
+import static io.openems.edge.core.host.OperatingSystemDebianSystemd.toNetworkManagerFileFormat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -19,6 +23,8 @@ import org.junit.jupiter.api.Test;
 import com.google.common.collect.Lists;
 
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
+import io.openems.common.types.ConfigurationProperty;
+import io.openems.edge.common.test.DummyUser;
 import io.openems.edge.core.host.NetworkInterface.IpMasqueradeSetting;
 
 public class OperatingSystemDebianSystemdTest {
@@ -39,14 +45,15 @@ public class OperatingSystemDebianSystemdTest {
 				DHCP=yes
 				LinkLocalAddressing=yes
 				""".lines().toList(), null);
-		var nm = parseNetworkManagerConnectionFile("""
-				[connection]
-				id=eth0
-				type=ethernet
-				interface-name=eth0
-
-				[ipv4]
-				method=auto
+		var nm = parseNmcliConnection("""
+				connection.id:eth0
+				connection.interface-name:eth0
+				connection.type:802-3-ethernet
+				ipv4.method:auto
+				ipv4.addresses:
+				ipv4.gateway:
+				ipv4.dns:
+				ipv4.route-metric:-1
 				""".lines().toList(), null);
 
 		for (var n : List.of(nd, nm)) {
@@ -70,16 +77,15 @@ public class OperatingSystemDebianSystemdTest {
 				[Address]
 				Address=192.168.100.100/24
 				""".lines().toList(), null);
-		var nm = parseNetworkManagerConnectionFile("""
-				[connection]
-				id=eth0
-				type=ethernet
-				interface-name=eth0
-
-				[ipv4]
-				method=manual
-				address1=192.168.100.100/24
-				gateway=192.168.100.1
+		var nm = parseNmcliConnection("""
+				connection.id:eth0
+				connection.interface-name:eth0
+				connection.type:802-3-ethernet
+				ipv4.method:manual
+				ipv4.addresses:192.168.100.100/24
+				ipv4.gateway:192.168.100.1
+				ipv4.dns:
+				ipv4.route-metric:-1
 				""".lines().toList(), null);
 
 		for (var n : List.of(nd, nm)) {
@@ -103,17 +109,15 @@ public class OperatingSystemDebianSystemdTest {
 				Address=10.4.0.1/24
 				Gateway=10.4.0.2
 				""".lines().toList(), null);
-		var nm = parseNetworkManagerConnectionFile("""
-				[connection]
-				id=eth0
-				type=ethernet
-				interface-name=eth0
-
-				[ipv4]
-				method=manual
-				address1=192.168.100.100/24
-				address2=10.4.0.1/24
-				gateway=10.4.0.2
+		var nm = parseNmcliConnection("""
+				connection.id:eth0
+				connection.interface-name:eth0
+				connection.type:802-3-ethernet
+				ipv4.method:manual
+				ipv4.addresses:192.168.100.100/24, 10.4.0.1/24
+				ipv4.gateway:10.4.0.2
+				ipv4.dns:
+				ipv4.route-metric:-1
 				""".lines().toList(), null);
 
 		for (var n : List.of(nd, nm)) {
@@ -134,14 +138,15 @@ public class OperatingSystemDebianSystemdTest {
 				DHCP=no
 				LinkLocalAddressing=yes
 				""".lines().toList(), null);
-		var nm = parseNetworkManagerConnectionFile("""
-				[connection]
-				id=eth0
-				type=ethernet
-				interface-name=eth0
-
-				[ipv4]
-				method=link-local
+		var nm = parseNmcliConnection("""
+				connection.id:eth0
+				connection.interface-name:eth0
+				connection.type:802-3-ethernet
+				ipv4.method:link-local
+				ipv4.addresses:
+				ipv4.gateway:
+				ipv4.dns:
+				ipv4.route-metric:-1
 				""".lines().toList(), null);
 
 		for (var n : List.of(nd, nm)) {
@@ -163,15 +168,15 @@ public class OperatingSystemDebianSystemdTest {
 				[DHCP]
 				RouteMetric=216
 				""".lines().toList(), null);
-		var nm = parseNetworkManagerConnectionFile("""
-				[connection]
-				id=eth0
-				type=ethernet
-				interface-name=eth0
-
-				[ipv4]
-				method=auto
-				route-metric=216
+		var nm = parseNmcliConnection("""
+				connection.id:eth0
+				connection.interface-name:eth0
+				connection.type:802-3-ethernet
+				ipv4.method:auto
+				ipv4.addresses:
+				ipv4.gateway:
+				ipv4.dns:
+				ipv4.route-metric:216
 				""".lines().toList(), null);
 
 		for (var n : List.of(nd, nm)) {
@@ -197,18 +202,15 @@ public class OperatingSystemDebianSystemdTest {
 				[DHCP]
 				RouteMetric=520
 				""".lines().toList(), null);
-		var nm = parseNetworkManagerConnectionFile("""
-				[connection]
-				id=eth0
-				type=ethernet
-				interface-name=eth0
-
-				[ipv4]
-				method=manual
-				address1=10.4.0.1/16
-				dns=10.0.0.1;
-				gateway=10.0.10.10
-				route-metric=520
+		var nm = parseNmcliConnection("""
+				connection.id:eth0
+				connection.interface-name:eth0
+				connection.type:802-3-ethernet
+				ipv4.method:manual
+				ipv4.addresses:10.4.0.1/16
+				ipv4.gateway:10.0.10.10
+				ipv4.dns:10.0.0.1
+				ipv4.route-metric:520
 				""".lines().toList(), null);
 
 		for (var n : List.of(nd, nm)) {
@@ -225,52 +227,190 @@ public class OperatingSystemDebianSystemdTest {
 	 */
 
 	@Test
-	public void testNetworkManagerReadsGatewayFromAddressLine() throws OpenemsNamedException {
-		// NetworkManager allows the gateway to be appended to address1 as
-		// "<ip>/<prefix>,<gateway>"
-		final var n = parseNetworkManagerConnectionFile("""
-				[connection]
-				id=eth0
-				type=ethernet
-				interface-name=eth0
-
-				[ipv4]
-				method=manual
-				address1=192.168.100.100/24,192.168.100.1
-				dns=8.8.8.8;1.1.1.1;
+	public void testNmcliLabelsFirstManualAddressAsStatic() throws OpenemsNamedException {
+		final var n = parseNmcliConnection("""
+				connection.id:eth1
+				connection.interface-name:eth1
+				connection.type:802-3-ethernet
+				ipv4.method:manual
+				ipv4.addresses:192.168.1.1/24, 10.4.0.1/24
+				ipv4.gateway:
+				ipv4.dns:
+				ipv4.route-metric:1024
 				""".lines().toList(), null);
 
-		assertEquals("192.168.100.1", n.getGateway().getValue().getHostAddress());
-		assertEquals("8.8.8.8", n.getDns().getValue().getHostAddress()); // first DNS entry wins
+		assertEquals("static", addressLabel(n, "192.168.1.1/24"));
+		assertEquals("", addressLabel(n, "10.4.0.1/24"));
 	}
 
 	@Test
-	public void testNetworkManagerSkipsNonEthernetConnections() throws OpenemsNamedException {
-		final var lines = """
-				[connection]
-				id=WLAN
-				type=wifi
-				interface-name=wlan0
+	public void testNmcliKeepsAddressesUnlabeledWithDhcp() throws OpenemsNamedException {
+		final var n = parseNmcliConnection("""
+				connection.id:eth0
+				connection.interface-name:eth0
+				connection.type:802-3-ethernet
+				ipv4.method:auto
+				ipv4.addresses:10.4.0.1/24
+				ipv4.gateway:
+				ipv4.dns:
+				ipv4.route-metric:-1
+				""".lines().toList(), null);
 
-				[ipv4]
-				method=auto
+		assertEquals("", addressLabel(n, "10.4.0.1/24"));
+	}
+
+	@Test
+	public void testNetworkManagerFileWritesStaticAddressFirst() throws OpenemsNamedException {
+		final var addresses = new LinkedHashSet<Inet4AddressWithSubnetmask>();
+		addresses.add(Inet4AddressWithSubnetmask.fromString("", "10.4.0.1/24"));
+		addresses.add(Inet4AddressWithSubnetmask.fromString("static", "192.168.1.1/24"));
+		final var iface = new NetworkInterface<>("eth1", //
+				ConfigurationProperty.of(false), //
+				ConfigurationProperty.of(false), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.of(addresses), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.asNotSet(), //
+				null);
+
+		final var lines = toNetworkManagerFileFormat(DummyUser.DUMMY_INSTALLER, iface);
+
+		assertTrue(lines.contains("method=manual"));
+		assertTrue(lines.contains("address1=192.168.1.1/24"));
+		assertTrue(lines.contains("address2=10.4.0.1/24"));
+	}
+
+	@Test
+	public void testNetworkManagerFileKeepsAdditionalAddressesWithDhcp() throws OpenemsNamedException {
+		final var iface = new NetworkInterface<>("eth0", //
+				ConfigurationProperty.of(true), //
+				ConfigurationProperty.of(true), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.of(Set.of(Inet4AddressWithSubnetmask.fromString("", "10.4.0.1/24"))), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.asNotSet(), //
+				ConfigurationProperty.asNotSet(), //
+				null);
+
+		final var lines = toNetworkManagerFileFormat(DummyUser.DUMMY_INSTALLER, iface);
+
+		assertTrue(lines.contains("method=auto"));
+		assertTrue(lines.contains("address1=10.4.0.1/24"));
+	}
+
+	@Test
+	public void testNmcliTakesFirstDnsEntry() throws OpenemsNamedException {
+		final var n = parseNmcliConnection("""
+				connection.id:eth0
+				connection.interface-name:eth0
+				connection.type:802-3-ethernet
+				ipv4.method:manual
+				ipv4.addresses:192.168.100.100/24
+				ipv4.gateway:192.168.100.1
+				ipv4.dns:8.8.8.8,1.1.1.1
+				ipv4.route-metric:-1
+				""".lines().toList(), null);
+
+		assertEquals("8.8.8.8", n.getDns().getValue().getHostAddress());
+	}
+
+	@Test
+	public void testNmcliLeavesDefaultRouteMetricUnset() throws OpenemsNamedException {
+		final var n = parseNmcliConnection("""
+				connection.id:eth0
+				connection.interface-name:eth0
+				connection.type:802-3-ethernet
+				ipv4.method:auto
+				ipv4.addresses:
+				ipv4.gateway:
+				ipv4.dns:
+				ipv4.route-metric:-1
+				""".lines().toList(), null);
+
+		assertFalse(n.getDhcpRouteMetric().isSet());
+		assertFalse(n.getGateway().isSet());
+		assertFalse(n.getDns().isSet());
+		assertFalse(n.getAddresses().isSet());
+	}
+
+	@Test
+	public void testNmcliSkipsNonEthernetConnections() throws OpenemsNamedException {
+		final var lines = """
+				connection.id:WLAN
+				connection.interface-name:wlan0
+				connection.type:802-11-wireless
+				ipv4.method:auto
+				ipv4.addresses:
+				ipv4.gateway:
+				ipv4.dns:
+				ipv4.route-metric:-1
 				""".lines().toList();
 
-		assertNull(parseNetworkManagerConnectionFile(lines, null));
+		assertNull(parseNmcliConnection(lines, null));
 	}
 
 	@Test
-	public void testNetworkManagerFallsBackToIdWhenInterfaceNameMissing() throws OpenemsNamedException {
-		final var n = parseNetworkManagerConnectionFile("""
-				[connection]
-				id=eth0
-				type=ethernet
-
-				[ipv4]
-				method=auto
+	public void testNmcliFallsBackToIdWhenInterfaceNameMissing() throws OpenemsNamedException {
+		final var n = parseNmcliConnection("""
+				connection.id:eth0
+				connection.interface-name:
+				connection.type:802-3-ethernet
+				ipv4.method:auto
+				ipv4.addresses:
+				ipv4.gateway:
+				ipv4.dns:
+				ipv4.route-metric:-1
 				""".lines().toList(), null);
 
 		assertEquals("eth0", n.getName());
+	}
+
+	@Test
+	public void testNmcliConnectionList() {
+		final var connections = parseNmcliConnectionList("""
+				eth0:0b1f6e3c-1111-4a2b-9c3d-000000000001:802-3-ethernet:/etc/NetworkManager/system-connections/eth0.nmconnection
+				Wired connection 1:0b1f6e3c-1111-4a2b-9c3d-000000000002:802-3-ethernet:/run/NetworkManager/system-connections/Wired connection 1.nmconnection
+				lo:0b1f6e3c-1111-4a2b-9c3d-000000000003:loopback:
+				""".lines().toList());
+
+		assertEquals(3, connections.size());
+
+		final var eth0 = connections.get(0);
+		assertEquals("eth0", eth0.name());
+		assertEquals("0b1f6e3c-1111-4a2b-9c3d-000000000001", eth0.uuid());
+		assertTrue(eth0.isEthernet());
+		assertEquals(new File("/etc/NetworkManager/system-connections/eth0.nmconnection"), eth0.filename());
+
+		final var wired = connections.get(1);
+		assertEquals("Wired connection 1", wired.name());
+		assertTrue(wired.isEthernet());
+		assertEquals(new File("/run/NetworkManager/system-connections/Wired connection 1.nmconnection"),
+				wired.filename());
+
+		final var lo = connections.get(2);
+		assertEquals("lo", lo.name());
+		assertFalse(lo.isEthernet());
+		assertNull(lo.filename());
+	}
+
+	@Test
+	public void testNmcliConnectionListUnescapesColons() {
+		// nmcli escapes colons inside values with a backslash in terse mode
+		final var connections = parseNmcliConnectionList(List.of(//
+				"eth0:0b1f6e3c-1111-4a2b-9c3d-000000000001:802-3-ethernet:/etc/NetworkManager/system-connections/a\\:b.nmconnection"));
+
+		assertEquals(1, connections.size());
+		assertEquals(new File("/etc/NetworkManager/system-connections/a:b.nmconnection"),
+				connections.get(0).filename());
 	}
 
 	/*
@@ -664,6 +804,14 @@ public class OperatingSystemDebianSystemdTest {
 		assertFalse(n1.getDhcp().getValue());
 		assertTrue(n1.getIpv4Forwarding().getValue());
 		assertEquals(IpMasqueradeSetting.IP_V4, n1.getIpMasquerade().getValue());
+	}
+
+	private static String addressLabel(NetworkInterface<?> n, String address) {
+		return n.getAddresses().getValue().stream() //
+				.filter(a -> a.toString().equals(address)) //
+				.map(Inet4AddressWithSubnetmask::getLabel) //
+				.findFirst() //
+				.orElseThrow();
 	}
 
 	private static Set<String> addressStrings(NetworkInterface<?> n) {
